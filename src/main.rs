@@ -6,13 +6,14 @@ use regex::Regex;
 use reqwest::{Client, header};
 use tokio;
 use dotenv::dotenv;
+use reddit_api::RedditClient;
 
 use reqwest::header::{HeaderMap};
 use serde::Deserialize;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let reddit_client = reddit_api::create_reddit_client().await?;
+    let reddit_client = RedditClient::new().await?;
 
     // Regex to find factorial numbers
     let re = Regex::new(r"\b(\d+)\!\B").unwrap();
@@ -23,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Polling Reddit for new comments
     loop {
         println!("Polling Reddit for new comments...");
-        let response = reddit_api::get_comments(&reddit_client, "mathmemes", 10).await.unwrap();
+        let response = reddit_client.get_comments( "mathmemes", 10).await.unwrap();
 
         println!("Statuscode: {:#?}", response.status());
         if let Some(www_authenticate) = response.headers().get("www-authenticate") {
@@ -76,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         let factorial = calculate_factorial(&num.to_bigint().unwrap());
                         let reply = format!("The factorial of {} is {}.\n\n^I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 of this subreddit if you have any questions or concerns.", num, factorial);
-                        reddit_api::reply_to_comment(&reddit_client, &comment, &reply).await?;
+                        reddit_client.reply_to_comment(&comment, &reply).await?;
                     }
                 }
             }
