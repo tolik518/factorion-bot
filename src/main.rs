@@ -1,61 +1,18 @@
+mod reddit_api;
+
 use num_bigint::{BigInt, ToBigInt};
 use num_traits::{One, Zero};
 use regex::Regex;
 use reqwest::{Client, header};
-use serde_json::json;
 use tokio;
 use dotenv::dotenv;
 
-use reqwest::header::{HeaderMap, AUTHORIZATION, USER_AGENT, CONTENT_TYPE};
+use reqwest::header::{HeaderMap};
 use serde::Deserialize;
-
-#[derive(Deserialize, Debug)]
-struct TokenResponse {
-    access_token: String,
-    // Other fields can be added here if necessary
-}
-
-async fn get_reddit_token(client_id: &str, client_secret: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let password = std::env::var("REDDIT_PASSWORD").expect("REDDIT_PASSWORD must be set.");
-    let username = std::env::var("REDDIT_USERNAME").expect("REDDIT_USERNAME must be set.");
-    let client = Client::new();
-    let auth_value = format!("Basic {}", base64::encode(format!("{}:{}", client_id, client_secret)));
-
-    let mut headers = HeaderMap::new();
-    headers.insert(AUTHORIZATION, auth_value.parse()?);
-    headers.insert(USER_AGENT, "factorion-bot:v0.0.1 (by /u/tolik518)".parse()?);
-    headers.insert(CONTENT_TYPE, "application/x-www-form-urlencoded".parse()?);
-
-    let params = [("grant_type", "password"), ("username", username.as_str()), ("password", password.as_str())];
-    println!("Params: {:#?}", params);
-    let response = client.post("https://www.reddit.com/api/v1/access_token")
-        .headers(headers)
-        .form(&params)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        println!("Failed to get token: {:#?}", response);
-        return Err("Failed to get token".into());
-    }
-
-    let response = response.json::<TokenResponse>().await?;
-    Ok(response.access_token)
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv().ok(); // This line loads the environment variables from the ".env" file.
-    let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
-    let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
-    let token = get_reddit_token(client_id.as_str(), secret.as_str()).await?;
-    let user_agent = "factorion-bot:v0.0.1 (by /u/tolik518)";
-
-    // Set the header with your credentials
-    let mut headers = HeaderMap::new();
-    headers.insert("Authorization", header::HeaderValue::from_str(&format!("bearer {}", token))?);
-    headers.insert("User-Agent", header::HeaderValue::from_str(user_agent)?);
-    let client = Client::builder().default_headers(headers).build()?;
+    let reddit_client = reddit_api::create_reddit_client().await?;
 
     // Regex to find factorial numbers
     let re = Regex::new(r"\b(\d+)\!\B").unwrap();
@@ -66,9 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Polling Reddit for new comments
     loop {
         println!("Polling Reddit for new comments...");
-        let response = client.get("https://oauth.reddit.com/r/Qazaqstan/comments/?limit=10")
-            .send()
-            .await?;
+        let response = reddit_api::get_comments(&reddit_client, "mathmemes", 10).await.unwrap();
 
         println!("Statuscode: {:#?}", response.status());
         if let Some(www_authenticate) = response.headers().get("www-authenticate") {
@@ -77,6 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Err(_) => println!("Failed to convert www-authenticate header value to string"),
             }
         }
+
         if !response.status().is_success() {
             println!("Failed to get comments: {:#?}", response);
             continue;
@@ -120,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         let factorial = calculate_factorial(&num.to_bigint().unwrap());
                         let reply = format!("The factorial of {} is {}.\n\n^I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 of this subreddit if you have any questions or concerns.", num, factorial);
-                        reply_to_comment(&client, &comment, &reply).await?;
+                        reddit_api::reply_to_comment(&reddit_client, &comment, &reply).await?;
                     }
                 }
             }
@@ -129,19 +85,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Sleep to avoid hitting API rate limits
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
     }
-}
-
-async fn reply_to_comment(client: &Client, comment: &serde_json::Value, reply: &str) -> Result<(), reqwest::Error> {
-    let comment_id = comment["data"]["id"].as_str().unwrap();
-    println!("Replying to comment {}", comment_id);
-    let params = json!({ "thing_id": format!("t1_{}", comment_id), "text": reply });
-    println!("Response client: {:#?}", client);
-    let response = client.post("https://oauth.reddit.com/api/comment")
-        .json(&params)
-        .send()
-        .await?;
-    println!("Reply status: {:#?}", response.text().await?);
-    Ok(())
 }
 
 fn calculate_factorial(n: &BigInt) -> BigInt {
