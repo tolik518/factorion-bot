@@ -60,7 +60,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     } else {
                         // check if the comment is already replied to by the bot
                         // if yes, skip the comment
-
                         if let Some(replies) = comment["data"]["replies"]["data"]["children"].as_array() {
                             let mut already_replied = false;
                             for reply in replies {

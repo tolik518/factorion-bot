@@ -15,6 +15,7 @@ struct TokenResponse {
 pub(crate) struct RedditClient {
     client: Client,
     token: String,
+    user_agent: String,
 }
 
 impl RedditClient {
@@ -23,23 +24,31 @@ impl RedditClient {
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
 
-        let token = RedditClient::get_reddit_token(client_id, secret).await?;
-        let version = env!("CARGO_PKG_VERSION");
-        let user_agent = format!("factorion-bot:v{version} (by /u/tolik518)");
+        //TODO: get token every 24 hours
+        let token = format!("bearer {}", RedditClient::get_reddit_token(client_id, secret).await?);
+        let user_agent = format!("factorion-bot:v{} (by /u/tolik518)", env!("CARGO_PKG_VERSION"));
 
-        // Set the header with your credentials
         let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, header::HeaderValue::from_str(&format!("bearer {}", token)).unwrap());
-        headers.insert(USER_AGENT, header::HeaderValue::from_str(&*user_agent).unwrap());
+        headers.insert(AUTHORIZATION, token.parse()?);
+        headers.insert(USER_AGENT, user_agent.parse()?);
 
-        let client = Client::builder().default_headers(headers).build()?;
-        Ok(Self { client, token })
+        let client = Client::builder()
+            .default_headers(headers)
+            .build()?;
+
+        Ok(Self {
+            client,
+            token ,
+            user_agent
+        })
     }
 
     pub(crate) async fn get_comments(&self, subreddit: &str, limit: u32) -> Result<Response, reqwest::Error> {
-        let response = self.client.get(&format!("https://oauth.reddit.com/r/{}/comments/?limit={}", subreddit, limit))
+        let response = self.client
+            .get(&format!("https://oauth.reddit.com/r/{}/comments/?limit={}", subreddit, limit))
             .send()
             .await?;
+
         Ok(response)
     }
 
@@ -53,13 +62,14 @@ impl RedditClient {
             .send()
             .await?;
         println!("Reply status: {:#?}", response.text().await?);
+
         Ok(())
     }
 
     async fn get_reddit_token(client_id: String, client_secret: String) -> Result<String, Box<dyn std::error::Error>> {
         let password = std::env::var("REDDIT_PASSWORD").expect("REDDIT_PASSWORD must be set.");
         let username = std::env::var("REDDIT_USERNAME").expect("REDDIT_USERNAME must be set.");
-        let client = Client::new();
+
         let auth_value = format!("Basic {}", base64::encode(format!("{}:{}", client_id, client_secret)));
         let version = env!("CARGO_PKG_VERSION");
         let user_agent = format!("factorion-bot:v{version} (by /u/tolik518)");
@@ -75,7 +85,7 @@ impl RedditClient {
             ("password", password.as_str())
         ];
 
-        let response = client.post("https://www.reddit.com/api/v1/access_token")
+        let response = Client::new().post("https://www.reddit.com/api/v1/access_token")
             .headers(headers)
             .form(&params)
             .send()
@@ -87,6 +97,7 @@ impl RedditClient {
         }
 
         let response = response.json::<TokenResponse>().await?;
+
         Ok(response.access_token)
     }
 }
