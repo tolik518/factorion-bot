@@ -1,22 +1,18 @@
-mod reddit_api;
-
 use num_bigint::{BigInt, ToBigInt};
-use num_traits::{One, Zero};
+use num_traits::One;
 use regex::Regex;
-use reqwest::{Client, header};
 use tokio;
-use dotenv::dotenv;
+
 use reddit_api::RedditClient;
 
-use reqwest::header::{HeaderMap};
-use serde::Deserialize;
+mod reddit_api;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reddit_client = RedditClient::new().await?;
 
     // Regex to find factorial numbers
-    let re = Regex::new(r"\b(\d+)\!\B").unwrap();
+    let re = Regex::new(r"\b(\d+)!\B").unwrap();
 
     // Define a reasonable upper limit for factorial computation
     let upper_limit = 100000;
@@ -24,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Polling Reddit for new comments
     loop {
         println!("Polling Reddit for new comments...");
-        let response = reddit_client.get_comments( "mathmemes", 10).await.unwrap();
+        let response = reddit_client.get_comments("mathmemes", 10).await.unwrap();
 
         println!("Statuscode: {:#?}", response.status());
         if let Some(www_authenticate) = response.headers().get("www-authenticate") {
@@ -52,7 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("\x1b[90mComment: {}\x1b[0m", body);
                 for cap in re.captures_iter(body) {
                     let num = cap[1].parse::<i64>().unwrap();
-                    let num = "99999".parse::<i64>().unwrap();
 
                     // Check if the number is within a reasonable range to compute
                     if num > upper_limit {

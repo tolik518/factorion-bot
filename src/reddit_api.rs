@@ -1,10 +1,8 @@
-use std::fmt::format;
 use dotenv::dotenv;
-use reqwest::{Client, header, Response};
+use reqwest::{Client, Response};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, USER_AGENT};
 use serde::Deserialize;
 use serde_json::json;
-use crate::reddit_api;
 
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
@@ -38,8 +36,8 @@ impl RedditClient {
 
         Ok(Self {
             client,
-            token ,
-            user_agent
+            token,
+            user_agent,
         })
     }
 
