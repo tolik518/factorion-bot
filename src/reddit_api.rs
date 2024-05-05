@@ -10,6 +10,10 @@ struct TokenResponse {
     // Other fields can be added here if necessary
 }
 
+const REDDIT_TOKEN_URL: &str = "https://www.reddit.com/api/v1/access_token";
+const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
+
+
 pub(crate) struct RedditClient {
     client: Client,
     token: String,
@@ -52,13 +56,19 @@ impl RedditClient {
 
     pub(crate) async fn reply_to_comment(&self, comment: &serde_json::Value, reply: &str) -> Result<(), reqwest::Error> {
         let comment_id = comment["data"]["id"].as_str().unwrap();
+        let params = json!({
+            "thing_id": format!("t1_{}", comment_id),
+            "text": reply
+        });
+
         println!("Replying to comment {}", comment_id);
-        let params = json!({ "thing_id": format!("t1_{}", comment_id), "text": reply });
         println!("Response client: {:#?}", self.client);
-        let response = self.client.post("https://oauth.reddit.com/api/comment")
+
+        let response = self.client.post(REDDIT_COMMENT_URL)
             .json(&params)
             .send()
             .await?;
+
         println!("Reply status: {:#?}", response.text().await?);
 
         Ok(())
@@ -83,7 +93,7 @@ impl RedditClient {
             ("password", password.as_str())
         ];
 
-        let response = Client::new().post("https://www.reddit.com/api/v1/access_token")
+        let response = Client::new().post(REDDIT_TOKEN_URL)
             .headers(headers)
             .form(&params)
             .send()
