@@ -9,7 +9,7 @@ struct TokenResponse {
     access_token: String,
 }
 
-const REDDIT_TOKEN_URL: &str = "https://www.reddit.com/api/v1/access_token";
+const REDDIT_TOKEN_URL: &str = "https://ssl.reddit.com/api/v1/access_token";
 const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
 
 pub(crate) struct RedditClient {
@@ -59,15 +59,16 @@ impl RedditClient {
             "text": reply
         });
 
-        println!("Replying to comment {}", comment_id);
-        println!("Response client: {:#?}", self.client);
+        println!("Replying to comment t1_{}", comment_id);
 
-        let response = self.client.post(REDDIT_COMMENT_URL)
+        let response = self.client
+            .post(REDDIT_COMMENT_URL)
             .json(&params)
             .send()
             .await?;
 
-        println!("Reply status: {:#?}", response.text().await?);
+        // print response for debugging
+        println!("Response: {:#?}", response.text().await?);
 
         Ok(())
     }
@@ -88,7 +89,8 @@ impl RedditClient {
         let params = [
             ("grant_type", "password"),
             ("username", username.as_str()),
-            ("password", password.as_str())
+            ("password", password.as_str()),
+            ("scope", "read submit")
         ];
 
         let response = Client::new().post(REDDIT_TOKEN_URL)
