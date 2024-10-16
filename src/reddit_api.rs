@@ -7,12 +7,10 @@ use serde_json::json;
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
     access_token: String,
-    // Other fields can be added here if necessary
 }
 
 const REDDIT_TOKEN_URL: &str = "https://www.reddit.com/api/v1/access_token";
 const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
-
 
 pub(crate) struct RedditClient {
     client: Client,
@@ -22,7 +20,7 @@ pub(crate) struct RedditClient {
 
 impl RedditClient {
     pub(crate) async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        dotenv().ok(); // This line loads the environment variables from the ".env" file.
+        dotenv().ok(); // Loads the environment variables from the ".env" file.
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
 
