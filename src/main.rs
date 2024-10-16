@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             for comment in comments {
                 //println!("Comment: {:#?}", comment);
                 let body = comment["data"]["body"].as_str().unwrap_or("");
-                println!("\x1b[90m======================================================================\x1b[0");
+                println!("\x1b[90m======================================================================\x1b[0m");
                 println!("\x1b[90mComment: {}\x1b[0m", body);
                 for cap in re.captures_iter(body) {
                     let num = cap[1].parse::<i64>().unwrap();

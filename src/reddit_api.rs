@@ -63,7 +63,7 @@ impl RedditClient {
 
         let response = self.client
             .post(REDDIT_COMMENT_URL)
-            .json(&params)
+            .form(&params)
             .send()
             .await?;
 
