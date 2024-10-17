@@ -49,6 +49,16 @@ impl RedditClient {
             .send()
             .await?;
 
+
+        Ok(response)
+    }
+
+    pub(crate) async fn get_comment_children(&self, comment_id: &str, limit: u32) -> Result<Response, reqwest::Error> {
+        let response = self.client
+            .get(&format!("https://oauth.reddit.com/api/info/?id={}&limit={}", comment_id, limit))
+            .send()
+            .await?;
+
         Ok(response)
     }
 
@@ -66,9 +76,6 @@ impl RedditClient {
             .form(&params)
             .send()
             .await?;
-
-        // print response for debugging
-        println!("Response: {:#?}", response.text().await?);
 
         Ok(())
     }

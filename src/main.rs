@@ -8,20 +8,22 @@ use reddit_api::RedditClient;
 
 mod reddit_api;
 
-const REDDIT_SUBREDDIT: &str = "mathmemes";
+const REDDIT_SUBREDDIT: &str = "test";
 const UPPER_LIMIT: i64 = 100_001;
-
+const FOOTER_TEXT: &str = "*^(I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 if you have any questions or concerns or just visit me on github https://github.com/tolik518/factorion-bot/)*";
+const API_COMMENT_COUNT: u32 = 2;
+const SLEEP_DURATION: u64 = 60;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reddit_client = RedditClient::new().await?;
 
     // Regex to find factorial numbers
-    let re = Regex::new(r"\b(\d+)!\B").unwrap();
+    let regex = Regex::new(r"\b(\d+)!\B").unwrap();
 
     // Polling Reddit for new comments
     loop {
         println!("Polling Reddit for new comments...");
-        let response = reddit_client.get_comments(REDDIT_SUBREDDIT, 10).await.unwrap();
+        let response = reddit_client.get_comments(REDDIT_SUBREDDIT, API_COMMENT_COUNT).await.unwrap();
 
         println!("Statuscode: {:#?}", response.status());
         if let Some(www_authenticate) = response.headers().get("www-authenticate") {
@@ -47,8 +49,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let body = comment["data"]["body"].as_str().unwrap_or("");
                 println!("\x1b[90m======================================================================\x1b[0m");
                 println!("\x1b[90mComment: {}\x1b[0m", body);
-                for cap in re.captures_iter(body) {
-                    let num = cap[1].parse::<i64>().unwrap();
+
+                // create a bigInt list
+                let mut factorial_list = Vec::new();
+
+                let comment_id = comment["data"]["id"].as_str().unwrap();
+                let full_comment_id = format!("t1_{}", comment_id); // Prepend "t1_" to the comment_id
+                //TODO: Remove this debug print
+                //TODO: Get children of comment
+                println!("Comment ID: {}", full_comment_id);
+                println!("Data: {:#?}", reddit_client.get_comment_children(&*full_comment_id, API_COMMENT_COUNT)
+                    .await.unwrap()
+                    .json::<serde_json::Value>()
+                    .await.unwrap());
+
+                for regex_capture in regex.captures_iter(body)
+                {
+                    let num = regex_capture[1].parse::<i64>().unwrap();
 
                     // Check if the number is within a reasonable range to compute
                     if num > UPPER_LIMIT {
@@ -56,6 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     } else {
                         // check if the comment is already replied to by the bot
                         // if yes, skip the comment
+                        //TODO: doesn't work like this. store the comment id in a file(?) and check if the comment id is already replied to
                         if let Some(replies) = comment["data"]["replies"]["data"]["children"].as_array() {
                             let mut already_replied = false;
                             for reply in replies {
@@ -71,15 +89,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
 
                         let factorial = factorial(num);
-                        let reply = format!("The factorial of {} is {}.\n\n^I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 of this subreddit if you have any questions or concerns.", num, factorial);
-                        reddit_client.reply_to_comment(&comment, &reply).await?;
+                        factorial_list.push((num, factorial.clone()));
                     }
+                }
+
+                if !factorial_list.is_empty() {
+                    let mut reply: String = "".to_owned();
+                    for (num, factorial) in factorial_list {
+                        reply = format!("{reply}The factorial of {num} is {factorial}.\n");
+                    }
+                    reply = format!("{reply}\n{FOOTER_TEXT}");
+                    println!("Would have replied:\n{}", reply);
+                    //reddit_client.reply_to_comment(&comment, &reply).await?;
                 }
             }
         }
 
         // Sleep to avoid hitting API rate limits
-        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(SLEEP_DURATION)).await;
     }
 }
 
