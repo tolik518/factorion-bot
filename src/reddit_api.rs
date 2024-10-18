@@ -77,6 +77,13 @@ impl RedditClient {
             .send()
             .await?;
 
+        if !response.status().is_success() {
+            println!("Failed to reply to comment: {:#?}", response);
+        } else {
+            println!("Response Status: {}", response.status());
+            println!("Response Body: {:#?}", response.text().await);
+        }
+
         Ok(())
     }
 

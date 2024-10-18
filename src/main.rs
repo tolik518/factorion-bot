@@ -14,6 +14,7 @@ mod reddit_api;
 const REDDIT_SUBREDDIT: &str = "test";
 const UPPER_LIMIT: i64 = 100_001;
 const FOOTER_TEXT: &str = "*^(I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 if you have any questions or concerns or just visit me on github https://github.com/tolik518/factorion-bot/)*";
+const MAX_COMMENT_LENGTH: i64 = 10_000 - FOOTER_TEXT.len() as i64;
 const API_COMMENT_COUNT: u32 = 2;
 const SLEEP_DURATION: u64 = 60;
 const FILE_PATH: &str = "comment_ids.txt";
@@ -86,7 +87,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 // Check if the number is within a reasonable range to compute
                 if num > UPPER_LIMIT {
-                    println!("## The factorial of {} is too large for me to compute safely.", num);
+                    let reply = format!("The factorial of {} would be way too big to compute, sorry, lol.\n{FOOTER_TEXT}", num);
+                    println!("Reply message: \n{}", reply);
+                    already_replied_to_comments.push(comment_id.clone());
+                    reddit_client.reply_to_comment(&comment, &reply).await?;
                 } else {
                     // check if the comment is already replied to by the bot
                     // if yes, skip the comment
@@ -118,8 +122,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 reply = format!("{reply}\n{FOOTER_TEXT}");
                 println!("Would have replied:\n{}", reply);
                 already_replied_to_comments.push(comment_id.clone());
-                //reddit_client.reply_to_comment(&comment, &reply).await?;
+                reddit_client.reply_to_comment(&comment, &reply).await?;
             }
+
+            // Sleep to not spam comments too quickly
+            sleep(Duration::from_secs(SLEEP_DURATION/2)).await;
         }
 
 
@@ -200,6 +207,18 @@ mod tests {
 
         let result = factorial(574);
         assert_eq!(1337, result.to_string().len(), "{}", result);
+    }
+
+    #[test]
+    fn test_calculate_factorial_with_ten_thousand_digits() {
+        let mut num = 0;
+        let mut result = BigInt::zero();
+        while result.to_string().len() < 10_000 {
+            num += 1;
+            result = factorial(num);
+        }
+        assert_eq!(num, 3249);
+
     }
 
     #[test]
