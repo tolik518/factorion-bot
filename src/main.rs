@@ -1,9 +1,12 @@
+use std::error::Error;
 use std::ops::{Mul, Shl};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use num_bigint::{BigInt, ToBigInt};
 use num_traits::{One, Zero};
 use regex::Regex;
 use tokio;
-
+use tokio::time::{sleep, Duration};
 use reddit_api::RedditClient;
 
 mod reddit_api;
@@ -13,12 +16,32 @@ const UPPER_LIMIT: i64 = 100_001;
 const FOOTER_TEXT: &str = "*^(I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 if you have any questions or concerns or just visit me on github https://github.com/tolik518/factorion-bot/)*";
 const API_COMMENT_COUNT: u32 = 2;
 const SLEEP_DURATION: u64 = 60;
+const FILE_PATH: &str = "comment_ids.txt";
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let reddit_client = RedditClient::new().await?;
 
     // Regex to find factorial numbers
-    let regex = Regex::new(r"\b(\d+)!\B").unwrap();
+    let factorial_regex = Regex::new(r"\b(\d+)!\B").unwrap();
+
+    // Create or open the file to store comment_ids
+
+    // read comment_ids from the file
+    let already_replied_to_comments: String = fs::read_to_string(FILE_PATH)
+        .unwrap_or_else(|_| "".to_string());
+
+
+    if already_replied_to_comments.is_empty() {
+        println!("No comment_ids found in the file");
+    } else {
+        println!("Found comment_ids in the file");
+    }
+
+    let mut already_replied_to_comments: Vec<String> = already_replied_to_comments
+        .lines()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
 
     // Polling Reddit for new comments
     loop {
@@ -38,75 +61,82 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let response = response.json::<serde_json::Value>().await?;
+        let response_json = response.json::<serde_json::Value>().await?;
+        let comments = response_json["data"]["children"].as_array().cloned().unwrap_or_default();
 
-        //println!("Response: {:#?}", response);
+        println!("Found {} comments", comments.len());
+        for comment in comments {
+            //println!("Comment: {:#?}", comment);
+            let body = comment["data"]["body"].as_str().unwrap_or("");
+            println!("\x1b[90m======================================================================\x1b[0m");
+            println!("\x1b[90mComment: {}\x1b[0m", body);
 
-        if let Some(comments) = response["data"]["children"].as_array() {
-            println!("Found {} comments", comments.len());
-            for comment in comments {
-                //println!("Comment: {:#?}", comment);
-                let body = comment["data"]["body"].as_str().unwrap_or("");
-                println!("\x1b[90m======================================================================\x1b[0m");
-                println!("\x1b[90mComment: {}\x1b[0m", body);
+            // create a bigInt list
+            let mut factorial_list = Vec::new();
 
-                // create a bigInt list
-                let mut factorial_list = Vec::new();
+            let comment_id = comment["data"]["id"].as_str().unwrap().to_string();
+            if already_replied_to_comments.contains(&comment_id) {
+                println!("## Already replied to this comment");
+                continue;
+            }
 
-                let comment_id = comment["data"]["id"].as_str().unwrap();
-                let full_comment_id = format!("t1_{}", comment_id); // Prepend "t1_" to the comment_id
-                //TODO: Remove this debug print
-                //TODO: Get children of comment
-                println!("Comment ID: {}", full_comment_id);
-                println!("Data: {:#?}", reddit_client.get_comment_children(&*full_comment_id, API_COMMENT_COUNT)
-                    .await.unwrap()
-                    .json::<serde_json::Value>()
-                    .await.unwrap());
+            for regex_capture in factorial_regex.captures_iter(body)
+            {
+                let num = regex_capture[1].parse::<i64>().unwrap();
 
-                for regex_capture in regex.captures_iter(body)
-                {
-                    let num = regex_capture[1].parse::<i64>().unwrap();
-
-                    // Check if the number is within a reasonable range to compute
-                    if num > UPPER_LIMIT {
-                        println!("## The factorial of {} is too large for me to compute safely.", num);
-                    } else {
-                        // check if the comment is already replied to by the bot
-                        // if yes, skip the comment
-                        //TODO: doesn't work like this. store the comment id in a file(?) and check if the comment id is already replied to
-                        if let Some(replies) = comment["data"]["replies"]["data"]["children"].as_array() {
-                            let mut already_replied = false;
-                            for reply in replies {
-                                if reply["data"]["author"].as_str() == Some("factorion-bot") {
-                                    already_replied = true;
-                                    break;
-                                }
-                            }
-                            if already_replied {
-                                println!("## Already replied to this comment");
-                                continue;
+                // Check if the number is within a reasonable range to compute
+                if num > UPPER_LIMIT {
+                    println!("## The factorial of {} is too large for me to compute safely.", num);
+                } else {
+                    // check if the comment is already replied to by the bot
+                    // if yes, skip the comment
+                    //TODO: doesn't work like this. store the comment id in a file(?) and check if the comment id is already replied to
+                    if let Some(replies) = comment["data"]["replies"]["data"]["children"].as_array() {
+                        let mut already_replied = false;
+                        for reply in replies {
+                            if reply["data"]["author"].as_str() == Some("factorion-bot") {
+                                already_replied = true;
+                                break;
                             }
                         }
-
-                        let factorial = factorial(num);
-                        factorial_list.push((num, factorial.clone()));
+                        if already_replied {
+                            println!("## Already replied to this comment");
+                            continue;
+                        }
                     }
-                }
 
-                if !factorial_list.is_empty() {
-                    let mut reply: String = "".to_owned();
-                    for (num, factorial) in factorial_list {
-                        reply = format!("{reply}The factorial of {num} is {factorial}.\n");
-                    }
-                    reply = format!("{reply}\n{FOOTER_TEXT}");
-                    println!("Would have replied:\n{}", reply);
-                    //reddit_client.reply_to_comment(&comment, &reply).await?;
+                    let factorial = factorial(num);
+                    factorial_list.push((num, factorial.clone()));
                 }
+            }
+
+            if !factorial_list.is_empty() {
+                let mut reply: String = "".to_owned();
+                for (num, factorial) in factorial_list {
+                    reply = format!("{reply}The factorial of {num} is {factorial}.\n");
+                }
+                reply = format!("{reply}\n{FOOTER_TEXT}");
+                println!("Would have replied:\n{}", reply);
+                already_replied_to_comments.push(comment_id.clone());
+                //reddit_client.reply_to_comment(&comment, &reply).await?;
             }
         }
 
+
+        //write comment_ids to the file
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true) // This will clear the file contents if it already exists
+            .open(FILE_PATH)
+            .expect("Unable to open or create file");
+
+        for comment_id in already_replied_to_comments.iter() {
+            writeln!(file, "{}", comment_id).expect("Unable to write to file");
+        }
+
         // Sleep to avoid hitting API rate limits
-        tokio::time::sleep(tokio::time::Duration::from_secs(SLEEP_DURATION)).await;
+        sleep(Duration::from_secs(SLEEP_DURATION)).await;
     }
 }
 
