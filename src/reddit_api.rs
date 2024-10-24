@@ -1,8 +1,14 @@
+#![allow(unused_imports)]
+#![allow(deprecated)]
+#![allow(unused_variables)]
+use std::io::ErrorKind;
 use dotenv::dotenv;
-use reqwest::{Client, Response};
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, USER_AGENT};
+use reqwest::{Client, Error, Response};
+use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{from_str, json, Value};
+use crate::reddit_api::comment::{Comment, Status, UPPER_CALCULATION_LIMIT, FOOTER_TEXT, MAX_COMMENT_LENGTH};
+pub(crate) mod comment;
 
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
@@ -19,7 +25,8 @@ pub(crate) struct RedditClient {
 }
 
 impl RedditClient {
-    pub(crate) async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn new() -> Result<Self, Box<dyn std::error::Error>>
+    {
         dotenv().ok(); // Loads the environment variables from the ".env" file.
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
@@ -43,33 +50,28 @@ impl RedditClient {
         })
     }
 
-    pub(crate) async fn get_comments(&self, subreddit: &str, limit: u32) -> Result<Response, reqwest::Error> {
+    pub(crate) async fn get_comments(&self, subreddit: &str, limit: u32, already_replied_to_comments: &Vec<String>) -> Result<Vec<Comment>, ()>
+    {
         let response = self.client
             .get(&format!("https://oauth.reddit.com/r/{}/comments/?limit={}", subreddit, limit))
             .send()
-            .await?;
+            .await
+            .expect("Failed to get comments");
 
-
-        Ok(response)
+        match RedditClient::check_response_status(&response) {
+            Ok(_) => Ok(RedditClient::extract_comments(response, &already_replied_to_comments).await.expect("Failed to extract comments")),
+            Err(_) => Err(())
+        }
     }
 
-    pub(crate) async fn get_comment_children(&self, comment_id: &str, limit: u32) -> Result<Response, reqwest::Error> {
-        let response = self.client
-            .get(&format!("https://oauth.reddit.com/api/info/?id={}&limit={}", comment_id, limit))
-            .send()
-            .await?;
-
-        Ok(response)
-    }
-
-    pub(crate) async fn reply_to_comment(&self, comment: &serde_json::Value, reply: &str) -> Result<(), reqwest::Error> {
-        let comment_id = comment["data"]["id"].as_str().unwrap();
+    pub(crate) async fn reply_to_comment(&self, comment: Comment, reply: &str) -> Result<(), Error>
+    {
         let params = json!({
-            "thing_id": format!("t1_{}", comment_id),
+            "thing_id": format!("t1_{}", comment.id),
             "text": reply
         });
 
-        println!("Replying to comment t1_{}", comment_id);
+        println!("Replying to comment t1_{}", comment.id);
 
         let response = self.client
             .post(REDDIT_COMMENT_URL)
@@ -77,17 +79,43 @@ impl RedditClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            println!("Failed to reply to comment: {:#?}", response);
+        let response_text = &response.text().await?;
+        let response_text = response_text.as_str();
+        let response_json = from_str::<Value>(response_text).expect("Failed to convert response to json");
+        let response_status_ok = RedditClient::is_success(response_text);
+
+        if response_status_ok {
+            println!("Status OK: {:#?}", RedditClient::get_error_message(response_json));
         } else {
-            println!("Response Status: {}", response.status());
-            println!("Response Body: {:#?}", response.text().await);
+            println!("Posting comment failed: {:#?}", RedditClient::get_error_message(response_json));
         }
 
         Ok(())
     }
 
-    async fn get_reddit_token(client_id: String, client_secret: String) -> Result<String, Box<dyn std::error::Error>> {
+    fn get_error_message(response_json: Value) -> String {
+        let jquery = response_json["jquery"].as_array().expect("Failed to get jquery array");
+        // search for arrays which have array, which have a string value that's not empty
+        let mut error_message = jquery.iter()
+            .filter(|array| array[2].as_str().unwrap_or("").is_empty() == false)
+            .map(|array| array[3][0].as_str().unwrap_or("").to_string())
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        error_message = error_message.split_whitespace().collect::<Vec<&str>>().join(" ");
+
+        error_message
+    }
+
+    fn is_success(response_text: &str) -> bool {
+        // convert response.text to json
+        let response_json = from_str::<Value>(response_text).expect("Failed to convert response to json");
+        // look for the success
+        response_json["success"].as_bool().unwrap_or(false)
+    }
+
+    async fn get_reddit_token(client_id: String, client_secret: String) -> Result<String, Box<dyn std::error::Error>>
+    {
         let password = std::env::var("REDDIT_PASSWORD").expect("REDDIT_PASSWORD must be set.");
         let username = std::env::var("REDDIT_USERNAME").expect("REDDIT_USERNAME must be set.");
 
@@ -121,5 +149,55 @@ impl RedditClient {
         let response = response.json::<TokenResponse>().await?;
 
         Ok(response.access_token)
+    }
+
+    fn check_response_status(response: &Response) -> Result<(), ()> {
+        println!("Statuscode: {:#?}", response.status());
+        if let Some(www_authenticate) = response.headers().get("www-authenticate") {
+            match www_authenticate.to_str() {
+                Ok(value) => println!("www-authenticate: {}", value),
+                Err(e) => {
+                    println!("Failed to convert www-authenticate header value to string");
+                    return Err(());
+                },
+            }
+        }
+
+        if !response.status().is_success() {
+            println!("Failed to get comments: {:#?}", response);
+            return Err(());
+        }
+
+        Ok(())
+    }
+
+    async fn extract_comments(response: Response, already_replied_to_comments: &Vec<String>) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
+        let response_json = response.json::<Value>().await?;
+        let comments_json = response_json["data"]["children"].as_array().cloned().unwrap_or_default();
+
+        let mut comments = Vec::new();
+        for comment in comments_json {
+            let body = comment["data"]["body"].as_str().unwrap_or("");
+
+            let comment_id = comment["data"]["id"].as_str().unwrap_or_default().to_string();
+
+            let mut comment = Comment::new(body, &*comment_id);
+
+            // set some statuses
+            if !comment.status.contains(&Status::ReplyWouldBeTooLong) {
+                if comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH {
+                    comment.set_status(Status::ReplyWouldBeTooLong);
+                }
+            }
+
+            if already_replied_to_comments.contains(&comment_id) {
+                comment.set_status(Status::AlreadyReplied);
+            } else {
+                comment.set_status(Status::NotReplied);
+            }
+            comments.push(comment);
+        }
+
+        Ok(comments)
     }
 }
