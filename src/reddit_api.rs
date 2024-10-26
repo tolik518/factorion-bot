@@ -46,7 +46,7 @@ impl RedditClient {
         })
     }
 
-    pub(crate) async fn get_comments(&self, subreddit: &str, limit: u32, already_replied_to_comments: &Vec<String>) -> Result<Vec<Comment>, ()>
+    pub(crate) async fn get_comments(&self, subreddit: &str, limit: u32, already_replied_to_comments: &[String]) -> Result<Vec<Comment>, ()>
     {
         let response = self.client
             .get(&format!("https://oauth.reddit.com/r/{}/comments/?limit={}", subreddit, limit))
@@ -55,7 +55,7 @@ impl RedditClient {
             .expect("Failed to get comments");
 
         match RedditClient::check_response_status(&response) {
-            Ok(_) => Ok(RedditClient::extract_comments(response, &already_replied_to_comments).await.expect("Failed to extract comments")),
+            Ok(_) => Ok(RedditClient::extract_comments(response, already_replied_to_comments).await.expect("Failed to extract comments")),
             Err(_) => Err(())
         }
     }
@@ -91,7 +91,7 @@ impl RedditClient {
         let jquery = response_json["jquery"].as_array().expect("Failed to get jquery array");
         // search for arrays which have array, which have a string value that's not empty
         let mut error_message = jquery.iter()
-            .filter(|array| array[2].as_str().unwrap_or("").is_empty() == false)
+            .filter(|array| !array[2].as_str().unwrap_or("").is_empty())
             .map(|array| array[3][0].as_str().unwrap_or("").to_string())
             .collect::<Vec<String>>()
             .join(" ");
@@ -165,7 +165,7 @@ impl RedditClient {
         Ok(())
     }
 
-    async fn extract_comments(response: Response, already_replied_to_comments: &Vec<String>) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
+    async fn extract_comments(response: Response, already_replied_to_comments: &[String]) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"].as_array().cloned().unwrap_or_default();
 
@@ -175,13 +175,11 @@ impl RedditClient {
 
             let comment_id = comment["data"]["id"].as_str().unwrap_or_default().to_string();
 
-            let mut comment = Comment::new(body, &*comment_id);
+            let mut comment = Comment::new(body, &comment_id);
 
             // set some statuses
-            if !comment.status.contains(&Status::ReplyWouldBeTooLong) {
-                if comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH {
-                    comment.add_status(Status::ReplyWouldBeTooLong);
-                }
+            if !comment.status.contains(&Status::ReplyWouldBeTooLong) && (comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH) {
+                comment.add_status(Status::ReplyWouldBeTooLong);
             }
 
             if already_replied_to_comments.contains(&comment_id) {

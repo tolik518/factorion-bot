@@ -21,3 +21,6 @@ jobs:
 
       - name: Test
         run: cargo test
+
+      - name: Machete
+        uses: bnjbvr/cargo-machete@main

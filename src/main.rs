@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use tokio;
 use tokio::time::{sleep, Duration};
 use reddit_api::comment::Status;
 use reddit_api::RedditClient;
