@@ -1,4 +1,4 @@
-name: Test
+name: Build and Test
 
 on: [push, pull_request]
 
@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
       - name: Test
         run: cargo test
 
@@ -20,3 +21,6 @@ jobs:
 
       - name: Run Format
         run: cargo fmt --all -- --check
+
+      - name: Build
+        run: cargo build --message-format=json

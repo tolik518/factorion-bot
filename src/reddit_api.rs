@@ -55,7 +55,7 @@ impl RedditClient {
     ) -> Result<Vec<Comment>, ()> {
         let response = self
             .client
-            .get(&format!(
+            .get(format!(
                 "https://oauth.reddit.com/r/{}/comments/?limit={}",
                 subreddit, limit
             ))
