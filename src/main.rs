@@ -1,13 +1,12 @@
 #![allow(unused_parens)]
 
+use reddit_api::comment::Status;
+use reddit_api::RedditClient;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use tokio;
 use tokio::time::{sleep, Duration};
-use reddit_api::comment::Status;
-use reddit_api::RedditClient;
 
 mod reddit_api;
 
@@ -22,8 +21,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let reddit_client = RedditClient::new().await?;
 
     // read comment_ids from the file
-    let already_replied_to_comments: String = fs::read_to_string(FILE_PATH)
-        .unwrap_or("".to_string());
+    let already_replied_to_comments: String =
+        fs::read_to_string(FILE_PATH).unwrap_or("".to_string());
 
     if already_replied_to_comments.is_empty() {
         println!("No comment_ids found in the file");
@@ -51,11 +50,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let comment_id = comment.id.clone();
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
-            let should_answer = (
-                status_set.contains(&Status::FactorialsFound) &&
-                status_set.contains(&Status::NotReplied) &&
-                !status_set.contains(&Status::ReplyWouldBeTooLong)
-            );
+            let should_answer = (status_set.contains(&Status::FactorialsFound)
+                && status_set.contains(&Status::NotReplied)
+                && !status_set.contains(&Status::ReplyWouldBeTooLong));
 
             if status_set.contains(&Status::NoFactorial) {
                 println!();

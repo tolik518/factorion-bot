@@ -1,0 +1,26 @@
+name: Build and Test
+
+on: [pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Test
+        run: cargo test
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features
+
+      - name: Run Format
+        run: cargo fmt --all -- --check
+
+      - name: Build
+        run: cargo build --message-format=json
