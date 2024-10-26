@@ -10,8 +10,8 @@ use tokio::time::{sleep, Duration};
 
 mod reddit_api;
 
-const SUBREDDIT: &str = "mathmemes";
-const API_COMMENT_COUNT: u32 = 10;
+const SUBREDDIT: &str = "mathmemes+ProgrammerHumor";
+const API_COMMENT_COUNT: u32 = 25;
 const SLEEP_DURATION: u64 = 60;
 
 const FILE_PATH: &str = "comment_ids.txt";

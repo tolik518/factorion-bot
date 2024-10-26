@@ -6,7 +6,7 @@
 
 <p align="center"> 
 A reddit bot replying to comments, containing factorials, with the solution.  
-This little fella is currently running on r/mathmemes. 
+This little fella is currently running on r/mathmemes and on r/ProgrammerHumor. 
 </p>
 
 ###### Disclaimer: The icon was generated using Maze Guru.
