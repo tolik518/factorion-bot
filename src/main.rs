@@ -10,7 +10,7 @@ use tokio::time::{sleep, Duration};
 
 mod reddit_api;
 
-const SUBREDDIT: &str = "test";
+const SUBREDDIT: &str = "mathmemes";
 const API_COMMENT_COUNT: u32 = 10;
 const SLEEP_DURATION: u64 = 60;
 
