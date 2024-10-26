@@ -1,6 +1,6 @@
 name: Build and Test
 
-on: [pull_request]
+on: [push]
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,6 +21,3 @@ jobs:
 
       - name: Run Format
         run: cargo fmt --all -- --check
-
-      - name: Build
-        run: cargo build --message-format=json
