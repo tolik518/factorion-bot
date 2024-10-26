@@ -1,15 +1,9 @@
-#![allow(unused_imports)]
-#![allow(deprecated)]
-#![allow(unused_variables)]
+#![allow(unused_parens)]
 
 use std::collections::HashSet;
 use std::error::Error;
-use std::ops::{Mul, Shl};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use num_bigint::ToBigInt;
-use num_traits::{One, Zero};
-use regex::Regex;
 use tokio;
 use tokio::time::{sleep, Duration};
 use reddit_api::comment::Status;
@@ -20,7 +14,6 @@ mod reddit_api;
 const SUBREDDIT: &str = "test";
 const API_COMMENT_COUNT: u32 = 10;
 const SLEEP_DURATION: u64 = 60;
-const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 
 const FILE_PATH: &str = "comment_ids.txt";
 
@@ -54,9 +47,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("Found {} comments", comments.len());
 
         for comment in comments {
-            print!("\x1b[90m");
-            println!("Comment ID {} -> {:?}", comment.id, comment.status);
-            print!("\x1b[0m");
+            print!("Comment ID {} -> {:?}", comment.id, comment.status);
 
             let comment_id = comment.id.clone();
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
@@ -66,30 +57,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 !status_set.contains(&Status::ReplyWouldBeTooLong)
             );
 
-
-            if status_set.contains(&Status::NumberTooBig) {
-                println!("Number too big in comment {}", comment_id);
-            }
             if status_set.contains(&Status::NoFactorial) {
-                println!("No factorial in comment {}", comment_id);
+                println!();
+                continue;
+            }
+            if status_set.contains(&Status::NumberTooBig) {
+                println!(" -> {:?}", comment.factorial_list);
+                continue;
             }
             if status_set.contains(&Status::ReplyWouldBeTooLong) {
-                println!("Reply would be too long in comment {}", comment_id);
+                println!(" -> {:?}", comment.factorial_list);
+                continue;
             }
             if status_set.contains(&Status::AlreadyReplied) {
-                println!("Already replied to comment {}", comment_id);
+                println!(" [already replied] ");
+                continue;
             }
             if status_set.contains(&Status::FactorialsFound) {
-                println!("Factorials found in {}", comment_id);
+                println!(" -> {:?}", comment.factorial_list);
             }
             if should_answer {
                 let reply: String = comment.get_reply();
-                println!("Would have replied:\n{}", &reply);
                 already_replied_to_comments.push(comment_id.clone());
                 reddit_client.reply_to_comment(comment, &reply).await?;
                 // Sleep to not spam comments too quickly
                 sleep(Duration::from_secs(2)).await;
+                continue;
             }
+            println!(" [unknown] ");
         }
 
         //write comment_ids to the file
