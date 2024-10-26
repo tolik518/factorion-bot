@@ -22,18 +22,19 @@ pub(crate) enum Status {
     NumberTooBig,
     NoFactorial,
     ReplyWouldBeTooLong,
-    FactorialsFound
+    FactorialsFound,
 }
 
 impl Comment {
-    pub(crate) fn new(body: &str, id:  &str) -> Self {
+    pub(crate) fn new(body: &str, id: &str) -> Self {
         let factorial_regex = Regex::new(r"\b(\d+)!\B").expect("Invalid factorial regex");
         let mut factorial_list = Vec::new();
         let mut status: Vec<Status> = vec![];
 
-        for regex_capture in factorial_regex.captures_iter(body)
-        {
-            let num = regex_capture[1].parse::<i64>().expect("Failed to parse number");
+        for regex_capture in factorial_regex.captures_iter(body) {
+            let num = regex_capture[1]
+                .parse::<i64>()
+                .expect("Failed to parse number");
 
             // Check if the number is within a reasonable range to compute
             if num > UPPER_CALCULATION_LIMIT {
@@ -57,7 +58,7 @@ impl Comment {
         Comment {
             id: id.to_string(),
             factorial_list,
-            status
+            status,
         }
     }
 
@@ -99,27 +100,27 @@ fn factorial_recursive(low: i64, high: i64) -> BigInt {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use num_bigint::ToBigInt;
     use num_traits::Zero;
-    use super::*;
 
     #[test]
     fn test_calculate_factorial() {
-        assert_eq!(factorial(00),       1.to_bigint().unwrap());
-        assert_eq!(factorial(01),       1.to_bigint().unwrap());
-        assert_eq!(factorial(02),       2.to_bigint().unwrap());
-        assert_eq!(factorial(03),       6.to_bigint().unwrap());
-        assert_eq!(factorial(04),      24.to_bigint().unwrap());
-        assert_eq!(factorial(05),     120.to_bigint().unwrap());
-        assert_eq!(factorial(06),     720.to_bigint().unwrap());
-        assert_eq!(factorial(07),    5040.to_bigint().unwrap());
-        assert_eq!(factorial(08),   40320.to_bigint().unwrap());
-        assert_eq!(factorial(09),  362880.to_bigint().unwrap());
+        assert_eq!(factorial(0), 1.to_bigint().unwrap());
+        assert_eq!(factorial(1), 1.to_bigint().unwrap());
+        assert_eq!(factorial(2), 2.to_bigint().unwrap());
+        assert_eq!(factorial(3), 6.to_bigint().unwrap());
+        assert_eq!(factorial(4), 24.to_bigint().unwrap());
+        assert_eq!(factorial(5), 120.to_bigint().unwrap());
+        assert_eq!(factorial(6), 720.to_bigint().unwrap());
+        assert_eq!(factorial(7), 5040.to_bigint().unwrap());
+        assert_eq!(factorial(8), 40320.to_bigint().unwrap());
+        assert_eq!(factorial(9), 362880.to_bigint().unwrap());
         assert_eq!(factorial(10), 3628800.to_bigint().unwrap());
     }
 
     #[test]
-    fn test_calculate_factorials_with_interesting_lengths(){
+    fn test_calculate_factorials_with_interesting_lengths() {
         let result = factorial(22);
         assert_eq!(22, result.to_string().len(), "{}", result);
 
@@ -148,7 +149,6 @@ mod tests {
             result = factorial(num);
         }
         assert_eq!(num, 3249);
-
     }
 
     #[test]
