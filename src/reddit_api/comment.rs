@@ -1,20 +1,18 @@
-#![allow(unused_imports)]
-#![allow(deprecated)]
-#![allow(unused_variables)]
-use num_bigint::{BigInt, ToBigInt};
+#![allow(unused_parens)]
+
+use num_bigint::BigInt;
 use num_traits::One;
 use regex::Regex;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
-pub(crate) const FOOTER_TEXT: &str = "\n\n*^(I am a bot, called factorion, and this action was performed automatically. Please contact u/tolik518 if you have any questions or concerns or just visit me on github https://github.com/tolik518/factorion-bot/)*";
+const PLACEHOLDER: &str = "Factorial of ";
+const FOOTER_TEXT: &str = "\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 
 pub(crate) struct Comment {
-    pub(crate) body: String,
     pub(crate) id: String,
     pub(crate) factorial_list: Vec<(i64, BigInt)>,
     pub(crate) status: Vec<Status>,
-    pub(crate) is_ok: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -57,44 +55,20 @@ impl Comment {
         }
 
         Comment {
-            body: body.to_string(),
             id: id.to_string(),
             factorial_list,
-            status,
-            is_ok: true
+            status
         }
     }
 
-    fn new_not_ok() -> Self {
-        Comment {
-            body: "".to_string(),
-            id: "".to_string(),
-            factorial_list: vec![],
-            status: vec![Status::NoFactorial],
-            is_ok: false
-        }
-    }
-
-    fn factorial_list(&self) -> &Vec<(i64, BigInt)> {
-        &self.factorial_list
-    }
-
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn status(&self) -> &Vec<Status> {
-        &self.status
-    }
-
-    pub(crate) fn set_status(&mut self, status: Status) {
+    pub(crate) fn add_status(&mut self, status: Status) {
         self.status.push(status);
     }
 
     pub(crate) fn get_reply(&self) -> String {
         let mut reply = String::new();
         for (num, factorial) in self.factorial_list.iter() {
-            reply.push_str(&format!("{}! = {}\n", num, factorial));
+            reply.push_str(&format!("{} {} is {} \n\n", PLACEHOLDER, num, factorial));
         }
         reply.push_str(FOOTER_TEXT);
         reply
@@ -125,6 +99,7 @@ fn factorial_recursive(low: i64, high: i64) -> BigInt {
 
 #[cfg(test)]
 mod tests {
+    use num_bigint::ToBigInt;
     use num_traits::Zero;
     use super::*;
 

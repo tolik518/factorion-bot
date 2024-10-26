@@ -1,13 +1,13 @@
-#![allow(unused_imports)]
-#![allow(deprecated)]
-#![allow(unused_variables)]
-use std::io::ErrorKind;
+#![allow(unused_parens)]
+#![allow(deprecated)] // base64::encode is deprecated
+
 use dotenv::dotenv;
 use reqwest::{Client, Error, Response};
 use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
-use crate::reddit_api::comment::{Comment, Status, UPPER_CALCULATION_LIMIT, FOOTER_TEXT, MAX_COMMENT_LENGTH};
+use crate::reddit_api::comment::{Comment, Status, MAX_COMMENT_LENGTH};
+
 pub(crate) mod comment;
 
 #[derive(Deserialize, Debug)]
@@ -19,9 +19,7 @@ const REDDIT_TOKEN_URL: &str = "https://ssl.reddit.com/api/v1/access_token";
 const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
 
 pub(crate) struct RedditClient {
-    client: Client,
-    token: String,
-    user_agent: String,
+    client: Client
 }
 
 impl RedditClient {
@@ -44,9 +42,7 @@ impl RedditClient {
             .build()?;
 
         Ok(Self {
-            client,
-            token,
-            user_agent,
+            client
         })
     }
 
@@ -71,8 +67,6 @@ impl RedditClient {
             "text": reply
         });
 
-        println!("Replying to comment t1_{}", comment.id);
-
         let response = self.client
             .post(REDDIT_COMMENT_URL)
             .form(&params)
@@ -85,9 +79,9 @@ impl RedditClient {
         let response_status_ok = RedditClient::is_success(response_text);
 
         if response_status_ok {
-            println!("Status OK: {:#?}", RedditClient::get_error_message(response_json));
+            println!("Comment ID {} -> Status OK: {:#?}", comment.id, RedditClient::get_error_message(response_json));
         } else {
-            println!("Posting comment failed: {:#?}", RedditClient::get_error_message(response_json));
+            println!("Comment ID {} -> Status FAILED: {:#?}",  comment.id, RedditClient::get_error_message(response_json));
         }
 
         Ok(())
@@ -156,7 +150,7 @@ impl RedditClient {
         if let Some(www_authenticate) = response.headers().get("www-authenticate") {
             match www_authenticate.to_str() {
                 Ok(value) => println!("www-authenticate: {}", value),
-                Err(e) => {
+                Err(_) => {
                     println!("Failed to convert www-authenticate header value to string");
                     return Err(());
                 },
@@ -186,14 +180,14 @@ impl RedditClient {
             // set some statuses
             if !comment.status.contains(&Status::ReplyWouldBeTooLong) {
                 if comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH {
-                    comment.set_status(Status::ReplyWouldBeTooLong);
+                    comment.add_status(Status::ReplyWouldBeTooLong);
                 }
             }
 
             if already_replied_to_comments.contains(&comment_id) {
-                comment.set_status(Status::AlreadyReplied);
+                comment.add_status(Status::AlreadyReplied);
             } else {
-                comment.set_status(Status::NotReplied);
+                comment.add_status(Status::NotReplied);
             }
             comments.push(comment);
         }
