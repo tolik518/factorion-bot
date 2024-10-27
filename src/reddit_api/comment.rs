@@ -69,7 +69,7 @@ impl Comment {
     pub(crate) fn get_reply(&self) -> String {
         let mut reply = String::new();
         for (num, factorial) in self.factorial_list.iter() {
-            reply.push_str(&format!("{} {} is {} \n\n", PLACEHOLDER, num, factorial));
+            reply.push_str(&format!("{}{} is {} \n\n", PLACEHOLDER, num, factorial));
         }
         reply.push_str(FOOTER_TEXT);
         reply
