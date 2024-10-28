@@ -6,7 +6,7 @@ use regex::Regex;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
-const FOOTER_TEXT: &str = "\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*";
+const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 
 pub(crate) struct Comment {
@@ -68,8 +68,17 @@ impl Comment {
 
     pub(crate) fn get_reply(&self) -> String {
         let mut reply = String::new();
-        for (num, factorial) in self.factorial_list.iter() {
-            reply.push_str(&format!("{}{} is {} \n\n", PLACEHOLDER, num, factorial));
+        if self.status.contains(&Status::ReplyWouldBeTooLong)
+        {
+            let mut numbers: Vec<i64> = Vec::new();
+            for (num, _) in self.factorial_list.iter() {
+                numbers.push(*num);
+            }
+            reply.push_str(&format!("Sorry bro, but if I calculate the factorials of the number(s) {:?}, the reply would be too long for reddit :(\n\n", numbers));
+        } else {
+            for (num, factorial) in self.factorial_list.iter() {
+                reply.push_str(&format!("{}{} is {} \n\n", PLACEHOLDER, num, factorial));
+            }
         }
         reply.push_str(FOOTER_TEXT);
         reply
@@ -95,6 +104,35 @@ fn factorial_recursive(low: i64, high: i64) -> BigInt {
         let left = factorial_recursive(low, mid);
         let right = factorial_recursive(mid + 1, high);
         left * right
+    }
+}
+
+mod test {
+    use super::*;
+    use num_bigint::ToBigInt;
+
+    #[test]
+    fn test_get_reply() {
+        let comment = Comment {
+            id: "123".to_string(),
+            factorial_list: vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap())],
+            status: vec![Status::FactorialsFound],
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Factorial of 5 is 120 \n\nFactorial of 6 is 720 \n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+    }
+
+    #[test]
+    fn test_get_reply_too_long() {
+        let comment = Comment {
+            id: "123".to_string(),
+            factorial_list: vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap()), (3249, factorial(3249))],
+            status: vec![Status::FactorialsFound, Status::ReplyWouldBeTooLong],
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorials of the numbers [5, 6, 3249], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 }
 
