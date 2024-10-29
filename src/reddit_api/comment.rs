@@ -45,6 +45,9 @@ impl Comment {
             }
         }
 
+        factorial_list.sort();
+        factorial_list.dedup();
+
         if factorial_list.is_empty() {
             status.push(Status::NoFactorial);
         } else {

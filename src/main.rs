@@ -12,7 +12,7 @@ use tokio::time::{sleep, Duration};
 
 mod reddit_api;
 
-const API_COMMENT_COUNT: u32 = 25;
+const API_COMMENT_COUNT: u32 = 100;
 const SLEEP_DURATION: u64 = 60;
 
 const FILE_PATH: &str = "comment_ids.txt";
