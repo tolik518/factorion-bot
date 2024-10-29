@@ -4,8 +4,11 @@ use reddit_api::comment::Status;
 use reddit_api::RedditClient;
 use std::collections::HashSet;
 use std::error::Error;
+use std::fmt::Debug;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::time::SystemTime;
+use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
 mod reddit_api;
@@ -38,7 +41,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Polling Reddit for new comments
     loop {
-        println!("Polling Reddit for new comments...");
+        let today: OffsetDateTime = SystemTime::now().into();
+        println!(
+            "{} - {} | Polling Reddit for new comments...",
+            today.date(),
+            today.time()
+        );
+
         let comments = reddit_client
             .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_to_comments)
             .await
