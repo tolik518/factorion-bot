@@ -47,8 +47,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("Found {} comments", comments.len());
 
         for comment in comments {
-            print!("Comment ID {} -> {:?}", comment.id, comment.status);
-
             let comment_id = comment.id.clone();
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
             let should_answer = (status_set.contains(&Status::FactorialsFound)
@@ -59,6 +57,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!();
                 continue;
             }
+
+            print!("Comment ID {} -> {:?}", comment.id, comment.status);
+
             if status_set.contains(&Status::NumberTooBig) {
                 println!(" -> {:?}", comment.factorial_list);
                 continue;
