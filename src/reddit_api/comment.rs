@@ -107,6 +107,7 @@ fn factorial_recursive(low: i64, high: i64) -> BigInt {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
     use num_bigint::ToBigInt;

@@ -10,7 +10,6 @@ use tokio::time::{sleep, Duration};
 
 mod reddit_api;
 
-const SUBREDDIT: &str = "mathmemes+ProgrammerHumor";
 const API_COMMENT_COUNT: u32 = 25;
 const SLEEP_DURATION: u64 = 60;
 
@@ -19,6 +18,8 @@ const FILE_PATH: &str = "comment_ids.txt";
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let reddit_client = RedditClient::new().await?;
+    let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
+    let subreddits = subreddits.as_str();
 
     // read comment_ids from the file
     let already_replied_to_comments: String =
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         println!("Polling Reddit for new comments...");
         let comments = reddit_client
-            .get_comments(SUBREDDIT, API_COMMENT_COUNT, &already_replied_to_comments)
+            .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_to_comments)
             .await
             .unwrap_or_default();
 
