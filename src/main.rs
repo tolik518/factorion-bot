@@ -4,7 +4,6 @@ use reddit_api::comment::Status;
 use reddit_api::RedditClient;
 use std::collections::HashSet;
 use std::error::Error;
-use std::fmt::Debug;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::time::SystemTime;
