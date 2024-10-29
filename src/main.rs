@@ -54,7 +54,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 && !status_set.contains(&Status::ReplyWouldBeTooLong));
 
             if status_set.contains(&Status::NoFactorial) {
-                println!();
                 continue;
             }
 
