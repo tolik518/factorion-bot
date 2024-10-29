@@ -68,8 +68,7 @@ impl Comment {
 
     pub(crate) fn get_reply(&self) -> String {
         let mut reply = String::new();
-        if self.status.contains(&Status::ReplyWouldBeTooLong)
-        {
+        if self.status.contains(&Status::ReplyWouldBeTooLong) {
             let mut numbers: Vec<i64> = Vec::new();
             for (num, _) in self.factorial_list.iter() {
                 numbers.push(*num);
@@ -128,7 +127,11 @@ mod test {
     fn test_get_reply_too_long() {
         let comment = Comment {
             id: "123".to_string(),
-            factorial_list: vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap()), (3249, factorial(3249))],
+            factorial_list: vec![
+                (5, 120.to_bigint().unwrap()),
+                (6, 720.to_bigint().unwrap()),
+                (3249, factorial(3249)),
+            ],
             status: vec![Status::FactorialsFound, Status::ReplyWouldBeTooLong],
         };
 
