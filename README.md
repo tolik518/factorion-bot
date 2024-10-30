@@ -30,7 +30,7 @@ Follow these steps to set up and run the Factorion bot on your local machine and
 - **Reddit Account** - To run the bot, you'll need a Reddit account. [Reddit](https://www.reddit.com/)
   
 ## Reddit API Credentials
-###### You can checkout [Reddit API Documentation](https://www.reddit.com/dev/api) to checkout all the different endpoints you can access. 
+###### You can go to [Reddit API Documentation](https://www.reddit.com/dev/api) to checkout all the different endpoints you can access. 
 1. We need `Application ID` and `Secret Key` so that Reddit can know about our app. [preferences/apps](https://www.reddit.com/prefs/apps)
 2. Click the <b>are you a Developer?</b> button to start setting up the bot.
 
@@ -78,19 +78,9 @@ SUBREDDITS=<subreddits>
 
 Replace `<your_client_id>`, `<your_client_secret>`, `<reddit_app_username>`, and `<reddit_app_password>` with the values you received from the Reddit App creation.
 
-### Dependencies
+## Run the following command to install dependencies:
 
-This bot uses the following main dependencies, which are included in the `Cargo.toml` file:
-
-- [reqwest](https://docs.rs/reqwest/): For making HTTP requests to Reddit's API.
-- [tokio](https://docs.rs/tokio/): For asynchronous runtime.
-- [serde](https://docs.rs/serde/): For JSON serialization/deserialization.
-- [dotenv](https://docs.rs/dotenv/): For loading environment variables from a `.env` file.
-- [num-bigint](https://docs.rs/num-bigint/latest/num_bigint/): Big Integer implementation in Rust.
-
-and more...
-
-Run the following command to install dependencies:
+##### Refer to `Cargo.toml`
 
 ```bash
 cargo build
