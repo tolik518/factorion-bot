@@ -36,7 +36,7 @@ Follow these steps to set up and run the Factorion bot on your local machine and
 
 <details>
 <summary>Screenshot</summary>
-![image](https://github.com/user-attachments/assets/140056ac-91ce-4178-8703-19451357adce)
+<img src="https://github.com/user-attachments/assets/140056ac-91ce-4178-8703-19451357adce" \>
 </details>
 
 3. Fill in the required details:
@@ -46,7 +46,7 @@ Follow these steps to set up and run the Factorion bot on your local machine and
      
 <details>
 <summary>Screenshot</summary>
-![image](https://github.com/user-attachments/assets/2450994a-14cf-4f46-9f71-518ceb0c59f5)
+    <img src="https://github.com/user-attachments/assets/2450994a-14cf-4f46-9f71-518ceb0c59f5" \>
 </details>
 
 4. After creating the app, you'll receive:
