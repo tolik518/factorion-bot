@@ -1,7 +1,7 @@
 #![allow(unused_parens)]
 
 use num_bigint::BigInt;
-use num_traits::One;
+use num_traits::{One, ToPrimitive};
 use regex::Regex;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
@@ -33,13 +33,14 @@ impl Comment {
 
         for regex_capture in factorial_regex.captures_iter(body) {
             let num = regex_capture[1]
-                .parse::<i64>()
+                .parse::<BigInt>()
                 .expect("Failed to parse number");
 
             // Check if the number is within a reasonable range to compute
-            if num > UPPER_CALCULATION_LIMIT {
+            if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
                 status.push(Status::NumberTooBig);
             } else {
+                let num = num.to_i64().expect("Failed to convert BigInt to i64");
                 let factorial = factorial(num);
                 factorial_list.push((num, factorial.clone()));
             }
@@ -113,6 +114,22 @@ fn factorial_recursive(low: i64, high: i64) -> BigInt {
 mod test {
     use super::*;
     use num_bigint::ToBigInt;
+
+    #[test]
+    fn test_comment_new() {
+        let comment = Comment::new("This is a test comment with a factorial of 5! and 6!", "123");
+        assert_eq!(comment.id, "123");
+        assert_eq!(comment.factorial_list, vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap())]);
+        assert_eq!(comment.status, vec![Status::FactorialsFound]);
+    }
+
+    #[test]
+    fn test_comment_new_big_number() {
+        let comment = Comment::new("This is a test comment with a factorial of 555555555555555555555555555555555! and 6!", "123");
+        assert_eq!(comment.id, "123");
+        assert_eq!(comment.factorial_list, vec![(6, 720.to_bigint().unwrap())]);
+        assert_eq!(comment.status, vec![Status::NumberTooBig, Status::FactorialsFound]);
+    }
 
     #[test]
     fn test_get_reply() {
