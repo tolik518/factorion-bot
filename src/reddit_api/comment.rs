@@ -45,6 +45,9 @@ impl Comment {
             }
         }
 
+        factorial_list.sort();
+        factorial_list.dedup();
+
         if factorial_list.is_empty() {
             status.push(Status::NoFactorial);
         } else {
@@ -68,8 +71,7 @@ impl Comment {
 
     pub(crate) fn get_reply(&self) -> String {
         let mut reply = String::new();
-        if self.status.contains(&Status::ReplyWouldBeTooLong)
-        {
+        if self.status.contains(&Status::ReplyWouldBeTooLong) {
             let mut numbers: Vec<i64> = Vec::new();
             for (num, _) in self.factorial_list.iter() {
                 numbers.push(*num);
@@ -107,6 +109,7 @@ fn factorial_recursive(low: i64, high: i64) -> BigInt {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
     use num_bigint::ToBigInt;
@@ -127,12 +130,16 @@ mod test {
     fn test_get_reply_too_long() {
         let comment = Comment {
             id: "123".to_string(),
-            factorial_list: vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap()), (3249, factorial(3249))],
+            factorial_list: vec![
+                (5, 120.to_bigint().unwrap()),
+                (6, 720.to_bigint().unwrap()),
+                (3249, factorial(3249)),
+            ],
             status: vec![Status::FactorialsFound, Status::ReplyWouldBeTooLong],
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorials of the numbers [5, 6, 3249], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorials of the number(s) [5, 6, 3249], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 }
 
