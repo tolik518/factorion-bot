@@ -27,8 +27,7 @@ Follow these steps to set up and run the Factorion bot on your local machine and
 
 ## Prerequisites
 - **Rust** (latest stable version) - [Install Rust](https://www.rust-lang.org/tools/install)
-- **Cargo** - This comes installed with Rust.
-- **Reddit Account** - To create a bot, you'll need a Reddit account. [Reddit](https://www.reddit.com/)
+- **Reddit Account** - To run the bot, you'll need a Reddit account. [Reddit](https://www.reddit.com/)
   
 ## Reddit API Credentials
 ###### You can checkout [Reddit API Documentation](https://www.reddit.com/dev/api) to checkout all the different endpoints you can access. 
