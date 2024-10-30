@@ -44,7 +44,10 @@ Follow these steps to set up and run the Factorion bot on your local machine and
    - **App type**: Select **Script**.
    - **Redirect URI**: Use `http://localhost:8080` (or any URI; it’s not used for script bots).
      
+<details>
+<summary>Screenshot</summary>
 ![image](https://github.com/user-attachments/assets/2450994a-14cf-4f46-9f71-518ceb0c59f5)
+</details>
 
 4. After creating the app, you'll receive:
    - `client_id` (listed under the app name)
