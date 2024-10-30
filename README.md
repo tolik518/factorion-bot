@@ -70,6 +70,7 @@ CLIENT_ID=<your_client_id>
 CLIENT_SECRET=<your_client_secret>
 USERNAME=<reddit_app_username>
 PASSWORD=<reddit_app_password>
+SUBREDDITS=<subreddits>
 ```
 
 Replace `<your_client_id>`, `<your_client_secret>`, `<reddit_app_username>`, and `<reddit_app_password>` with the values you received from the Reddit App creation.
