@@ -124,11 +124,20 @@ mod test {
     }
 
     #[test]
-    fn test_comment_new_big_number() {
+    fn test_comment_new_big_number_and_normal_number() {
         let comment = Comment::new("This is a test comment with a factorial of 555555555555555555555555555555555! and 6!", "123");
         assert_eq!(comment.id, "123");
         assert_eq!(comment.factorial_list, vec![(6, 720.to_bigint().unwrap())]);
         assert_eq!(comment.status, vec![Status::NumberTooBig, Status::FactorialsFound]);
+    }
+
+    #[test]
+    fn test_comment_new_very_big_number() {
+        let very_big_number = "9".repeat(10_000) + "!";
+        let comment = Comment::new(&very_big_number, "123");
+        assert_eq!(comment.id, "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(comment.status, vec![Status::NumberTooBig, Status::NoFactorial]);
     }
 
     #[test]
