@@ -35,7 +35,10 @@ Follow these steps to set up and run the Factorion bot on your local machine and
 1. We need `Application ID` and `Secret Key` so that Reddit can know about our app. [preferences/apps](https://www.reddit.com/prefs/apps)
 2. Click the <b>are you a Developer?</b> button to start setting up the bot.
 
+<details>
+<summary>Screenshot</summary>
 ![image](https://github.com/user-attachments/assets/140056ac-91ce-4178-8703-19451357adce)
+</details>
 
 3. Fill in the required details:
    - **Name**: Choose a name for your bot.
