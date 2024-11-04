@@ -70,10 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!(" -> {:?}", comment.factorial_list);
                 continue;
             }
-            if status_set.contains(&Status::ReplyWouldBeTooLong) {
-                println!(" -> {:?}", comment.factorial_list);
-                continue;
-            }
+
             if status_set.contains(&Status::AlreadyReplied) {
                 println!(" [already replied] ");
                 continue;
