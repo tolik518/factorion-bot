@@ -11,6 +11,7 @@ use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
 mod reddit_api;
+mod math;
 
 const API_COMMENT_COUNT: u32 = 100;
 const SLEEP_DURATION: u64 = 60;
