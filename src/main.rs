@@ -58,8 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let comment_id = comment.id.clone();
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
             let should_answer = (status_set.contains(&Status::FactorialsFound)
-                && status_set.contains(&Status::NotReplied)
-                && !status_set.contains(&Status::ReplyWouldBeTooLong));
+                && status_set.contains(&Status::NotReplied));
 
             if status_set.contains(&Status::NoFactorial) {
                 continue;
