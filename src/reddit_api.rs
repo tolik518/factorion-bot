@@ -1,14 +1,14 @@
 #![allow(unused_parens)]
 #![allow(deprecated)] // base64::encode is deprecated
 
-use crate::reddit_api::comment::{Comment, Status, MAX_COMMENT_LENGTH};
+use crate::reddit_comment::{RedditComment, Status, MAX_COMMENT_LENGTH};
+use base64::engine::general_purpose::STANDARD_NO_PAD;
+use base64::Engine;
 use dotenv::dotenv;
 use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Error, Response};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
-
-pub(crate) mod comment;
 
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
@@ -52,7 +52,7 @@ impl RedditClient {
         subreddit: &str,
         limit: u32,
         already_replied_to_comments: &[String],
-    ) -> Result<Vec<Comment>, ()> {
+    ) -> Result<Vec<RedditComment>, ()> {
         let response = self
             .client
             .get(format!(
@@ -75,7 +75,7 @@ impl RedditClient {
 
     pub(crate) async fn reply_to_comment(
         &self,
-        comment: Comment,
+        comment: RedditComment,
         reply: &str,
     ) -> Result<(), Error> {
         let params = json!({
@@ -181,7 +181,30 @@ impl RedditClient {
 
         let response = response.json::<TokenResponse>().await?;
 
+        println!(
+            "Got token-response: {:#?}",
+            Self::get_expiration_time_from_jwt(&response.access_token)
+        );
+
         Ok(response.access_token)
+    }
+
+    fn get_expiration_time_from_jwt(jwt: &str) -> f64 {
+        let jwt = jwt.split('.').collect::<Vec<&str>>();
+        let jwt_payload = jwt[1];
+        let jwt_payload = STANDARD_NO_PAD
+            .decode(jwt_payload.as_bytes())
+            .expect("Failed to decode jwt payload");
+
+        let jwt_payload =
+            String::from_utf8(jwt_payload).expect("Failed to convert jwt payload to string");
+
+        let jwt_payload =
+            from_str::<Value>(&jwt_payload).expect("Failed to convert jwt payload to json");
+
+        let exp_unixtime = jwt_payload["exp"].as_f64().unwrap_or_default();
+
+        exp_unixtime
     }
 
     fn check_response_status(response: &Response) -> Result<(), ()> {
@@ -207,7 +230,7 @@ impl RedditClient {
     async fn extract_comments(
         response: Response,
         already_replied_to_comments: &[String],
-    ) -> Result<Vec<Comment>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<RedditComment>, Box<dyn std::error::Error>> {
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
             .as_array()
@@ -223,7 +246,7 @@ impl RedditClient {
                 .unwrap_or_default()
                 .to_string();
 
-            let mut comment = Comment::new(body, &comment_id);
+            let mut comment = RedditComment::new(body, &comment_id);
 
             // set some statuses
             if !comment.status.contains(&Status::ReplyWouldBeTooLong)

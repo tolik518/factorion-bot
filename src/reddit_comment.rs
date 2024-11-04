@@ -1,16 +1,16 @@
 #![allow(unused_parens)]
 
-use num_bigint::BigInt;
-use num_traits::{ToPrimitive};
-use regex::Regex;
 use crate::math;
+use num_bigint::BigInt;
+use num_traits::ToPrimitive;
+use regex::Regex;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
 const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 
-pub(crate) struct Comment {
+pub(crate) struct RedditComment {
     pub(crate) id: String,
     pub(crate) factorial_list: Vec<(i64, BigInt)>,
     pub(crate) status: Vec<Status>,
@@ -26,7 +26,7 @@ pub(crate) enum Status {
     FactorialsFound,
 }
 
-impl Comment {
+impl RedditComment {
     pub(crate) fn new(body: &str, id: &str) -> Self {
         let factorial_regex = Regex::new(r"\b(\d+)!\B").expect("Invalid factorial regex");
         let mut factorial_list = Vec::new();
@@ -60,7 +60,7 @@ impl Comment {
             status.push(Status::ReplyWouldBeTooLong);
         }
 
-        Comment {
+        RedditComment {
             id: id.to_string(),
             factorial_list,
             status,
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn test_comment_new() {
-        let comment = Comment::new(
+        let comment = RedditComment::new(
             "This is a test comment with a factorial of 5! and 6!",
             "123",
         );
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_comment_new_big_number_and_normal_number() {
-        let comment = Comment::new(
+        let comment = RedditComment::new(
             "This is a test comment with a factorial of 555555555555555555555555555555555! and 6!",
             "123",
         );
@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn test_comment_new_very_big_number() {
         let very_big_number = "9".repeat(10_000) + "!";
-        let comment = Comment::new(&very_big_number, "123");
+        let comment = RedditComment::new(&very_big_number, "123");
         assert_eq!(comment.id, "123");
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(
@@ -136,17 +136,20 @@ mod tests {
 
     #[test]
     fn test_add_status() {
-        let mut comment = Comment::new(
+        let mut comment = RedditComment::new(
             "This is a test comment with a factorial of 5! and 6!",
             "123",
         );
         comment.add_status(Status::NotReplied);
-        assert_eq!(comment.status, vec![Status::FactorialsFound, Status::NotReplied]);
+        assert_eq!(
+            comment.status,
+            vec![Status::FactorialsFound, Status::NotReplied]
+        );
     }
 
     #[test]
     fn test_get_reply() {
-        let comment = Comment {
+        let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap())],
             status: vec![Status::FactorialsFound],
@@ -158,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_get_reply_too_long() {
-        let comment = Comment {
+        let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![
                 (5, 120.to_bigint().unwrap()),
@@ -174,10 +177,8 @@ mod tests {
 
     #[test]
     fn test_get_reply_too_long_from_new_comment() {
-        let comment = Comment::new(
-            "This is a test comment with a factorial of 4000!",
-            "1234"
-        );
+        let comment =
+            RedditComment::new("This is a test comment with a factorial of 4000!", "1234");
 
         let reply = comment.get_reply();
         assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of the number(s) [4000], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");

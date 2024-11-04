@@ -1,7 +1,7 @@
 #![allow(unused_parens)]
 
-use reddit_api::comment::Status;
 use reddit_api::RedditClient;
+use reddit_comment::Status;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
@@ -10,8 +10,9 @@ use std::time::SystemTime;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
-mod reddit_api;
 mod math;
+mod reddit_api;
+pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const SLEEP_DURATION: u64 = 60;
