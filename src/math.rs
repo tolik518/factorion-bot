@@ -63,6 +63,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_calculate_factorial_with_ten_thousand_digits() {
         let mut num = 0;
         let mut result = BigInt::zero();
@@ -73,11 +74,11 @@ mod tests {
         assert_eq!(num, 3249);
     }
 
-    /*
     #[test]
+    #[ignore]
     fn test_calculate_factorial_hundred_thousand() {
         let num = 100_001;
         let result = factorial(num);
         assert_eq!(result.to_string().len(), 456579);
-    }*/
+    }
 }

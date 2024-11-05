@@ -24,6 +24,8 @@ pub(crate) enum Status {
     NoFactorial,
     ReplyWouldBeTooLong,
     FactorialsFound,
+    NFactorial(usize),
+    DecimalFactorial,
 }
 
 impl RedditComment {
@@ -106,6 +108,48 @@ mod tests {
             vec![(5, 120.to_bigint().unwrap()), (6, 720.to_bigint().unwrap())]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
+    }
+
+    #[test]
+    fn test_comment_new_nfactorial() {
+        let comment = RedditComment::new("This is a test comment with an n-factorial 6!!", "123");
+        assert_eq!(comment.factorial_list, vec![(6, 48.to_bigint().unwrap())]);
+        assert_eq!(
+            comment.status,
+            vec![Status::NFactorial(2), Status::FactorialsFound]
+        );
+    }
+
+    #[test]
+    fn test_comment_new_spoiler() {
+        let comment = RedditComment::new(">!This is a spoiler comment 5!<", "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(comment.status, vec![Status::NoFactorial]);
+    }
+
+    #[test]
+    fn test_comment_new_exclamations_one() {
+        let comment = RedditComment::new("This is a test with exclamation mark stuff!!!1!", "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(comment.status, vec![Status::NoFactorial]);
+    }
+
+    #[test]
+    fn test_comment_new_exclamations_eleven() {
+        let comment = RedditComment::new("This is a test with exclamation mark stuff!!!11!", "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(comment.status, vec![Status::NoFactorial]);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_comment_new_decimals() {
+        let comment = RedditComment::new("This is a test comment with decimal number 0.5!", "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(
+            comment.status,
+            vec![Status::DecimalFactorial, Status::FactorialsFound]
+        );
     }
 
     #[test]
