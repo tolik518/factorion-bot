@@ -202,9 +202,7 @@ impl RedditClient {
         let jwt_payload =
             from_str::<Value>(&jwt_payload).expect("Failed to convert jwt payload to json");
 
-        let exp_unixtime = jwt_payload["exp"].as_f64().unwrap_or_default();
-
-        exp_unixtime
+        jwt_payload["exp"].as_f64().unwrap_or_default()
     }
 
     fn check_response_status(response: &Response) -> Result<(), ()> {

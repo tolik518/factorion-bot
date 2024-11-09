@@ -26,13 +26,12 @@ fn multifactorial_recursive(n: i64, k: i64, low_i: i64, high_i: i64) -> BigInt {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use super::*;
     use num_bigint::ToBigInt;
     use num_traits::Zero;
+    use std::str::FromStr;
     #[test]
     fn test_calculate_multi_single_factorial() {
         assert_eq!(factorial(0, 1), 1.to_bigint().unwrap());
@@ -61,7 +60,13 @@ mod tests {
         assert_eq!(factorial(8, 2), 384.to_bigint().unwrap());
         assert_eq!(factorial(9, 2), 945.to_bigint().unwrap());
         assert_eq!(factorial(10, 2), 3840.to_bigint().unwrap());
-        assert_eq!(factorial(100, 2), BigInt::from_str("34243224702511976248246432895208185975118675053719198827915654463488000000000000").unwrap());
+        assert_eq!(
+            factorial(100, 2),
+            BigInt::from_str(
+                "34243224702511976248246432895208185975118675053719198827915654463488000000000000"
+            )
+            .unwrap()
+        );
     }
 
     #[test]
@@ -79,9 +84,12 @@ mod tests {
         assert_eq!(factorial(10, 3), 280.to_bigint().unwrap());
 
         assert_eq!(factorial(20, 3), 4188800.to_bigint().unwrap());
-        assert_eq!(factorial(22, 3), 24344320 .to_bigint().unwrap());
+        assert_eq!(factorial(22, 3), 24344320.to_bigint().unwrap());
         assert_eq!(factorial(25, 3), 608608000.to_bigint().unwrap());
-        assert_eq!(factorial(100, 3), BigInt::from_str("174548867015437739741494347897360069928419328000000000").unwrap());
+        assert_eq!(
+            factorial(100, 3),
+            BigInt::from_str("174548867015437739741494347897360069928419328000000000").unwrap()
+        );
     }
 
     #[test]
@@ -101,7 +109,10 @@ mod tests {
         assert_eq!(factorial(20, 4), 122880.to_bigint().unwrap());
         assert_eq!(factorial(22, 4), 665280.to_bigint().unwrap());
         assert_eq!(factorial(25, 4), 5221125.to_bigint().unwrap());
-        assert_eq!(factorial(100, 4), BigInt::from_str("17464069942802730897824646237782016000000").unwrap());
+        assert_eq!(
+            factorial(100, 4),
+            BigInt::from_str("17464069942802730897824646237782016000000").unwrap()
+        );
     }
 
     #[test]
@@ -122,7 +133,10 @@ mod tests {
         assert_eq!(factorial(20, 5), 15000.to_bigint().unwrap());
         assert_eq!(factorial(22, 5), 62832.to_bigint().unwrap());
         assert_eq!(factorial(25, 5), 375000.to_bigint().unwrap());
-        assert_eq!(factorial(100, 5), BigInt::from_str("232019615953125000000000000000000").unwrap());
+        assert_eq!(
+            factorial(100, 5),
+            BigInt::from_str("232019615953125000000000000000000").unwrap()
+        );
     }
 
     #[test]

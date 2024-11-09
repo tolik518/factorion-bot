@@ -1,14 +1,12 @@
-
 use crate::math;
+use fancy_regex::Regex;
 use num_bigint::BigInt;
 use num_traits::{One, ToPrimitive};
-use fancy_regex::Regex;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
 const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
-
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
@@ -37,7 +35,8 @@ pub(crate) enum Status {
 
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str) -> Self {
-        let factorial_regex = Regex::new(r"(?<![.!?\d])\b(\d+)(!+)(?![<\d])").expect("Invalid factorial regex");
+        let factorial_regex =
+            Regex::new(r"(?<![.!?\d])\b(\d+)(!+)(?![<\d])").expect("Invalid factorial regex");
         let mut factorial_list: Vec<Factorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
@@ -58,13 +57,11 @@ impl RedditComment {
             } else {
                 let num = num.to_i64().expect("Failed to convert BigInt to i64");
                 let factorial = math::factorial(num, exclamation_count as i64);
-                factorial_list.push(
-                    Factorial {
-                        number: num,
-                        level: exclamation_count as i64,
-                        factorial,
-                    }
-                );
+                factorial_list.push(Factorial {
+                    number: num,
+                    level: exclamation_count as i64,
+                    factorial,
+                });
             }
         }
 
@@ -89,29 +86,31 @@ impl RedditComment {
         }
     }
 
-    fn factorials_are_too_long(factorial_list: &Vec<Factorial>) -> bool {
-        factorial_list.iter().any(|Factorial { number, level, .. }|
-             *level == 1 && *number > 3249 ||
-             *level == 2 && *number > 5982 ||
-             *level == 3 && *number > 8572 ||
-             *level == 4 && *number > 11077 ||
-             *level == 5 && *number > 13522 ||
-             *level == 6 && *number > 15920 ||
-             *level == 7 && *number > 18282 ||
-             *level == 8 && *number > 20613 ||
-             *level == 9 && *number > 22920 ||
-             *level == 10 && *number > 25208 ||
-             *level == 11 && *number > 27479 ||
-             *level == 12 && *number > 29735 ||
-             *level == 13 && *number > 31977 ||
-             *level == 14 && *number > 34207 ||
-             *level == 15 && *number > 36426 ||
-             *level == 16 && *number > 38635 ||
-             *level == 17 && *number > 40835 ||
-             *level == 18 && *number > 43027 ||
-             *level == 19 && *number > 45212 ||
-             *level == 20 && *number > 47390
-        )
+    fn factorials_are_too_long(factorial_list: &[Factorial]) -> bool {
+        factorial_list
+            .iter()
+            .any(|Factorial { number, level, .. }| {
+                *level == 1 && *number > 3249
+                    || *level == 2 && *number > 5982
+                    || *level == 3 && *number > 8572
+                    || *level == 4 && *number > 11077
+                    || *level == 5 && *number > 13522
+                    || *level == 6 && *number > 15920
+                    || *level == 7 && *number > 18282
+                    || *level == 8 && *number > 20613
+                    || *level == 9 && *number > 22920
+                    || *level == 10 && *number > 25208
+                    || *level == 11 && *number > 27479
+                    || *level == 12 && *number > 29735
+                    || *level == 13 && *number > 31977
+                    || *level == 14 && *number > 34207
+                    || *level == 15 && *number > 36426
+                    || *level == 16 && *number > 38635
+                    || *level == 17 && *number > 40835
+                    || *level == 18 && *number > 43027
+                    || *level == 19 && *number > 45212
+                    || *level == 20 && *number > 47390
+            })
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {
@@ -127,7 +126,12 @@ impl RedditComment {
             }
             reply.push_str(&format!("Sorry bro, but if I calculate the factorial(s) of the number(s) {:?}, the reply would be too long for reddit :(\n\n", numbers));
         } else {
-            for (Factorial { number, level, factorial }) in self.factorial_list.iter() {
+            for (Factorial {
+                number,
+                level,
+                factorial,
+            }) in self.factorial_list.iter()
+            {
                 let factorial_level_string = match level {
                     1 => "",
                     2 => "Double-",
@@ -181,10 +185,7 @@ impl RedditComment {
 
                 reply.push_str(&format!(
                     "{}{}{} is {} \n\n",
-                    factorial_level_string,
-                    PLACEHOLDER,
-                    number,
-                    factorial
+                    factorial_level_string, PLACEHOLDER, number, factorial
                 ));
             }
         }
@@ -219,8 +220,6 @@ mod tests {
                     factorial: 720.to_bigint().unwrap(),
                 },
             ],
-
-
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
     }
@@ -230,13 +229,11 @@ mod tests {
         let comment = RedditComment::new("This is a test comment with an n-factorial 6!!", "123");
         assert_eq!(
             comment.factorial_list,
-            vec![
-                Factorial {
-                    number: 6,
-                    level: 2,
-                    factorial: 48.to_bigint().unwrap(),
-                }
-            ]
+            vec![Factorial {
+                number: 6,
+                level: 2,
+                factorial: 48.to_bigint().unwrap(),
+            }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
     }
@@ -246,13 +243,11 @@ mod tests {
         let comment = RedditComment::new("This is a test comment with an n-factorial 6!!!", "123");
         assert_eq!(
             comment.factorial_list,
-            vec![
-                Factorial {
-                    number: 6,
-                    level: 3,
-                    factorial: 18.to_bigint().unwrap(),
-                }
-            ]
+            vec![Factorial {
+                number: 6,
+                level: 3,
+                factorial: 18.to_bigint().unwrap(),
+            }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
     }
@@ -298,12 +293,11 @@ mod tests {
         assert_eq!(comment.id, "123");
         assert_eq!(
             comment.factorial_list,
-            vec![
-                Factorial{
-                    number: 6,
-                    level: 1,
-                    factorial: 720.to_bigint().unwrap()}
-            ]
+            vec![Factorial {
+                number: 6,
+                level: 1,
+                factorial: 720.to_bigint().unwrap()
+            }]
         );
         assert_eq!(
             comment.status,
@@ -336,18 +330,15 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_get_reply_for_multifactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
-            factorial_list: vec![
-                Factorial{
-                    number: 10,
-                    level: 3,
-                    factorial: 280.to_bigint().unwrap(),
-                }
-            ],
+            factorial_list: vec![Factorial {
+                number: 10,
+                level: 3,
+                factorial: 280.to_bigint().unwrap(),
+            }],
             status: vec![Status::FactorialsFound],
         };
 
@@ -355,22 +346,21 @@ mod tests {
         assert_eq!(reply, "Triple-Factorial of 10 is 280 \n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 
-
     #[test]
     fn test_get_reply_for_multiple() {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![
-               Factorial{
+                Factorial {
                     number: 5,
                     level: 1,
                     factorial: 120.to_bigint().unwrap(),
                 },
-                Factorial{
+                Factorial {
                     number: 6,
                     level: 1,
-                    factorial: 720.to_bigint().unwrap()
-                }
+                    factorial: 720.to_bigint().unwrap(),
+                },
             ],
             status: vec![Status::FactorialsFound],
         };
@@ -384,12 +374,12 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![
-                Factorial{
+                Factorial {
                     number: 5,
                     level: 1,
                     factorial: 120.to_bigint().unwrap(),
                 },
-                Factorial{
+                Factorial {
                     number: 6,
                     level: 1,
                     factorial: 720.to_bigint().unwrap(),
@@ -397,8 +387,8 @@ mod tests {
                 Factorial {
                     number: 3249,
                     level: 1,
-                    factorial: math::factorial(3249, 1)
-                }
+                    factorial: math::factorial(3249, 1),
+                },
             ],
             status: vec![Status::FactorialsFound, Status::ReplyWouldBeTooLong],
         };
