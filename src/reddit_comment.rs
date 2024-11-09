@@ -78,7 +78,7 @@ impl RedditComment {
         }
 
         // rewrite for Factorial struct
-        if factorial_list.iter().any(|Factorial { number, .. }| *number > 3249) {
+        if RedditComment::factorials_are_too_long(&factorial_list) {
             status.push(Status::ReplyWouldBeTooLong);
         }
 
@@ -87,6 +87,31 @@ impl RedditComment {
             factorial_list,
             status,
         }
+    }
+
+    fn factorials_are_too_long(factorial_list: &Vec<Factorial>) -> bool {
+        factorial_list.iter().any(|Factorial { number, level, .. }|
+             *level == 1 && *number > 3249 ||
+             *level == 2 && *number > 5982 ||
+             *level == 3 && *number > 8572 ||
+             *level == 4 && *number > 11077 ||
+             *level == 5 && *number > 13522 ||
+             *level == 6 && *number > 15920 ||
+             *level == 7 && *number > 18282 ||
+             *level == 8 && *number > 20613 ||
+             *level == 9 && *number > 22920 ||
+             *level == 10 && *number > 25208 ||
+             *level == 11 && *number > 27479 ||
+             *level == 12 && *number > 29735 ||
+             *level == 13 && *number > 31977 ||
+             *level == 14 && *number > 34207 ||
+             *level == 15 && *number > 36426 ||
+             *level == 16 && *number > 38635 ||
+             *level == 17 && *number > 40835 ||
+             *level == 18 && *number > 43027 ||
+             *level == 19 && *number > 45212 ||
+             *level == 20 && *number > 47390
+        )
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {

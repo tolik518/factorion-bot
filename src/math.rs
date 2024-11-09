@@ -147,7 +147,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_calculate_factorial_with_ten_thousand_digits() {
         let mut num = 0;
         let mut result = BigInt::zero();
