@@ -2,8 +2,8 @@
 
 use crate::math;
 use num_bigint::BigInt;
-use num_traits::ToPrimitive;
-use regex::Regex;
+use num_traits::{One, ToPrimitive};
+use fancy_regex::Regex;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
@@ -24,27 +24,33 @@ pub(crate) enum Status {
     NoFactorial,
     ReplyWouldBeTooLong,
     FactorialsFound,
-    NFactorial(usize),
+    #[allow(dead_code)]
     DecimalFactorial,
 }
 
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str) -> Self {
-        let factorial_regex = Regex::new(r"\b(\d+)!\B").expect("Invalid factorial regex");
+        let factorial_regex = Regex::new(r"(?<![.!?\d])\b(\d+)(!+)(?![<\d])").expect("Invalid factorial regex");
         let mut factorial_list = Vec::new();
         let mut status: Vec<Status> = vec![];
 
         for regex_capture in factorial_regex.captures_iter(body) {
+            let regex_capture = regex_capture.expect("Failed to capture regex");
+
             let num = regex_capture[1]
                 .parse::<BigInt>()
                 .expect("Failed to parse number");
 
+            let exclamation_count = regex_capture[2].len();
+
             // Check if the number is within a reasonable range to compute
             if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
                 status.push(Status::NumberTooBig);
+            } else if num == BigInt::one() {
+                continue;
             } else {
                 let num = num.to_i64().expect("Failed to convert BigInt to i64");
-                let factorial = math::factorial(num);
+                let factorial = math::factorial(num, exclamation_count as i64);
                 factorial_list.push((num, factorial.clone()));
             }
         }
@@ -111,13 +117,17 @@ mod tests {
     }
 
     #[test]
-    fn test_comment_new_nfactorial() {
+    fn test_comment_new_double_factorial() {
         let comment = RedditComment::new("This is a test comment with an n-factorial 6!!", "123");
         assert_eq!(comment.factorial_list, vec![(6, 48.to_bigint().unwrap())]);
-        assert_eq!(
-            comment.status,
-            vec![Status::NFactorial(2), Status::FactorialsFound]
-        );
+        assert_eq!(comment.status, vec![Status::FactorialsFound]);
+    }
+
+    #[test]
+    fn test_comment_new_triple_factorial() {
+        let comment = RedditComment::new("This is a test comment with an n-factorial 6!!!", "123");
+        assert_eq!(comment.factorial_list, vec![(6, 18.to_bigint().unwrap())]);
+        assert_eq!(comment.status, vec![Status::FactorialsFound]);
     }
 
     #[test]
@@ -210,7 +220,7 @@ mod tests {
             factorial_list: vec![
                 (5, 120.to_bigint().unwrap()),
                 (6, 720.to_bigint().unwrap()),
-                (3249, math::factorial(3249)),
+                (3249, math::factorial(3249, 1)),
             ],
             status: vec![Status::FactorialsFound, Status::ReplyWouldBeTooLong],
         };
