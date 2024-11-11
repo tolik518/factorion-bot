@@ -4,6 +4,7 @@
 use crate::reddit_comment::{RedditComment, Status, MAX_COMMENT_LENGTH};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use dotenv::dotenv;
 use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Error, Response};
@@ -15,11 +16,17 @@ struct TokenResponse {
     access_token: String,
 }
 
+struct Token {
+    access_token: String,
+    expiration_time: DateTime<Utc>,
+}
+
 const REDDIT_TOKEN_URL: &str = "https://ssl.reddit.com/api/v1/access_token";
 const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
 
 pub(crate) struct RedditClient {
     client: Client,
+    token: Token,
 }
 
 impl RedditClient {
@@ -28,31 +35,37 @@ impl RedditClient {
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
 
-        //TODO: get token every 24 hours
-        let token = format!(
-            "bearer {}",
-            RedditClient::get_reddit_token(client_id, secret).await?
-        );
+        let token: Token = RedditClient::get_reddit_token(client_id, secret).await?;
+        let formatted_token = format!("bearer {}", token.access_token);
         let user_agent = format!(
             "factorion-bot:v{} (by /u/tolik518)",
             env!("CARGO_PKG_VERSION")
         );
 
         let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, token.parse()?);
+        headers.insert(AUTHORIZATION, formatted_token.parse()?);
         headers.insert(USER_AGENT, user_agent.parse()?);
 
         let client = Client::builder().default_headers(headers).build()?;
 
-        Ok(Self { client })
+        Ok(Self { client, token })
     }
 
     pub(crate) async fn get_comments(
-        &self,
+        &mut self,
         subreddit: &str,
         limit: u32,
         already_replied_to_comments: &[String],
     ) -> Result<Vec<RedditComment>, ()> {
+        if self.is_token_expired() {
+            self.token = RedditClient::get_reddit_token(
+                std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set."),
+                std::env::var("APP_SECRET").expect("APP_SECRET must be set."),
+            )
+            .await
+            .expect("Failed to get token");
+        }
+
         let response = self
             .client
             .get(format!(
@@ -71,6 +84,16 @@ impl RedditClient {
             ),
             Err(_) => Err(()),
         }
+    }
+
+    fn is_token_expired(&self) -> bool {
+        let now = Utc::now();
+        println!("Now: {:#?}", now);
+        println!("Expiration time: {:#?}", self.token.expiration_time);
+        let expiired = now > self.token.expiration_time;
+        println!("Token expired: {:#?}", expiired);
+
+        expiired
     }
 
     pub(crate) async fn reply_to_comment(
@@ -144,7 +167,7 @@ impl RedditClient {
     async fn get_reddit_token(
         client_id: String,
         client_secret: String,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<Token, Box<dyn std::error::Error>> {
         let password = std::env::var("REDDIT_PASSWORD").expect("REDDIT_PASSWORD must be set.");
         let username = std::env::var("REDDIT_USERNAME").expect("REDDIT_USERNAME must be set.");
 
@@ -181,15 +204,17 @@ impl RedditClient {
 
         let response = response.json::<TokenResponse>().await?;
 
-        println!(
-            "Got token-response: {:#?}",
-            Self::get_expiration_time_from_jwt(&response.access_token)
-        );
+        let token_expiration_time = Self::get_expiration_time_from_jwt(&response.access_token);
 
-        Ok(response.access_token)
+        println!("Got token-response: {:#?}", token_expiration_time);
+
+        Ok(Token {
+            access_token: response.access_token,
+            expiration_time: token_expiration_time,
+        })
     }
 
-    fn get_expiration_time_from_jwt(jwt: &str) -> f64 {
+    fn get_expiration_time_from_jwt(jwt: &str) -> DateTime<Utc> {
         let jwt = jwt.split('.').collect::<Vec<&str>>();
         let jwt_payload = jwt[1];
         let jwt_payload = STANDARD_NO_PAD
@@ -202,7 +227,13 @@ impl RedditClient {
         let jwt_payload =
             from_str::<Value>(&jwt_payload).expect("Failed to convert jwt payload to json");
 
-        jwt_payload["exp"].as_f64().unwrap_or_default()
+        let exp = jwt_payload["exp"]
+            .as_f64()
+            .expect("Failed to get exp field");
+        let naive = NaiveDateTime::from_timestamp(exp as i64, 0);
+        let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
+
+        datetime
     }
 
     fn check_response_status(response: &Response) -> Result<(), ()> {

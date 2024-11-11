@@ -21,7 +21,7 @@ const FILE_PATH: &str = "comment_ids.txt";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let reddit_client = RedditClient::new().await?;
+    let mut reddit_client = RedditClient::new().await?;
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
     let subreddits = subreddits.as_str();
 
