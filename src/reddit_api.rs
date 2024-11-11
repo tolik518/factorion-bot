@@ -1,4 +1,3 @@
-#![allow(unused_parens)]
 #![allow(deprecated)] // base64::encode is deprecated
 
 use crate::reddit_comment::{RedditComment, Status, MAX_COMMENT_LENGTH};

@@ -110,6 +110,26 @@ impl RedditComment {
                     || *level == 18 && *number > 43027
                     || *level == 19 && *number > 45212
                     || *level == 20 && *number > 47390
+                    || *level == 21 && *number > 49562
+                    || *level == 22 && *number > 51728
+                    || *level == 23 && *number > 53889
+                    || *level == 24 && *number > 56045
+                    || *level == 25 && *number > 58197
+                    || *level == 26 && *number > 60345
+                    || *level == 27 && *number > 62489
+                    || *level == 28 && *number > 64630
+                    || *level == 29 && *number > 66768
+                    || *level == 30 && *number > 68903
+                    || *level == 31 && *number > 71036
+                    || *level == 32 && *number > 73167
+                    || *level == 33 && *number > 75296
+                    || *level == 34 && *number > 77423
+                    || *level == 35 && *number > 79548
+                    || *level == 36 && *number > 81672
+                    || *level == 37 && *number > 83794
+                    || *level == 38 && *number > 85915
+                    || *level == 39 && *number > 88035
+                    || *level == 40 && *number > 90154
             })
     }
 
