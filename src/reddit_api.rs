@@ -5,7 +5,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use dotenv::dotenv;
-use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Error, Response};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
@@ -35,14 +35,12 @@ impl RedditClient {
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
 
         let token: Token = RedditClient::get_reddit_token(client_id, secret).await?;
-        let formatted_token = format!("bearer {}", token.access_token);
         let user_agent = format!(
             "factorion-bot:v{} (by /u/tolik518)",
             env!("CARGO_PKG_VERSION")
         );
 
         let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, formatted_token.parse()?);
         headers.insert(USER_AGENT, user_agent.parse()?);
 
         let client = Client::builder().default_headers(headers).build()?;
@@ -57,6 +55,7 @@ impl RedditClient {
         already_replied_to_comments: &[String],
     ) -> Result<Vec<RedditComment>, ()> {
         if self.is_token_expired() {
+            println!("Token expired, getting new token");
             self.token = RedditClient::get_reddit_token(
                 std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set."),
                 std::env::var("APP_SECRET").expect("APP_SECRET must be set."),
@@ -71,6 +70,7 @@ impl RedditClient {
                 "https://oauth.reddit.com/r/{}/comments/?limit={}",
                 subreddit, limit
             ))
+            .bearer_auth(&self.token.access_token)
             .send()
             .await
             .expect("Failed to get comments");
@@ -87,12 +87,15 @@ impl RedditClient {
 
     fn is_token_expired(&self) -> bool {
         let now = Utc::now();
-        println!("Now: {:#?}", now);
-        println!("Expiration time: {:#?}", self.token.expiration_time);
-        let expiired = now > self.token.expiration_time;
-        println!("Token expired: {:#?}", expiired);
+        let expired = now > self.token.expiration_time;
 
-        expiired
+        println!(
+            "Now: {:#?} | Expiration time: {:#?}",
+            now, self.token.expiration_time
+        );
+        println!("Token expired: {:#?}", expired);
+
+        expired
     }
 
     pub(crate) async fn reply_to_comment(
@@ -156,10 +159,9 @@ impl RedditClient {
     }
 
     fn is_success(response_text: &str) -> bool {
-        // convert response.text to json
         let response_json =
             from_str::<Value>(response_text).expect("Failed to convert response to json");
-        // look for the success
+
         response_json["success"].as_bool().unwrap_or(false)
     }
 
@@ -170,15 +172,10 @@ impl RedditClient {
         let password = std::env::var("REDDIT_PASSWORD").expect("REDDIT_PASSWORD must be set.");
         let username = std::env::var("REDDIT_USERNAME").expect("REDDIT_USERNAME must be set.");
 
-        let auth_value = format!(
-            "Basic {}",
-            base64::encode(format!("{}:{}", client_id, client_secret))
-        );
         let version = env!("CARGO_PKG_VERSION");
         let user_agent = format!("factorion-bot:v{version} (by /u/tolik518)");
 
         let mut headers = HeaderMap::new();
-        headers.insert(AUTHORIZATION, auth_value.parse()?);
         headers.insert(USER_AGENT, user_agent.parse()?);
         headers.insert(CONTENT_TYPE, "application/x-www-form-urlencoded".parse()?);
 
@@ -192,6 +189,7 @@ impl RedditClient {
         let response = Client::new()
             .post(REDDIT_TOKEN_URL)
             .headers(headers)
+            .basic_auth(client_id, Some(client_secret))
             .form(&params)
             .send()
             .await?;
@@ -205,7 +203,10 @@ impl RedditClient {
 
         let token_expiration_time = Self::get_expiration_time_from_jwt(&response.access_token);
 
-        println!("Got token-response: {:#?}", token_expiration_time);
+        println!(
+            "Fetched new token. Will expire: {:#?}",
+            token_expiration_time
+        );
 
         Ok(Token {
             access_token: response.access_token,

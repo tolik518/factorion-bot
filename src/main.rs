@@ -15,9 +15,8 @@ mod reddit_api;
 pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
-const SLEEP_DURATION: u64 = 60;
-
-const FILE_PATH: &str = "comment_ids.txt";
+const SLEEP_DURATION: u64 = 30;
+const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -27,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // read comment_ids from the file
     let already_replied_to_comments: String =
-        fs::read_to_string(FILE_PATH).unwrap_or("".to_string());
+        fs::read_to_string(COMMENT_IDS_FILE_PATH).unwrap_or("".to_string());
 
     if already_replied_to_comments.is_empty() {
         println!("No comment_ids found in the file");
@@ -96,7 +95,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .create(true)
             .write(true)
             .truncate(false) // This will clear the file contents if it already exists
-            .open(FILE_PATH)
+            .open(COMMENT_IDS_FILE_PATH)
             .expect("Unable to open or create file");
 
         for comment_id in already_replied_to_comments.iter() {
