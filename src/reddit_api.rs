@@ -111,14 +111,15 @@ impl RedditClient {
         let response = self
             .client
             .post(REDDIT_COMMENT_URL)
+            .bearer_auth(&self.token.access_token)
             .form(&params)
             .send()
             .await?;
 
         let response_text = &response.text().await?;
         let response_text = response_text.as_str();
-        let response_json =
-            from_str::<Value>(response_text).expect("Failed to convert response to json");
+        let response_json = from_str::<Value>(response_text)
+            .expect("Failed to convert response to json");
         let response_status_ok = RedditClient::is_success(response_text);
 
         if response_status_ok {
