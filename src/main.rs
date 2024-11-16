@@ -1,5 +1,3 @@
-#![allow(unused_parens)]
-
 use reddit_api::RedditClient;
 use reddit_comment::Status;
 use std::collections::HashSet;
@@ -58,8 +56,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         for comment in comments {
             let comment_id = comment.id.clone();
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
-            let should_answer = (status_set.contains(&Status::FactorialsFound)
-                && status_set.contains(&Status::NotReplied));
+            let should_answer = status_set.contains(&Status::FactorialsFound)
+                && status_set.contains(&Status::NotReplied);
 
             if status_set.contains(&Status::NoFactorial) {
                 continue;
@@ -90,7 +88,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!(" [unknown] ");
         }
 
-        //write comment_ids to the file
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)

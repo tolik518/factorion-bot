@@ -1,7 +1,7 @@
 use crate::math;
 use fancy_regex::Regex;
-use num_bigint::BigInt;
-use num_traits::{One, ToPrimitive};
+use num_traits::ToPrimitive;
+use rug::Integer;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
@@ -10,9 +10,9 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
-    pub(crate) number: i64,
-    pub(crate) level: i64,
-    pub(crate) factorial: BigInt,
+    pub(crate) number: u64,
+    pub(crate) level: u64,
+    pub(crate) factorial: Integer,
 }
 
 pub(crate) struct RedditComment {
@@ -36,7 +36,7 @@ pub(crate) enum Status {
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str) -> Self {
         let factorial_regex =
-            Regex::new(r"(?<![.!?\d])\b(\d+)(!+)(?![<\d])").expect("Invalid factorial regex");
+            Regex::new(r"(?<![,.!?\d])\b(\d+)(!+)(?![<\d])").expect("Invalid factorial regex");
         let mut factorial_list: Vec<Factorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
@@ -44,22 +44,25 @@ impl RedditComment {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
-                .parse::<BigInt>()
+                .parse::<Integer>()
                 .expect("Failed to parse number");
 
-            let exclamation_count = regex_capture[2].len();
+            let exclamation_count = regex_capture[2]
+                .len()
+                .to_u64()
+                .expect("Failed to convert exclamation count to u64");
 
             // Check if the number is within a reasonable range to compute
-            if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
+            if num > UPPER_CALCULATION_LIMIT {
                 status.push(Status::NumberTooBig);
-            } else if num == BigInt::one() {
+            } else if num == 1 {
                 continue;
             } else {
-                let num = num.to_i64().expect("Failed to convert BigInt to i64");
-                let factorial = math::factorial(num, exclamation_count as i64);
+                let num = num.to_u64().expect("Failed to convert BigInt to i64");
+                let factorial = math::factorial(num, exclamation_count);
                 factorial_list.push(Factorial {
                     number: num,
-                    level: exclamation_count as i64,
+                    level: exclamation_count,
                     factorial,
                 });
             }
@@ -140,17 +143,17 @@ impl RedditComment {
     pub(crate) fn get_reply(&self) -> String {
         let mut reply = String::new();
         if self.status.contains(&Status::ReplyWouldBeTooLong) {
-            let mut numbers: Vec<i64> = Vec::new();
-            for (Factorial { number, .. }) in self.factorial_list.iter() {
+            let mut numbers: Vec<u64> = Vec::new();
+            for Factorial { number, .. } in self.factorial_list.iter() {
                 numbers.push(*number);
             }
             reply.push_str(&format!("Sorry bro, but if I calculate the factorial(s) of the number(s) {:?}, the reply would be too long for reddit :(\n\n", numbers));
         } else {
-            for (Factorial {
+            for Factorial {
                 number,
                 level,
                 factorial,
-            }) in self.factorial_list.iter()
+            } in self.factorial_list.iter()
             {
                 let factorial_level_string = match level {
                     1 => "",
@@ -217,7 +220,6 @@ impl RedditComment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::ToBigInt;
 
     #[test]
     fn test_comment_new() {
@@ -232,12 +234,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: 120.to_bigint().unwrap(),
+                    factorial: Integer::from(120),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: 720.to_bigint().unwrap(),
+                    factorial: Integer::from(720),
                 },
             ],
         );
@@ -252,7 +254,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 2,
-                factorial: 48.to_bigint().unwrap(),
+                factorial: Integer::from(48),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -266,7 +268,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 3,
-                factorial: 18.to_bigint().unwrap(),
+                factorial: Integer::from(18),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -294,14 +296,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_comment_new_decimals() {
         let comment = RedditComment::new("This is a test comment with decimal number 0.5!", "123");
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(
-            comment.status,
-            vec![Status::DecimalFactorial, Status::FactorialsFound]
-        );
+        assert_eq!(comment.status, vec![Status::NoFactorial]);
+    }
+
+    #[test]
+    fn test_comment_new_comma_decimals() {
+        let comment = RedditComment::new("This is a test comment with decimal number 0,5!", "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
     #[test]
@@ -316,7 +321,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 1,
-                factorial: 720.to_bigint().unwrap()
+                factorial: Integer::from(720)
             }]
         );
         assert_eq!(
@@ -357,7 +362,7 @@ mod tests {
             factorial_list: vec![Factorial {
                 number: 10,
                 level: 3,
-                factorial: 280.to_bigint().unwrap(),
+                factorial: Integer::from(280),
             }],
             status: vec![Status::FactorialsFound],
         };
@@ -374,12 +379,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: 120.to_bigint().unwrap(),
+                    factorial: Integer::from(120),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: 720.to_bigint().unwrap(),
+                    factorial: Integer::from(720),
                 },
             ],
             status: vec![Status::FactorialsFound],
@@ -397,12 +402,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: 120.to_bigint().unwrap(),
+                    factorial: Integer::from(120),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: 720.to_bigint().unwrap(),
+                    factorial: Integer::from(720),
                 },
                 Factorial {
                     number: 3249,
