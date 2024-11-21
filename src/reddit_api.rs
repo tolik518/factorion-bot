@@ -140,9 +140,10 @@ impl RedditClient {
     }
 
     fn get_error_message(response_json: Value) -> String {
-        let jquery = response_json["jquery"]
+        let jquery: &Vec<Value> = response_json["jquery"]
             .as_array()
-            .expect("Failed to get jquery array");
+            .unwrap_or_default();
+
         // search for arrays which have array, which have a string value that's not empty
         let mut error_message = jquery
             .iter()

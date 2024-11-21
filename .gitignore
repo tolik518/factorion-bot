@@ -1,3 +1,5 @@
 /target
 /.env
 /.idea/
+cargo-test-*
+comment_ids.txt
