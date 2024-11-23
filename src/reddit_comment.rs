@@ -36,7 +36,7 @@ pub(crate) enum Status {
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str) -> Self {
         let factorial_regex =
-            Regex::new(r"(?<![,.!?\d])\b(\d+)(!+)(?![<\d])").expect("Invalid factorial regex");
+            Regex::new(r"(?<![,.!?\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex");
         let mut factorial_list: Vec<Factorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
@@ -280,6 +280,14 @@ mod tests {
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
+
+    #[test]
+    fn test_comment_new_spoiler_html_encoded() {
+        let comment = RedditComment::new("&gt;!This is a spoiler comment 5!&lt;", "123");
+        assert_eq!(comment.factorial_list, vec![]);
+        assert_eq!(comment.status, vec![Status::NoFactorial]);
+    }
+
 
     #[test]
     fn test_comment_new_exclamations_one() {
