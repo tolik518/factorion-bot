@@ -288,7 +288,6 @@ mod tests {
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
-
     #[test]
     fn test_comment_new_exclamations_one() {
         let comment = RedditComment::new("This is a test with exclamation mark stuff!!!1!", "123");

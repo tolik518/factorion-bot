@@ -1,7 +1,7 @@
 use rug::integer::IntegerExt64;
 use rug::{Complete, Integer};
 
-pub fn factorial(n: u64, k: u64) -> Integer  {
+pub fn factorial(n: u64, k: u64) -> Integer {
     Integer::factorial_m_64(n, k).complete()
 }
 
