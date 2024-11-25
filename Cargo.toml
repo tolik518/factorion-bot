@@ -9,7 +9,7 @@ edition = "2021"
 fancy-regex = "^0.14.0"
 reqwest = { version = "^0.12.9", features = ["json"] }
 serde = { version = "^1.0.215", features = ["derive"] }
-serde_json = "^1.0.132"
+serde_json = "^1.0.133"
 tokio = { version = "^1.41.1", features = ["full"] }
 num-traits = "^0.2.19"
 base64 = "^0.22.1"
