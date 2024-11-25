@@ -21,7 +21,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
     let subreddits = subreddits.as_str();
 
-    let sleep_between_requests = std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SUBREDDITS must be set.");
+    let sleep_between_requests =
+        std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SUBREDDITS must be set.");
     let sleep_between_requests = sleep_between_requests.as_str().parse().unwrap();
 
     // read comment_ids from the file
