@@ -143,9 +143,7 @@ impl RedditClient {
         let default_error_message = &vec![json!([""])];
         let jquery: &Vec<Value> = response_json["jquery"]
             .as_array()
-            .unwrap_or(
-                default_error_message
-            );
+            .unwrap_or(default_error_message);
 
         // search for arrays which have array, which have a string value that's not empty
         let mut error_message = jquery
