@@ -129,7 +129,7 @@ impl RedditClient {
                 RedditClient::get_error_message(response_json)
             );
         } else {
-            println!(
+            eprintln!(
                 "Comment ID {} -> Status FAILED: {:#?}",
                 comment.id,
                 RedditClient::get_error_message(response_json)
@@ -140,9 +140,12 @@ impl RedditClient {
     }
 
     fn get_error_message(response_json: Value) -> String {
+        let default_error_message = &vec![json!([""])];
         let jquery: &Vec<Value> = response_json["jquery"]
             .as_array()
-            .expect("Failed to get jquery array");
+            .unwrap_or(
+                default_error_message
+            );
 
         // search for arrays which have array, which have a string value that's not empty
         let mut error_message = jquery
