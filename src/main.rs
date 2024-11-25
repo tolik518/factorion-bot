@@ -13,7 +13,6 @@ mod reddit_api;
 pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
-const SLEEP_DURATION: u64 = 30;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 
 #[tokio::main]
@@ -21,6 +20,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut reddit_client = RedditClient::new().await?;
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
     let subreddits = subreddits.as_str();
+
+    let sleep_between_requests = std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SUBREDDITS must be set.");
+    let sleep_between_requests = sleep_between_requests.as_str().parse().unwrap();
 
     // read comment_ids from the file
     let already_replied_to_comments: String =
@@ -100,6 +102,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
 
         // Sleep to avoid hitting API rate limits
-        sleep(Duration::from_secs(SLEEP_DURATION)).await;
+        sleep(Duration::from_secs(sleep_between_requests)).await;
     }
 }

@@ -71,8 +71,11 @@ Create a `.env` file in the project root with the following variables:
 ```env
 CLIENT_ID=<your_client_id>
 CLIENT_SECRET=<your_client_secret>
+
 USERNAME=<reddit_app_username>
 PASSWORD=<reddit_app_password>
+
+SLEEP_BETWEEN_REQUESTS=<sleep_time>
 SUBREDDITS=<subreddits>
 ```
 
