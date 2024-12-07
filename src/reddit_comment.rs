@@ -1,7 +1,7 @@
 use crate::math;
 use fancy_regex::Regex;
-use num_traits::ToPrimitive;
-use rug::Integer;
+use num_bigint::BigInt;
+use num_traits::{One, ToPrimitive};
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
@@ -12,7 +12,7 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) struct Factorial {
     pub(crate) number: u64,
     pub(crate) level: u64,
-    pub(crate) factorial: Integer,
+    pub(crate) factorial: BigInt,
 }
 
 pub(crate) struct RedditComment {
@@ -44,7 +44,7 @@ impl RedditComment {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
-                .parse::<Integer>()
+                .parse::<BigInt>()
                 .expect("Failed to parse number");
 
             let exclamation_count = regex_capture[2]
@@ -53,9 +53,9 @@ impl RedditComment {
                 .expect("Failed to convert exclamation count to u64");
 
             // Check if the number is within a reasonable range to compute
-            if num > UPPER_CALCULATION_LIMIT {
+            if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
                 status.push(Status::NumberTooBig);
-            } else if num == 1 {
+            } else if num == BigInt::one() {
                 continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
@@ -219,6 +219,7 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
+    use num_bigint::ToBigInt;
     use super::*;
 
     #[test]
@@ -234,12 +235,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: Integer::from(120),
+                    factorial: 120.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: Integer::from(720),
+                    factorial: 720.to_bigint().unwrap(),
                 },
             ],
         );
@@ -254,7 +255,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 2,
-                factorial: Integer::from(48),
+                factorial: 48.to_bigint().unwrap(),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -268,7 +269,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 3,
-                factorial: Integer::from(18),
+                factorial: 18.to_bigint().unwrap(),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -328,7 +329,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 1,
-                factorial: Integer::from(720)
+                factorial: 720.to_bigint().unwrap()
             }]
         );
         assert_eq!(
@@ -369,7 +370,7 @@ mod tests {
             factorial_list: vec![Factorial {
                 number: 10,
                 level: 3,
-                factorial: Integer::from(280),
+                factorial: 280.to_bigint().unwrap(),
             }],
             status: vec![Status::FactorialsFound],
         };
@@ -386,12 +387,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: Integer::from(120),
+                    factorial: 120.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: Integer::from(720),
+                    factorial: 720.to_bigint().unwrap(),
                 },
             ],
             status: vec![Status::FactorialsFound],
@@ -409,12 +410,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: Integer::from(120),
+                    factorial: 120.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: Integer::from(720),
+                    factorial: 720.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 3249,
