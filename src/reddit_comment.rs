@@ -219,8 +219,8 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
-    use num_bigint::ToBigInt;
     use super::*;
+    use num_bigint::ToBigInt;
 
     #[test]
     fn test_comment_new() {
