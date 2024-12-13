@@ -144,10 +144,24 @@ impl RedditComment {
         let mut reply = String::new();
         if self.status.contains(&Status::ReplyWouldBeTooLong) {
             let mut numbers: Vec<u64> = Vec::new();
-            for Factorial { number, .. } in self.factorial_list.iter() {
+            let mut factorial_lengths: Vec<u64> = Vec::new();
+            for Factorial { number, level , factorial } in self.factorial_list.iter() {
                 numbers.push(*number);
+                let factorial_length = factorial.to_string().len();
+                factorial_lengths.push(factorial_length as u64);
             }
-            reply.push_str(&format!("Sorry bro, but if I calculate the factorial(s) of the number(s) {:?}, the reply would be too long for reddit :(\n\n", numbers));
+
+            if numbers.len() == 1 {
+                reply.push_str(&format!("Sorry bro, but if I calculate the factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n",
+                    numbers.get(0).expect("No numbers found in array"),
+                    factorial_lengths.get(0).expect("No factorial_lengths found in array"))
+                );
+            } else {
+                reply.push_str(&format!("Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n",
+                    numbers,
+                    factorial_lengths)
+                );
+            }
         } else {
             for Factorial {
                 number,
@@ -427,7 +441,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of the number(s) [5, 6, 3249], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 
     #[test]
@@ -436,6 +450,15 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 4000!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of the number(s) [4000], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+    }
+
+    #[test]
+    fn test_get_reply_too_long_from_number_3250() {
+        let comment =
+            RedditComment::new("This is a test comment with a factorial of 3250!", "1234");
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 }
