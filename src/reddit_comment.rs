@@ -145,7 +145,12 @@ impl RedditComment {
         if self.status.contains(&Status::ReplyWouldBeTooLong) {
             let mut numbers: Vec<u64> = Vec::new();
             let mut factorial_lengths: Vec<u64> = Vec::new();
-            for Factorial { number, level , factorial } in self.factorial_list.iter() {
+            for Factorial {
+                number,
+                level,
+                factorial,
+            } in self.factorial_list.iter()
+            {
                 numbers.push(*number);
                 let factorial_length = factorial.to_string().len();
                 factorial_lengths.push(factorial_length as u64);
