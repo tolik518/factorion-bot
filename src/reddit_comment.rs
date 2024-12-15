@@ -2,6 +2,7 @@ use crate::math;
 use fancy_regex::Regex;
 use num_bigint::BigInt;
 use num_traits::{One, ToPrimitive};
+use std::fmt::Write;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
@@ -136,57 +137,61 @@ impl RedditComment {
             43 => "Trequadragintuple-",
             44 => "Quattuorquadragintuple-",
             45 => "Quinquadragintuple-",
-            46 => "Sexquadragintuple-",
-            47 => "Septenquadragintuple-",
             _ => "n-",
         }
     }
 
     fn factorials_are_too_long(factorial_list: &[Factorial]) -> bool {
-        factorial_list
-            .iter()
-            .any(|Factorial { number, level, .. }| {
-                *level == 1 && *number > 3249
-                    || *level == 2 && *number > 5982
-                    || *level == 3 && *number > 8572
-                    || *level == 4 && *number > 11077
-                    || *level == 5 && *number > 13522
-                    || *level == 6 && *number > 15920
-                    || *level == 7 && *number > 18282
-                    || *level == 8 && *number > 20613
-                    || *level == 9 && *number > 22920
-                    || *level == 10 && *number > 25208
-                    || *level == 11 && *number > 27479
-                    || *level == 12 && *number > 29735
-                    || *level == 13 && *number > 31977
-                    || *level == 14 && *number > 34207
-                    || *level == 15 && *number > 36426
-                    || *level == 16 && *number > 38635
-                    || *level == 17 && *number > 40835
-                    || *level == 18 && *number > 43027
-                    || *level == 19 && *number > 45212
-                    || *level == 20 && *number > 47390
-                    || *level == 21 && *number > 49562
-                    || *level == 22 && *number > 51728
-                    || *level == 23 && *number > 53889
-                    || *level == 24 && *number > 56045
-                    || *level == 25 && *number > 58197
-                    || *level == 26 && *number > 60345
-                    || *level == 27 && *number > 62489
-                    || *level == 28 && *number > 64630
-                    || *level == 29 && *number > 66768
-                    || *level == 30 && *number > 68903
-                    || *level == 31 && *number > 71036
-                    || *level == 32 && *number > 73167
-                    || *level == 33 && *number > 75296
-                    || *level == 34 && *number > 77423
-                    || *level == 35 && *number > 79548
-                    || *level == 36 && *number > 81672
-                    || *level == 37 && *number > 83794
-                    || *level == 38 && *number > 85915
-                    || *level == 39 && *number > 88035
-                    || *level == 40 && *number > 90154
-            })
+        factorial_list.iter().any(|Factorial { number, level, .. }| {
+            match level {
+                1 => *number > 3249,
+                2 => *number > 5982,
+                3 => *number > 8572,
+                4 => *number > 11077,
+                5 => *number > 13522,
+                6 => *number > 15920,
+                7 => *number > 18282,
+                8 => *number > 20613,
+                9 => *number > 22920,
+                10 => *number > 25208,
+                11 => *number > 27479,
+                12 => *number > 29735,
+                13 => *number > 31977,
+                14 => *number > 34207,
+                15 => *number > 36426,
+                16 => *number > 38635,
+                17 => *number > 40835,
+                18 => *number > 43027,
+                19 => *number > 45212,
+                20 => *number > 47390,
+                21 => *number > 49562,
+                22 => *number > 51728,
+                23 => *number > 53889,
+                24 => *number > 56045,
+                25 => *number > 58197,
+                26 => *number > 60345,
+                27 => *number > 62489,
+                28 => *number > 64630,
+                29 => *number > 66768,
+                30 => *number > 68903,
+                31 => *number > 71036,
+                32 => *number > 73167,
+                33 => *number > 75296,
+                34 => *number > 77423,
+                35 => *number > 79548,
+                36 => *number > 81672,
+                37 => *number > 83794,
+                38 => *number > 85915,
+                39 => *number > 88035,
+                40 => *number > 90154,
+                41 => *number > 92272,
+                42 => *number > 94389,
+                43 => *number > 96505,
+                44 => *number > 98620,
+                45 => *number > 100734,
+                _ => false,
+            }
+        })
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {
@@ -199,13 +204,15 @@ impl RedditComment {
         // Normal case
         if !(self.status.contains(&Status::ReplyWouldBeTooLong)) {
             reply = self.factorial_list.iter()
-                .map(|factorial| {
-                    let factorial_level_string = RedditComment::get_factorial_level_string(factorial.level);
-                    format!(
+                .fold(String::new(), |mut acc, factorial| {
+                let factorial_level_string = RedditComment::get_factorial_level_string(factorial.level);
+                    let _ = write!(
+                        acc,
                         "{}{}{} is {} \n\n",
                         factorial_level_string, PLACEHOLDER, factorial.number, factorial.factorial
-                    )
-                }).collect::<String>();
+                    );
+                    acc
+            });
 
             reply.push_str(FOOTER_TEXT);
             return reply;
