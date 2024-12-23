@@ -82,8 +82,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             if should_answer {
                 let reply: String = comment.get_reply();
-                already_replied_to_comments.push(comment_id.clone());
-                reddit_client.reply_to_comment(comment, &reply).await?;
+                match reddit_client.reply_to_comment(comment, &reply).await {
+                    Ok(_) => already_replied_to_comments.push(comment_id.clone()),
+                    Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
+                }
                 // Sleep to not spam comments too quickly
                 sleep(Duration::from_secs(2)).await;
                 continue;

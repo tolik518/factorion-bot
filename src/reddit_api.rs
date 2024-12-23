@@ -1,12 +1,13 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
+use anyhow::{anyhow, Error};
 use crate::reddit_comment::{RedditComment, Status, MAX_COMMENT_LENGTH};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use dotenv::dotenv;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
-use reqwest::{Client, Error, Response};
+use reqwest::{Client, Response};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
 
@@ -120,21 +121,22 @@ impl RedditClient {
         let response_text = response_text.as_str();
         let response_json =
             from_str::<Value>(response_text).expect("Failed to convert response to json");
-        let response_status_ok = RedditClient::is_success(response_text);
+        let response_status_err = !RedditClient::is_success(response_text);
 
-        if response_status_ok {
-            println!(
-                "Comment ID {} -> Status OK: {:#?}",
-                comment.id,
-                RedditClient::get_error_message(response_json)
-            );
-        } else {
+        if response_status_err {
             eprintln!(
                 "Comment ID {} -> Status FAILED: {:#?}",
                 comment.id,
                 RedditClient::get_error_message(response_json)
             );
+            return Err(anyhow!("Failed to reply to comment"));
         }
+
+        println!(
+            "Comment ID {} -> Status OK: {:#?}",
+            comment.id,
+            RedditClient::get_error_message(response_json)
+        );
 
         Ok(())
     }
