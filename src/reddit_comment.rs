@@ -1,7 +1,8 @@
 use crate::math;
 use fancy_regex::Regex;
-use num_traits::ToPrimitive;
-use rug::Integer;
+use num_bigint::BigInt;
+use num_traits::{One, ToPrimitive};
+use std::fmt::Write;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
@@ -12,7 +13,7 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) struct Factorial {
     pub(crate) number: u64,
     pub(crate) level: u64,
-    pub(crate) factorial: Integer,
+    pub(crate) factorial: BigInt,
 }
 
 pub(crate) struct RedditComment {
@@ -44,7 +45,7 @@ impl RedditComment {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
-                .parse::<Integer>()
+                .parse::<BigInt>()
                 .expect("Failed to parse number");
 
             let exclamation_count = regex_capture[2]
@@ -53,9 +54,9 @@ impl RedditComment {
                 .expect("Failed to convert exclamation count to u64");
 
             // Check if the number is within a reasonable range to compute
-            if num > UPPER_CALCULATION_LIMIT {
+            if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
                 status.push(Status::NumberTooBig);
-            } else if num == 1 {
+            } else if num == BigInt::one() {
                 continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
@@ -89,50 +90,107 @@ impl RedditComment {
         }
     }
 
+    fn get_factorial_level_string(level: u64) -> &'static str {
+        match level {
+            1 => "",
+            2 => "Double-",
+            3 => "Triple-",
+            4 => "Quadruple-",
+            5 => "Quintuple-",
+            6 => "Sextuple-",
+            7 => "Septuple-",
+            8 => "Octuple-",
+            9 => "Nonuple-",
+            10 => "Decuple-",
+            11 => "Undecuple-",
+            12 => "Duodecuple-",
+            13 => "Tredecuple-",
+            14 => "Quattuordecuple-",
+            15 => "Quindecuple-",
+            16 => "Sexdecuple-",
+            17 => "Septendecuple-",
+            18 => "Octodecuple-",
+            19 => "Novemdecuple-",
+            20 => "Vigintuple-",
+            21 => "Unvigintuple-",
+            22 => "Duovigintuple-",
+            23 => "Trevigintuple-",
+            24 => "Quattuorvigintuple-",
+            25 => "Quinvigintuple-",
+            26 => "Sexvigintuple-",
+            27 => "Septenvigintuple-",
+            28 => "Octovigintuple-",
+            29 => "Novemvigintuple-",
+            30 => "Trigintuple-",
+            31 => "Untrigintuple-",
+            32 => "Duotrigintuple-",
+            33 => "Tretrigintuple-",
+            34 => "Quattuortrigintuple-",
+            35 => "Quintrigintuple-",
+            36 => "Sextrigintuple-",
+            37 => "Septentrigintuple-",
+            38 => "Octotrigintuple-",
+            39 => "Novemtrigintuple-",
+            40 => "Quadragintuple-",
+            41 => "Unquadragintuple-",
+            42 => "Duoquadragintuple-",
+            43 => "Trequadragintuple-",
+            44 => "Quattuorquadragintuple-",
+            45 => "Quinquadragintuple-",
+            _ => "n-",
+        }
+    }
+
     fn factorials_are_too_long(factorial_list: &[Factorial]) -> bool {
         factorial_list
             .iter()
-            .any(|Factorial { number, level, .. }| {
-                *level == 1 && *number > 3249
-                    || *level == 2 && *number > 5982
-                    || *level == 3 && *number > 8572
-                    || *level == 4 && *number > 11077
-                    || *level == 5 && *number > 13522
-                    || *level == 6 && *number > 15920
-                    || *level == 7 && *number > 18282
-                    || *level == 8 && *number > 20613
-                    || *level == 9 && *number > 22920
-                    || *level == 10 && *number > 25208
-                    || *level == 11 && *number > 27479
-                    || *level == 12 && *number > 29735
-                    || *level == 13 && *number > 31977
-                    || *level == 14 && *number > 34207
-                    || *level == 15 && *number > 36426
-                    || *level == 16 && *number > 38635
-                    || *level == 17 && *number > 40835
-                    || *level == 18 && *number > 43027
-                    || *level == 19 && *number > 45212
-                    || *level == 20 && *number > 47390
-                    || *level == 21 && *number > 49562
-                    || *level == 22 && *number > 51728
-                    || *level == 23 && *number > 53889
-                    || *level == 24 && *number > 56045
-                    || *level == 25 && *number > 58197
-                    || *level == 26 && *number > 60345
-                    || *level == 27 && *number > 62489
-                    || *level == 28 && *number > 64630
-                    || *level == 29 && *number > 66768
-                    || *level == 30 && *number > 68903
-                    || *level == 31 && *number > 71036
-                    || *level == 32 && *number > 73167
-                    || *level == 33 && *number > 75296
-                    || *level == 34 && *number > 77423
-                    || *level == 35 && *number > 79548
-                    || *level == 36 && *number > 81672
-                    || *level == 37 && *number > 83794
-                    || *level == 38 && *number > 85915
-                    || *level == 39 && *number > 88035
-                    || *level == 40 && *number > 90154
+            .any(|Factorial { number, level, .. }| match level {
+                1 => *number > 3249,
+                2 => *number > 5982,
+                3 => *number > 8572,
+                4 => *number > 11077,
+                5 => *number > 13522,
+                6 => *number > 15920,
+                7 => *number > 18282,
+                8 => *number > 20613,
+                9 => *number > 22920,
+                10 => *number > 25208,
+                11 => *number > 27479,
+                12 => *number > 29735,
+                13 => *number > 31977,
+                14 => *number > 34207,
+                15 => *number > 36426,
+                16 => *number > 38635,
+                17 => *number > 40835,
+                18 => *number > 43027,
+                19 => *number > 45212,
+                20 => *number > 47390,
+                21 => *number > 49562,
+                22 => *number > 51728,
+                23 => *number > 53889,
+                24 => *number > 56045,
+                25 => *number > 58197,
+                26 => *number > 60345,
+                27 => *number > 62489,
+                28 => *number > 64630,
+                29 => *number > 66768,
+                30 => *number > 68903,
+                31 => *number > 71036,
+                32 => *number > 73167,
+                33 => *number > 75296,
+                34 => *number > 77423,
+                35 => *number > 79548,
+                36 => *number > 81672,
+                37 => *number > 83794,
+                38 => *number > 85915,
+                39 => *number > 88035,
+                40 => *number > 90154,
+                41 => *number > 92272,
+                42 => *number > 94389,
+                43 => *number > 96505,
+                44 => *number > 98620,
+                45 => *number > 100734,
+                _ => false,
             })
     }
 
@@ -141,77 +199,49 @@ impl RedditComment {
     }
 
     pub(crate) fn get_reply(&self) -> String {
-        let mut reply = String::new();
-        if self.status.contains(&Status::ReplyWouldBeTooLong) {
-            let mut numbers: Vec<u64> = Vec::new();
-            for Factorial { number, .. } in self.factorial_list.iter() {
-                numbers.push(*number);
-            }
-            reply.push_str(&format!("Sorry bro, but if I calculate the factorial(s) of the number(s) {:?}, the reply would be too long for reddit :(\n\n", numbers));
-        } else {
-            for Factorial {
-                number,
-                level,
-                factorial,
-            } in self.factorial_list.iter()
-            {
-                let factorial_level_string = match level {
-                    1 => "",
-                    2 => "Double-",
-                    3 => "Triple-",
-                    4 => "Quadruple-",
-                    5 => "Quintuple-",
-                    6 => "Sextuple-",
-                    7 => "Septuple-",
-                    8 => "Octuple-",
-                    9 => "Nonuple-",
-                    10 => "Decuple-",
-                    11 => "Undecuple-",
-                    12 => "Duodecuple-",
-                    13 => "Tredecuple-",
-                    14 => "Quattuordecuple-",
-                    15 => "Quindecuple-",
-                    16 => "Sexdecuple-",
-                    17 => "Septendecuple-",
-                    18 => "Octodecuple-",
-                    19 => "Novemdecuple-",
-                    20 => "Vigintuple-",
-                    21 => "Unvigintuple-",
-                    22 => "Duovigintuple-",
-                    23 => "Trevigintuple-",
-                    24 => "Quattuorvigintuple-",
-                    25 => "Quinvigintuple-",
-                    26 => "Sexvigintuple-",
-                    27 => "Septenvigintuple-",
-                    28 => "Octovigintuple-",
-                    29 => "Novemvigintuple-",
-                    30 => "Trigintuple-",
-                    31 => "Untrigintuple-",
-                    32 => "Duotrigintuple-",
-                    33 => "Tretrigintuple-",
-                    34 => "Quattuortrigintuple-",
-                    35 => "Quintrigintuple-",
-                    36 => "Sextrigintuple-",
-                    37 => "Septentrigintuple-",
-                    38 => "Octotrigintuple-",
-                    39 => "Novemtrigintuple-",
-                    40 => "Quadragintuple-",
-                    41 => "Unquadragintuple-",
-                    42 => "Duoquadragintuple-",
-                    43 => "Trequadragintuple-",
-                    44 => "Quattuorquadragintuple-",
-                    45 => "Quinquadragintuple-",
-                    46 => "Sexquadragintuple-",
-                    47 => "Septenquadragintuple-",
-                    _ => "n-",
-                };
+        let mut reply;
 
-                reply.push_str(&format!(
-                    "{}{}{} is {} \n\n",
-                    factorial_level_string, PLACEHOLDER, number, factorial
-                ));
-            }
+        // Normal case
+        if !(self.status.contains(&Status::ReplyWouldBeTooLong)) {
+            reply = self
+                .factorial_list
+                .iter()
+                .fold(String::new(), |mut acc, factorial| {
+                    let factorial_level_string =
+                        RedditComment::get_factorial_level_string(factorial.level);
+                    let _ = write!(
+                        acc,
+                        "{}{}{} is {} \n\n",
+                        factorial_level_string, PLACEHOLDER, factorial.number, factorial.factorial
+                    );
+                    acc
+                });
+
+            reply.push_str(FOOTER_TEXT);
+            return reply;
         }
+
+        // Too long reply
+        let numbers: Vec<u64> = self.factorial_list.iter().map(|f| f.number).collect();
+
+        let factorial_lengths: Vec<u64> = self
+            .factorial_list
+            .iter()
+            .map(|f| f.factorial.to_string().len() as u64)
+            .collect();
+
+        if numbers.len() == 1 {
+            reply = format!(
+                "Sorry bro, but if I calculate the factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n",
+                numbers[0], factorial_lengths[0]
+            );
+        } else {
+            reply = format!(
+                "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n",
+                numbers, factorial_lengths
+            );
+        }
+
         reply.push_str(FOOTER_TEXT);
         reply
     }
@@ -220,6 +250,7 @@ impl RedditComment {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_bigint::ToBigInt;
 
     #[test]
     fn test_comment_new() {
@@ -234,12 +265,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: Integer::from(120),
+                    factorial: 120.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: Integer::from(720),
+                    factorial: 720.to_bigint().unwrap(),
                 },
             ],
         );
@@ -254,7 +285,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 2,
-                factorial: Integer::from(48),
+                factorial: 48.to_bigint().unwrap(),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -268,7 +299,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 3,
-                factorial: Integer::from(18),
+                factorial: 18.to_bigint().unwrap(),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -328,7 +359,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 1,
-                factorial: Integer::from(720)
+                factorial: 720.to_bigint().unwrap()
             }]
         );
         assert_eq!(
@@ -369,7 +400,7 @@ mod tests {
             factorial_list: vec![Factorial {
                 number: 10,
                 level: 3,
-                factorial: Integer::from(280),
+                factorial: 280.to_bigint().unwrap(),
             }],
             status: vec![Status::FactorialsFound],
         };
@@ -386,12 +417,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: Integer::from(120),
+                    factorial: 120.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: Integer::from(720),
+                    factorial: 720.to_bigint().unwrap(),
                 },
             ],
             status: vec![Status::FactorialsFound],
@@ -409,12 +440,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: Integer::from(120),
+                    factorial: 120.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: Integer::from(720),
+                    factorial: 720.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 3249,
@@ -426,7 +457,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of the number(s) [5, 6, 3249], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 
     #[test]
@@ -435,6 +466,15 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 4000!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of the number(s) [4000], the reply would be too long for reddit :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+    }
+
+    #[test]
+    fn test_get_reply_too_long_from_number_3250() {
+        let comment =
+            RedditComment::new("This is a test comment with a factorial of 3250!", "1234");
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 }
