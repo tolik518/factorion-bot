@@ -1,7 +1,7 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
-use anyhow::{anyhow, Error};
 use crate::reddit_comment::{RedditComment, Status, MAX_COMMENT_LENGTH};
+use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};

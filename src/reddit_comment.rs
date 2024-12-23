@@ -142,8 +142,9 @@ impl RedditComment {
     }
 
     fn factorials_are_too_long(factorial_list: &[Factorial]) -> bool {
-        factorial_list.iter().any(|Factorial { number, level, .. }| {
-            match level {
+        factorial_list
+            .iter()
+            .any(|Factorial { number, level, .. }| match level {
                 1 => *number > 3249,
                 2 => *number > 5982,
                 3 => *number > 8572,
@@ -190,8 +191,7 @@ impl RedditComment {
                 44 => *number > 98620,
                 45 => *number > 100734,
                 _ => false,
-            }
-        })
+            })
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {
@@ -203,27 +203,30 @@ impl RedditComment {
 
         // Normal case
         if !(self.status.contains(&Status::ReplyWouldBeTooLong)) {
-            reply = self.factorial_list.iter()
+            reply = self
+                .factorial_list
+                .iter()
                 .fold(String::new(), |mut acc, factorial| {
-                let factorial_level_string = RedditComment::get_factorial_level_string(factorial.level);
+                    let factorial_level_string =
+                        RedditComment::get_factorial_level_string(factorial.level);
                     let _ = write!(
                         acc,
                         "{}{}{} is {} \n\n",
                         factorial_level_string, PLACEHOLDER, factorial.number, factorial.factorial
                     );
                     acc
-            });
+                });
 
             reply.push_str(FOOTER_TEXT);
             return reply;
         }
 
         // Too long reply
-        let numbers: Vec<u64> = self.factorial_list.iter()
-            .map(|f| f.number)
-            .collect();
+        let numbers: Vec<u64> = self.factorial_list.iter().map(|f| f.number).collect();
 
-        let factorial_lengths: Vec<u64> = self.factorial_list.iter()
+        let factorial_lengths: Vec<u64> = self
+            .factorial_list
+            .iter()
             .map(|f| f.factorial.to_string().len() as u64)
             .collect();
 
