@@ -230,9 +230,37 @@ impl RedditComment {
             .iter()
             .map(|f| {
                 let mut number = f.factorial.to_string();
-                let length = number.len();
-                number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 1); // There is one digit before the decimals
-                number.insert(1, '.'); // Decimal point
+                let mut length = number.len();
+                number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
+                'round: {
+                    // Don't round if we didn't truncate
+                    if number.len() < NUMBER_DECIMALS_SCIENTIFIC + 2 {
+                        break 'round;
+                    };
+                    // Check additional digit if we need to round
+                    if let Some(digit) = number.pop().and_then(|n| n.to_digit(10)) {
+                        if digit >= 5 {
+                            // We already checked, that we have more digits
+                            let mut last_digit = number.pop().and_then(|n| n.to_digit(10)).unwrap();
+                            // Carry over at 9s
+                            while last_digit == 9 {
+                                let Some(digit) = number.pop().and_then(|n| n.to_digit(10)) else {
+                                    // If we reached the end we get 1 with the exponent one more
+                                    number = format!("1");
+                                    length += 1;
+                                    break 'round;
+                                };
+                                last_digit = digit;
+                            }
+                            // Round up
+                            number.push_str(&format!("{}", last_digit + 1));
+                        }
+                    }
+                }
+                // Only add decimal if we have more than one digit
+                if number.len() > 1 {
+                    number.insert(1, '.'); // Decimal point
+                }
                 (length as u64, number)
             })
             .collect();
@@ -475,7 +503,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they are [1.20e2, 7.20e2, 6.41233768827655218388409630305e10000] though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they are [1.20e2, 7.20e2, 6.412337688276552183884096303057e10000] though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 
     #[test]
@@ -484,7 +512,7 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 4000!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is 1.82880195151406501331474317557e12673 though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is 1.828801951514065013314743175574e12673 though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 
     #[test]
@@ -493,6 +521,6 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 3250!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is 2.08400974868987945976233129849e10004 though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is 2.084009748689879459762331298493e10004 though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
     }
 }
