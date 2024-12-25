@@ -224,21 +224,27 @@ impl RedditComment {
         // Too long reply
         let numbers: Vec<u64> = self.factorial_list.iter().map(|f| f.number).collect();
 
-        let factorial_lengths: Vec<u64> = self
+        let factorial_len_strs: Vec<(u64, String)> = self
             .factorial_list
             .iter()
-            .map(|f| f.factorial.to_string().len() as u64)
+            .map(|f| {
+                let mut num_str = f.factorial.to_string();
+                let len = num_str.len();
+                num_str.truncate(300);
+                num_str.insert(1, '.');
+                (len as u64, num_str)
+            })
             .collect();
 
         if numbers.len() == 1 {
             reply = format!(
-                "Sorry bro, but if I calculate the factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n",
-                numbers[0], factorial_lengths[0]
+                "Sorry bro, but if I calculate the factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is {}e{} though :)\n\n",
+                numbers[0], factorial_len_strs[0].0, factorial_len_strs[0].1, factorial_len_strs[0].0-1
             );
         } else {
             reply = format!(
-                "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n",
-                numbers, factorial_lengths
+                "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they are {:?} though :)\n\n",
+                numbers, factorial_len_strs.iter().map(|(n,_)| *n).collect::<Vec<u64>>(), factorial_len_strs.into_iter().map(|(len, string)| format!("{}e{}", string, len-1))
             );
         }
 
