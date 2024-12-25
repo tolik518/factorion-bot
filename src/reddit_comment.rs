@@ -244,7 +244,7 @@ impl RedditComment {
         } else {
             reply = format!(
                 "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they are [{}] though :)\n\n",
-                numbers, factorial_len_strs.iter().map(|(n,_)| *n).collect::<Vec<u64>>(), factorial_len_strs.into_iter().map(|(len, string)| format!("{}e{}", string, len-1)).fold(String::new(), |a, e| if a.len() != 0 {format!("{a}, {e}")} else {e})
+                numbers, factorial_len_strs.iter().map(|(n,_)| *n).collect::<Vec<u64>>(), factorial_len_strs.into_iter().map(|(len, string)| format!("{}e{}", string, len-1)).fold(String::new(), |a, e| if a.is_empty() {format!("{a}, {e}")} else {e})
             );
         }
 
