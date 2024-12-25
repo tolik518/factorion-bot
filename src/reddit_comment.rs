@@ -8,6 +8,7 @@ pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
 const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
+pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
@@ -230,7 +231,7 @@ impl RedditComment {
             .map(|f| {
                 let mut number = f.factorial.to_string();
                 let length = number.len();
-                number.truncate(30); // Show 30 digits (29 decimals)
+                number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 1); // There is one digit before the decimals
                 number.insert(1, '.'); // Decimal point
                 (length as u64, number)
             })
