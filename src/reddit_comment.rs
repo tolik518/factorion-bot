@@ -231,7 +231,7 @@ impl RedditComment {
                 let mut number = f.factorial.to_string();
                 let length = number.len();
                 number.truncate(30); // Show 30 digits (29 decimals)
-                number.insert(1, '.'); // decimal point
+                number.insert(1, '.'); // Decimal point
                 (length as u64, number)
             })
             .collect();
@@ -242,9 +242,20 @@ impl RedditComment {
                 numbers[0], factorial_lenghts[0], factorial_decimals[0], factorial_lenghts[0]-1 // exponent is one less than the length
             );
         } else {
+            let formatted_scientifics = factorial_lenghts
+                .iter()
+                .zip(factorial_decimals)
+                .map(|(length, number)| format!("{}e{}", number, length - 1))
+                .fold(String::new(), |a, e| {
+                    if !a.is_empty() {
+                        format!("{a}, {e}")
+                    } else {
+                        e
+                    }
+                });
             reply = format!(
                 "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they are [{}] though :)\n\n",
-                numbers, factorial_lenghts, factorial_lenghts.iter().zip(factorial_decimals).map(|(length, number)| format!("{}e{}", number, length-1)).fold(String::new(), |a, e| if !a.is_empty() {format!("{a}, {e}")} else {e})
+                numbers, factorial_lenghts, formatted_scientifics
             );
         }
 
