@@ -224,27 +224,27 @@ impl RedditComment {
         // Too long reply
         let numbers: Vec<u64> = self.factorial_list.iter().map(|f| f.number).collect();
 
-        let factorial_len_strs: Vec<(u64, String)> = self
+        let (factorial_lenghts, factorial_decimals): (Vec<u64>, Vec<String>) = self
             .factorial_list
             .iter()
             .map(|f| {
-                let mut num_str = f.factorial.to_string();
-                let len = num_str.len();
-                num_str.truncate(30);
-                num_str.insert(1, '.');
-                (len as u64, num_str)
+                let mut number = f.factorial.to_string();
+                let length = number.len();
+                number.truncate(30); // Show 30 digits (29 decimals)
+                number.insert(1, '.'); // decimal point
+                (length as u64, number)
             })
             .collect();
 
         if numbers.len() == 1 {
             reply = format!(
                 "Sorry bro, but if I calculate the factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is {}e{} though :)\n\n",
-                numbers[0], factorial_len_strs[0].0, factorial_len_strs[0].1, factorial_len_strs[0].0-1
+                numbers[0], factorial_lenghts[0], factorial_decimals[0], factorial_lenghts[0]-1 // exponent is one less than the length
             );
         } else {
             reply = format!(
                 "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they are [{}] though :)\n\n",
-                numbers, factorial_len_strs.iter().map(|(n,_)| *n).collect::<Vec<u64>>(), factorial_len_strs.into_iter().map(|(len, string)| format!("{}e{}", string, len-1)).fold(String::new(), |a, e| if a.is_empty() {format!("{a}, {e}")} else {e})
+                numbers, factorial_lenghts, factorial_lenghts.iter().zip(factorial_decimals).map(|(length, number)| format!("{}e{}", number, length-1)).fold(String::new(), |a, e| if !a.is_empty() {format!("{a}, {e}")} else {e})
             );
         }
 
