@@ -242,19 +242,8 @@ impl RedditClient {
     }
 
     fn check_response_status(response: &Response) -> Result<(), ()> {
-        println!("Statuscode: {:#?}", response.status());
-        if let Some(www_authenticate) = response.headers().get("www-authenticate") {
-            match www_authenticate.to_str() {
-                Ok(value) => println!("www-authenticate: {}", value),
-                Err(_) => {
-                    println!("Failed to convert www-authenticate header value to string");
-                    return Err(());
-                }
-            }
-        }
-
         if !response.status().is_success() {
-            println!("Failed to get comments: {:#?}", response);
+            println!("Failed to get comments. Statuscode: {:#?}. Response: {:#?}", response.status(), response);
             return Err(());
         }
 
@@ -298,5 +287,67 @@ impl RedditClient {
         }
 
         Ok(comments)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::reddit_comment::Status::NoFactorial;
+    use super::*;
+
+    #[tokio::test]
+    async fn test_extract_comments() {
+        let response = Response::from(http::Response::builder().status(200).body(r#"{
+               "data": {
+                   "children": [
+                       {
+                           "data": {
+                               "author": "Little_Tweetybird_",
+                               "author_fullname": "t2_b5n60qnt",
+                               "body": "comment 1!!",
+                               "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 1!!&lt;/p&gt;\n&lt;/div&gt;",
+                               "id": "m38msum",
+                               "locked": false,
+                               "unrepliable_reason": null
+                           }
+                       },
+                       {
+                           "data": {
+                               "author": "Little_Tweetybird_",
+                               "author_fullname": "t2_b5n60qnt",
+                               "body": "comment 2",
+                               "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
+                               "id": "m38msun",
+                               "locked": false,
+                              "unrepliable_reason": null
+                           }
+                       }
+                   ]
+               }
+           }"#).unwrap());
+        let comments = RedditClient::extract_comments(response, &[]).await.unwrap();
+        assert_eq!(comments.len(), 2);
+        println!("{:#?}", comments);
+    }
+
+    #[test]
+    fn test_check_response_status() {
+        let response = Response::from(
+            http::Response::builder().status(200).body("").unwrap());
+        assert_eq!(RedditClient::check_response_status(&response), Ok(()));
+
+        let response = Response::from(
+            http::Response::builder().status(404).body("").unwrap());
+        assert_eq!(RedditClient::check_response_status(&response), Err(()));
+    }
+
+    #[test]
+    fn test_get_expiration_time_from_jwt() {
+        let jwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlNIQTI1NjpzS3dsMnlsV0VtMjVmcXhwTU40cWY4MXE2OWFFdWFyMnpLMUdhVGxjdWNZIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2dyIiwiZXhwIjoxNzM1MTQ0NjI0LjQ2OTAyLCJpYXQiOjE3MzUwNTgyMjQuNDY5MDIsImp0aSI6IlpDM0Y2YzVXUGh1a09zVDRCcExaa0lmam1USjBSZyIsImNpZCI6IklJbTJha1RaRDFHWXd5Y1lXTlBKWVEiLCJsaWQiOiJ0dl96bnJ5dTJvM1QiLCJhaWQiOiJ0Ml96bnJ5dT1vMjQiLCJsY2EiOjE3MTQ4MjU0NzQ3MDIsInNjcCI6ImVKeUtWaXBLVFV4UjBsRXFMazNLelN4UmlnVUVBQUpfX3pGR0JaMCIsImZsbyI6OX0.o3X9CJAUED1iYsFs8h_02NvaDMmPVSIaZgz3aPjEGm3zF5cG2-G2tU7yIJUtqGICxT0W3-PAso0jwrrx3ScSGucvhEiUVXOiGcCZSzPfLnwuGxtRa_lNEkrsLAVlhN8iXBRGds8YkJ0MFWn4JRwhi8beV3EsFkEzN6IsESuA33WUQQgGs0Ij5oH0If3EMLoBoDVQvWdp2Yno0SV9xdODP6pMJSKZD5HVgWGzprFlN2VWmgb4HXs3mrxbE5bcuO_slah0xcqnhcXmlYCdRCSqeEUtlW8pS4Wtzzs7BL5E70A5LHmHJfGJWCh-loInwarxeq_tVPoxikzqBrTIEsLmPA";
+
+        let actual: DateTime<Utc> = RedditClient::get_expiration_time_from_jwt(jwt);
+        let expected: DateTime<Utc> = DateTime::from_naive_utc_and_offset(NaiveDateTime::from_timestamp(1735144624, 0), Utc);
+        assert_eq!(actual, expected);
     }
 }
