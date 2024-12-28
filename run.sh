@@ -1,7 +1,7 @@
 #!/bin/bash
 while true
 do
-    ./factorion-bot
+    factorion-bot
     curl -d "factorion-bot has crashed" ntfy:8888/factorion
-    sleep 10
+    sleep 30
 done
