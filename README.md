@@ -101,6 +101,17 @@ cargo run
 
 2. Create a new subreddit `/r/<botname>` as a test play ground.
 
+## Running on a server
+The recommended way would be running the bot using docker.
+
+```bash
+git clone https://github.com/tolik518/factorion-bot
+docker build -t factorion-bot .
+# either create a network called `service-network` or remove the network if not needed
+docker run -d --network service-network --volume ${PWD}:/usr/factorion factorion-bot:latest
+```
+
+
 ## Contributing
 
 Feel free to submit issues or pull requests if you would like to contribute to this project.
