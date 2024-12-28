@@ -16,6 +16,7 @@ pub(crate) struct Factorial {
     pub(crate) factorial: BigInt,
 }
 
+#[derive(Debug)]
 pub(crate) struct RedditComment {
     pub(crate) id: String,
     pub(crate) factorial_list: Vec<Factorial>,
