@@ -230,33 +230,13 @@ impl RedditComment {
             .iter()
             .map(|f| {
                 let mut number = f.factorial.to_string();
-                let mut length = number.len();
+                let length = number.len();
                 number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
-                'round: {
-                    // Don't round if we didn't truncate
-                    if number.len() < NUMBER_DECIMALS_SCIENTIFIC + 2 {
-                        break 'round;
-                    };
-                    // Check additional digit if we need to round
-                    if let Some(digit) = number.pop().and_then(|n| n.to_digit(10)) {
-                        if digit >= 5 {
-                            // We already checked, that we have more digits
-                            let mut last_digit = number.pop().and_then(|n| n.to_digit(10)).unwrap();
-                            // Carry over at 9s
-                            while last_digit == 9 {
-                                let Some(digit) = number.pop().and_then(|n| n.to_digit(10)) else {
-                                    // If we reached the end we get 1 with the exponent one more
-                                    number = format!("1");
-                                    length += 1;
-                                    break 'round;
-                                };
-                                last_digit = digit;
-                            }
-                            // Round up
-                            number.push_str(&format!("{}", last_digit + 1));
-                        }
-                    }
-                }
+
+                // Round if we had to truncate
+                if number.len() >= NUMBER_DECIMALS_SCIENTIFIC + 2 {
+                    round(&mut number);
+                };
                 // Only add decimal if we have more than one digit
                 if number.len() > 1 {
                     number.insert(1, '.'); // Decimal point
@@ -290,6 +270,42 @@ impl RedditComment {
 
         reply.push_str(FOOTER_TEXT);
         reply
+    }
+}
+
+/// Rounds a base 10 number string.
+/// Uses the last digit to decide the rounding direction.
+/// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
+///
+/// # Panic
+/// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
+fn round(number: &mut String) {
+    // Check additional digit if we need to round
+    if let Some(digit) = number
+        .pop()
+        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+    {
+        if digit >= 5 {
+            // We already checked, that we have more digits
+            let mut last_digit = number
+                .pop()
+                .and_then(|n| n.to_digit(10))
+                .expect("Not a base 10 number");
+            // Carry over at 9s
+            while last_digit == 9 {
+                let Some(digit) = number
+                    .pop()
+                    .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+                else {
+                    // If we reached the end we get 10
+                    *number = "10".to_string();
+                    return;
+                };
+                last_digit = digit;
+            }
+            // Round up
+            number.push_str(&format!("{}", last_digit + 1));
+        }
     }
 }
 
@@ -522,5 +538,26 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it is 2.084009748689879459762331298493e10004 though :)\n\n\n*^(This action was performed by a bot. Please contact u/tolik518 if you have any questions or concerns.)*");
+    }
+
+    #[test]
+    fn test_round_down() {
+        let mut number = String::from("1929472373");
+        round(&mut number);
+        assert_eq!(number, "192947237");
+    }
+
+    #[test]
+    fn test_round_up() {
+        let mut number = String::from("74836748625");
+        round(&mut number);
+        assert_eq!(number, "7483674863");
+    }
+
+    #[test]
+    fn test_round_carry() {
+        let mut number = String::from("24999999995");
+        round(&mut number);
+        assert_eq!(number, "25");
     }
 }
