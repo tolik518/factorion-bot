@@ -276,6 +276,7 @@ impl RedditComment {
 /// Rounds a base 10 number string.
 /// Uses the last digit to decide the rounding direction.
 /// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
+/// If the input is all 9s, this will round to 10.
 ///
 /// # Panic
 /// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
@@ -286,7 +287,6 @@ fn round(number: &mut String) {
         .map(|n| n.to_digit(10).expect("Not a base 10 number"))
     {
         if digit >= 5 {
-            // We already checked, that we have more digits
             let mut last_digit = number
                 .pop()
                 .and_then(|n| n.to_digit(10))
