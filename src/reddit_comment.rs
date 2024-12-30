@@ -251,7 +251,7 @@ impl RedditComment {
             let factorial_level_string =
                 RedditComment::get_factorial_level_string(self.factorial_list[0].level);
             reply = format!(
-                "Sorry bro, but if I calculate the {}factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it would be (roughly) {}e{} though :)\n\n",
+                "Sorry bro, but if I calculate the {}factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) {}e{} though :)\n\n",
                 factorial_level_string, numbers[0], factorial_lenghts[0], factorial_decimals[0], factorial_lenghts[0]-1 // exponent is one less than the length
             );
         } else {
@@ -267,7 +267,7 @@ impl RedditComment {
                     }
                 });
             reply = format!(
-                "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they would be (roughly) [{}] though :)\n\n",
+                "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation they would be (roughly) [{}] though :)\n\n",
                 numbers, factorial_lenghts, formatted_scientifics
             );
         }
@@ -487,7 +487,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation they would be (roughly) [1.20e2, 7.20e2, 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000] though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation they would be (roughly) [1.20e2, 7.20e2, 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000] though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -496,7 +496,7 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 4000!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it would be (roughly) 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -505,7 +505,7 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 9000!!!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the Triple-factorial of 9000, it would have 10562 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it would be (roughly) 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the Triple-factorial of 9000, it would have 10562 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -514,6 +514,6 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 3250!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it would be (roughly) 2.0840097486898794597623312984934641499860586341733439074965277708081597610387139819550932238765757432e10004 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) 2.0840097486898794597623312984934641499860586341733439074965277708081597610387139819550932238765757432e10004 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 }
