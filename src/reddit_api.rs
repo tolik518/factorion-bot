@@ -297,7 +297,6 @@ impl RedditClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::reddit_comment::Status::NoFactorial;
 
     #[tokio::test]
     async fn test_extract_comments() {
