@@ -6,7 +6,8 @@ use std::fmt::Write;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
 const PLACEHOLDER: &str = "Factorial of ";
-const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
+const FOOTER_TEXT: &str =
+    "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 100;
 
@@ -247,7 +248,8 @@ impl RedditComment {
             .collect();
 
         if numbers.len() == 1 {
-            let factorial_level_string = RedditComment::get_factorial_level_string(self.factorial_list[0].level);
+            let factorial_level_string =
+                RedditComment::get_factorial_level_string(self.factorial_list[0].level);
             reply = format!(
                 "Sorry bro, but if I calculate the {}factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n In scientific notation it would be (roughly) {}e{} though :)\n\n",
                 factorial_level_string, numbers[0], factorial_lenghts[0], factorial_decimals[0], factorial_lenghts[0]-1 // exponent is one less than the length

@@ -25,7 +25,6 @@ fn multifactorial_recursive(n: u64, k: u64, low_i: u64, high_i: u64) -> BigInt {
     }
 }
 
-
 /// Rounds a base 10 number string.
 /// Uses the last digit to decide the rounding direction.
 /// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
@@ -61,7 +60,6 @@ pub(crate) fn round(number: &mut String) {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
