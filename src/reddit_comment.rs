@@ -37,6 +37,26 @@ pub(crate) enum Status {
     DecimalFactorial,
 }
 
+pub trait Unzip3<A, B, C> {
+    fn unzip3(self) -> (Vec<A>, Vec<B>, Vec<C>);
+}
+
+impl<A, B, C> Unzip3<A, B, C> for std::vec::IntoIter<(A, B, C)> {
+    fn unzip3(self) -> (Vec<A>, Vec<B>, Vec<C>) {
+        let mut vec_a = Vec::new();
+        let mut vec_b = Vec::new();
+        let mut vec_c = Vec::new();
+
+        for (a, b, c) in self {
+            vec_a.push(a);
+            vec_b.push(b);
+            vec_c.push(c);
+        }
+
+        (vec_a, vec_b, vec_c)
+    }
+}
+
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str) -> Self {
         let factorial_regex =
@@ -227,49 +247,71 @@ impl RedditComment {
         // Too long reply
         let numbers: Vec<u64> = self.factorial_list.iter().map(|f| f.number).collect();
 
-        let (factorial_lenghts, factorial_decimals): (Vec<u64>, Vec<String>) = self
+        let (factorial_lengths, factorial_decimals, factorial_level_names): (
+            Vec<u64>,
+            Vec<String>,
+            Vec<&str>,
+        ) = self
             .factorial_list
             .iter()
             .map(|f| {
-                let mut number = f.factorial.to_string();
-                let length = number.len();
-                number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
+                let mut truncated_number = f.factorial.to_string();
+                let length = truncated_number.len();
+                truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
 
                 // Round if we had to truncate
-                if number.len() >= NUMBER_DECIMALS_SCIENTIFIC + 2 {
-                    math::round(&mut number);
+                if truncated_number.len() >= NUMBER_DECIMALS_SCIENTIFIC + 2 {
+                    math::round(&mut truncated_number);
                 };
                 // Only add decimal if we have more than one digit
-                if number.len() > 1 {
-                    number.insert(1, '.'); // Decimal point
+                if truncated_number.len() > 1 {
+                    truncated_number.insert(1, '.'); // Decimal point
                 }
-                (length as u64, number)
+
+                let factorial_level_names = RedditComment::get_factorial_level_string(f.level);
+
+                (length as u64, truncated_number, factorial_level_names)
             })
-            .collect();
+            .collect::<Vec<_>>() // Collect into a vector of tuples
+            .into_iter()
+            .unzip3(); // Unzip into three separate vectors
 
         if numbers.len() == 1 {
             let factorial_level_string =
                 RedditComment::get_factorial_level_string(self.factorial_list[0].level);
             reply = format!(
-                "Sorry bro, but if I calculate the {}factorial of {}, it would have {} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) {}e{} though :)\n\n",
-                factorial_level_string, numbers[0], factorial_lenghts[0], factorial_decimals[0], factorial_lenghts[0]-1 // exponent is one less than the length
+                "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n \
+                In scientific notation the {}factorial of {} would be (roughly) {}e{} though :)\n\n",
+                factorial_level_string, numbers[0], factorial_decimals[0], factorial_lengths[0]-1 // exponent is one less than the length
             );
         } else {
-            let formatted_scientifics = factorial_lenghts
+            let formatted_scientifics = factorial_lengths
                 .iter()
                 .zip(factorial_decimals)
-                .map(|(length, number)| format!("{}e{}", number, length - 1))
+                .zip(numbers)
+                .zip(factorial_level_names)
+                .map(|(((length, truncated_number), number), factorial_level)| {
+                    format!(
+                        "{factorial_level}Factorial of {number} = {truncated_number}e{}",
+                        length - 1
+                    )
+                })
                 .fold(String::new(), |a, e| {
                     if !a.is_empty() {
-                        format!("{a}, {e}")
+                        format!("{a},\n\n{e}")
                     } else {
                         e
                     }
                 });
             reply = format!(
-                "Sorry bro, but if I calculate the factorial(s) of {:?}, they would have {:?} digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation they would be (roughly) [{}] though :)\n\n",
-                numbers, factorial_lenghts, formatted_scientifics
+                "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters.\n\n\
+                In scientific notation the results would look roughly like that:\n\n{}\n\n:)\n\n",
+                formatted_scientifics
             );
+        }
+
+        if reply.len() > MAX_COMMENT_LENGTH as usize {
+            reply = "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n".to_string();
         }
 
         reply.push_str(FOOTER_TEXT);
@@ -424,6 +466,20 @@ mod tests {
     }
 
     #[test]
+    fn test_reply_text_too_long() {
+        let comment = RedditComment::new(
+            "3500! 3501! 3502! 3503! 3504! 3505! 3506! 3507! 3508! 3509! 3510! 3511! 3512! 3513! 3514! 3515! 3516! 3517! 3518! 3519! 3520! 3521! 3522! 3523! 3524! 3525! 3526! 3527! 3528! 3529! 3530! 3531! 3532! 3533! 3534! 3535! 3536! 3537! 3538! 3539! 3540! 3541! 3542! 3543! 3544! 3545! 3546! 3547! 3548! 3549! 3550! 3551! 3552! 3553! 3554! 3555! 3556! 3557! 3558! 3559! 3560! 3561! 3562! 3563! 3564! 3565! 3566! 3567! 3568! 3569! 3570! 3571! 3572! 3573! 3574! 3575! 3576! 3577! 3578! 3579! 3580! 3581! 3582! 3583! 3584! 3585! 3586! 3587! 3588! 3589! 3590! 3591! 3592! 3593! 3594! 3595! 3596! 3597! 3598! 3599! 3600!",
+            "123",
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            // over 13k characters
+            "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
     fn test_get_reply_for_multifactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
@@ -463,14 +519,14 @@ mod tests {
     }
 
     #[test]
-    fn test_get_reply_too_long() {
+    fn test_get_reply_too_long_with_multiple_numbers() {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![
                 Factorial {
                     number: 5,
-                    level: 1,
-                    factorial: 120.to_bigint().unwrap(),
+                    level: 2,
+                    factorial: 60.to_bigint().unwrap(),
                 },
                 Factorial {
                     number: 6,
@@ -487,7 +543,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial(s) of [5, 6, 3249], they would have [3, 3, 10001] digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation they would be (roughly) [1.20e2, 7.20e2, 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000] though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters.\n\nIn scientific notation the results would look roughly like that:\n\nDouble-Factorial of 5 = 6.0e1,\n\nFactorial of 6 = 7.20e2,\n\nFactorial of 3249 = 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000\n\n:)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -496,7 +552,7 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 4000!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 4000, it would have 12674 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the factorial of 4000 would be (roughly) 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -505,7 +561,7 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 9000!!!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the Triple-factorial of 9000, it would have 10562 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the Triple-factorial of 9000 would be (roughly) 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -514,6 +570,6 @@ mod tests {
             RedditComment::new("This is a test comment with a factorial of 3250!", "1234");
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry bro, but if I calculate the factorial of 3250, it would have 10005 digits. \n While reddit only allows up to 10.000 characters in a comment :(\n\n In scientific notation it would be (roughly) 2.0840097486898794597623312984934641499860586341733439074965277708081597610387139819550932238765757432e10004 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the factorial of 3250 would be (roughly) 2.0840097486898794597623312984934641499860586341733439074965277708081597610387139819550932238765757432e10004 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 }
