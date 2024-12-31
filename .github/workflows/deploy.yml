@@ -13,19 +13,18 @@ jobs:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PATH: ${{ secrets.SSH_PATH }}
         run: |
           echo "$PRIVATE_KEY" > private_key.pem # Write the private key to a file
           chmod 600 private_key.pem # Set the appropriate permissions for the key file
 
           ssh -v -o StrictHostKeyChecking=no -i private_key.pem $SSH_USER@$SSH_HOST <<EOF
-            cd /home/runner/services/factorion-bot && \
-            ls -lah && \
-            echo ${PWD} && \
+            cd $SSH_PATH && \
             git fetch origin master && \
             git reset --hard origin/master  && \
             docker kill factorion-bot  && \
             docker build -t factorion-bot . && \
-            docker run --rm -d --network service-network --name factorion-bot --volume ${PWD}:/usr/factorion factorion-bot:latest ./run.sh
+            docker run --rm -d --network service-network --name factorion-bot --volume $SSH_PATH:/usr/factorion factorion-bot:latest ./run.sh
           EOF
           
           rm -f private_key.pem # Remove the private key file after use for security
