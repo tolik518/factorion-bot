@@ -18,9 +18,9 @@ jobs:
           chmod 600 private_key.pem # Set the appropriate permissions for the key file
 
           ssh -v -o StrictHostKeyChecking=no -i private_key.pem $SSH_USER@$SSH_HOST <<EOF
-            cd /home/runner/services/factorion-bot
-            ls -lah
-            echo ${PWD}
+            cd /home/runner/services/factorion-bot && \
+            ls -lah && \
+            echo ${PWD} && \
             git fetch origin master && \
             git reset --hard origin/master  && \
             docker kill factorion-bot  && \
