@@ -108,7 +108,7 @@ The recommended way would be running the bot using docker.
 git clone https://github.com/tolik518/factorion-bot
 docker build -t factorion-bot .
 # either create a network called `service-network` or remove the network if not needed
-docker run -d --network service-network --name factorion-bot --volume ${PWD}:/usr/factorion factorion-bot:latest
+docker run --rm -d --network service-network --name factorion-bot --volume $(pwd):/usr/factorion factorion-bot:latest ./run.sh
 ```
 
 

@@ -25,7 +25,7 @@ jobs:
             git reset --hard origin/master  && \
             docker kill factorion-bot  && \
             docker build -t factorion-bot . && \
-            docker run --rm -d --network service-network --name factorion-bot --volume $(pwd):/usr/factorion factorion-bot:latest
+            docker run --rm -d --network service-network --name factorion-bot --volume $(pwd):/usr/factorion factorion-bot:latest ./run.sh
           EOF
           
           rm -f private_key.pem # Remove the private key file after use for security
