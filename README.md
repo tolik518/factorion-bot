@@ -1,5 +1,5 @@
 <p align="center">
-    <img alt="Factorion-Logo which looks like a robot from futurama" src=".github/image_no_bg.png" width="128px">
+    <img alt="Factorion-Logo which looks like a robot from futurama" src=".github/image_pixelart_transparent.png" width="128px">
 </p>
 
 <h1 align="center"> Factorion-bot </h1>
@@ -108,7 +108,7 @@ The recommended way would be running the bot using docker.
 git clone https://github.com/tolik518/factorion-bot
 docker build -t factorion-bot .
 # either create a network called `service-network` or remove the network if not needed
-docker run --rm -d --network service-network --name factorion-bot --volume $(pwd):/usr/factorion factorion-bot:latest ./run.sh
+docker run --rm -d --name factorion-bot --volume $(pwd):/usr/factorion factorion-bot:latest ./run.sh
 ```
 
 
