@@ -75,9 +75,13 @@ PASSWORD=<reddit_app_password>
 
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
 SUBREDDITS=<subreddits>
+
+INFLUXDB_HOST=localhost:8889
+INFLUXDB_BUCKET=factorion-test
+INFLUXDB_TOKEN=<token>
 ```
 
-Replace `<your_client_id>`, `<your_client_secret>`, `<reddit_app_username>`, and `<reddit_app_password>` with the values you received from the Reddit App creation.
+Replace with the values you received from the Reddit App creation. InfluxDB is optional and can be removed if not needed.
 
 ## Run the following command to install dependencies:
 

@@ -5,8 +5,13 @@ use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::time::SystemTime;
+use chrono::{DateTime, Utc};
+use dotenv::dotenv;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
+use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable, ReadQuery};
+use once_cell::sync::Lazy;
+use tokio::io::AsyncWriteExt;
 
 mod math;
 mod reddit_api;
@@ -15,8 +20,23 @@ pub(crate) mod reddit_comment;
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 
+static INFLUX_CLIENT: Lazy<Option<InfluxDbClient>> = Lazy::new(|| {
+    let host = std::env::var("INFLUXDB_HOST").ok()?;
+    let bucket = std::env::var("INFLUXDB_BUCKET").ok()?;
+    let token = std::env::var("INFLUXDB_TOKEN").ok()?;
+    Some(InfluxDbClient::new(host, bucket).with_token(token))
+});
+
+#[derive(InfluxDbWriteable)]
+struct TimeMeasurement {
+    time: DateTime<Utc>,
+    time_consumed: f64
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv().ok();
+    let influx_client = &*INFLUX_CLIENT;
     let mut reddit_client = RedditClient::new().await?;
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
     let subreddits = subreddits.as_str();
@@ -49,13 +69,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
             today.time()
         );
 
+        let start = SystemTime::now();
         let comments = reddit_client
             .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_to_comments)
             .await
             .unwrap_or_default();
+        let end = SystemTime::now();
+
+        if let Some(influx_client) = influx_client {
+            influx_client.query(vec![
+                TimeMeasurement {
+                    time: DateTime::from(Utc::now()),
+                    time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
+                }.into_query("get_comments"),
+            ]).await?;
+        }
 
         println!("Found {} comments", comments.len());
 
+        let start = SystemTime::now();
         for comment in comments {
             let comment_id = comment.id.clone();
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
@@ -91,6 +123,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
             println!(" [unknown] ");
+        }
+        let end = SystemTime::now();
+
+        if let Some(influx_client) = influx_client {
+            influx_client.query(vec![
+                TimeMeasurement {
+                    time: DateTime::from(Utc::now()),
+                    time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
+                }.into_query("comment_loop"),
+            ]).await?;
         }
 
         let mut file = OpenOptions::new()

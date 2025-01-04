@@ -31,7 +31,6 @@ pub(crate) struct RedditClient {
 
 impl RedditClient {
     pub(crate) async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        dotenv().ok();
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
 
