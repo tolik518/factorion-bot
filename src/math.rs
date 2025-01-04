@@ -25,6 +25,35 @@ fn multifactorial_recursive(n: u64, k: u64, low_i: u64, high_i: u64) -> BigInt {
     }
 }
 
+/// Calculates Sterling's Approximation of large factorials.
+/// Returns a float with the digits, and an int containing the extra base 10 exponent.
+fn approximate_factorial(n: u64) -> (f64, u64) {
+    let n = n as f64;
+    let base = n / std::f64::consts::E;
+    let ten_in_base = 10.0f64.log(base);
+    let extra = (n / ten_in_base) as u64;
+    let exponent = n - ten_in_base * extra as f64;
+    let factorial = base.powf(exponent) * (2.0 * std::f64::consts::PI * n).sqrt();
+    // TODO(improvement): add stirlings series terms, for more accuracy
+    (factorial, extra)
+}
+
+/// Calculates the approximate digits of a multifactorial.
+/// This is based on the base 10 logarithm of Sterling's Approximation.
+fn approximate_multifactorial_digits(n: u64, k: u64) -> u64 {
+    let n = n as f64;
+    let k = k as f64;
+    let base = n.log(10.0);
+    ((0.5 + n / k) * base - n / k / 10.0f64.ln()) as u64 + 1
+}
+
+fn format_approximate_factorial((x, e): (f64, u64)) -> String {
+    let extra = x.log10() as u64;
+    let x = x / (10.0f64.powf(extra as f64));
+    let total_exponent = extra + e;
+    format!("{x}e{total_exponent}")
+}
+
 /// Rounds a base 10 number string.
 /// Uses the last digit to decide the rounding direction.
 /// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
@@ -63,6 +92,8 @@ pub(crate) fn round(number: &mut String) {
 
 #[cfg(test)]
 mod tests {
+    use crate::math::approximate_factorial;
+
     use super::*;
     use num_bigint::ToBigInt;
     use num_traits::Zero;
@@ -229,5 +260,53 @@ mod tests {
         let mut number = String::from("24999999995");
         round(&mut number);
         assert_eq!(number, "25");
+    }
+
+    #[test]
+    fn test_approximate_factorial() {
+        // NOTE: only 4 decimals are correct
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(100_001)),
+            "2.824255296594685e456578"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(2_546_372_899)),
+            "7.754745595292734e22845109185"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(712_460_928_486)),
+            "2.982723728493608e8135211294800" // NOTE: only 2 decimals are correct
+        );
+    }
+
+    #[test]
+    fn test_approximate_digits() {
+        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579);
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739, 1),
+            74_111_525_394
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(738_247_937_346_920, 1),
+            10_655_802_631_914_633
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(827_829_849_020_729_846, 1),
+            14_473_484_525_026_752_513 // NOTE: Last 4 digits are wrong
+        );
+        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739, 2),
+            37_055_762_699
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(738_247_937_346_920, 2),
+            5_327_901_315_957_321
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(827_829_849_020_729_846, 2),
+            7_236_742_262_513_376_257 // NOTE: Last 3 digits are wrong
+        );
+        // TODO(test): test digit approximations for n-factorials (need to find a good reference)
     }
 }
