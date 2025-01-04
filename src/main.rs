@@ -1,3 +1,7 @@
+use chrono::{DateTime, Utc};
+use dotenv::dotenv;
+use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable, ReadQuery};
+use once_cell::sync::Lazy;
 use reddit_api::RedditClient;
 use reddit_comment::Status;
 use std::collections::HashSet;
@@ -5,13 +9,9 @@ use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::time::SystemTime;
-use chrono::{DateTime, Utc};
-use dotenv::dotenv;
 use time::OffsetDateTime;
-use tokio::time::{sleep, Duration};
-use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable, ReadQuery};
-use once_cell::sync::Lazy;
 use tokio::io::AsyncWriteExt;
+use tokio::time::{sleep, Duration};
 
 mod math;
 mod reddit_api;
@@ -30,7 +30,7 @@ static INFLUX_CLIENT: Lazy<Option<InfluxDbClient>> = Lazy::new(|| {
 #[derive(InfluxDbWriteable)]
 struct TimeMeasurement {
     time: DateTime<Utc>,
-    time_consumed: f64
+    time_consumed: f64,
 }
 
 #[tokio::main]
@@ -77,12 +77,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let end = SystemTime::now();
 
         if let Some(influx_client) = influx_client {
-            influx_client.query(vec![
-                TimeMeasurement {
+            influx_client
+                .query(vec![TimeMeasurement {
                     time: DateTime::from(Utc::now()),
                     time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
-                }.into_query("get_comments"),
-            ]).await?;
+                }
+                .into_query("get_comments")])
+                .await?;
         }
 
         println!("Found {} comments", comments.len());
@@ -127,12 +128,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let end = SystemTime::now();
 
         if let Some(influx_client) = influx_client {
-            influx_client.query(vec![
-                TimeMeasurement {
+            influx_client
+                .query(vec![TimeMeasurement {
                     time: DateTime::from(Utc::now()),
                     time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
-                }.into_query("comment_loop"),
-            ]).await?;
+                }
+                .into_query("comment_loop")])
+                .await?;
         }
 
         let mut file = OpenOptions::new()
