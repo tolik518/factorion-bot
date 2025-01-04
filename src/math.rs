@@ -34,12 +34,62 @@ fn approximate_factorial(n: u64) -> (f64, u64) {
     let extra = (n / ten_in_base) as u64;
     let exponent = n - ten_in_base * extra as f64;
     let factorial = base.powf(exponent) * (2.0 * std::f64::consts::PI * n).sqrt();
-    // TODO(improvement): add stirlings series terms, for more accuracy
+    // Numerators from https://oeis.org/A001163 (cc-by-sa-4.0)
+    let numerators: [f64; 17] = [
+        1.0,
+        1.0,
+        1.0,
+        -139.0,
+        -571.0,
+        163879.0,
+        5246819.0,
+        -534703531.0,
+        -4483131259.0,
+        432261921612371.0,
+        6232523202521089.0,
+        -25834629665134204969.0,
+        -1579029138854919086429.0,
+        746590869962651602203151.0,
+        1511513601028097903631961.0,
+        -8849272268392873147705987190261.0,
+        -142801712490607530608130701097701.0,
+    ];
+    // Denominators from https://oeis.org/A001164 (cc-by-sa-4.0)
+    let denominators: [f64; 17] = [
+        1.0,
+        12.0,
+        288.0,
+        51840.0,
+        2488320.0,
+        209018880.0,
+        75246796800.0,
+        902961561600.0,
+        86684309913600.0,
+        514904800886784000.0,
+        86504006548979712000.0,
+        13494625021640835072000.0,
+        9716130015581401251840000.0,
+        116593560186976815022080000.0,
+        2798245444487443560529920000.0,
+        299692087104605205332754432000000.0,
+        57540880724084199423888850944000000.0,
+    ];
+    let series_sum: f64 = numerators
+        .into_iter()
+        .zip(denominators)
+        .enumerate()
+        .map(|(m, (num, den))| num / (den * n.powf(m as f64)))
+        .sum();
+    let factorial = factorial * series_sum;
     (factorial, extra)
 }
 
 /// Calculates the approximate digits of a multifactorial.
 /// This is based on the base 10 logarithm of Sterling's Approximation.
+///
+/// # Panic
+/// This function will panic if the output is too large to fit in a u64.
+/// It is recommended to only use inputs up to 1 Quintillion.
 fn approximate_multifactorial_digits(n: u64, k: u64) -> u64 {
     let n = n as f64;
     let k = k as f64;
@@ -264,18 +314,18 @@ mod tests {
 
     #[test]
     fn test_approximate_factorial() {
-        // NOTE: only 4 decimals are correct
+        // NOTE: only the first decimals are correct
         assert_eq!(
             format_approximate_factorial(approximate_factorial(100_001)),
-            "2.824255296594685e456578"
+            "2.8242576501182115e456578" // 9 decimals
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(2_546_372_899)),
-            "7.754745595292734e22845109185"
+            "7.7547455955465185e22845109185" // 4 decimals
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
-            "2.982723728493608e8135211294800" // NOTE: only 2 decimals are correct
+            "2.982723728493957e8135211294800" // 2 decimals
         );
     }
 
@@ -293,6 +343,10 @@ mod tests {
         assert_eq!(
             approximate_multifactorial_digits(827_829_849_020_729_846, 1),
             14_473_484_525_026_752_513 // NOTE: Last 4 digits are wrong
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
+            17_565_705_518_096_744_449 // NOTE: It is unknown how many digits are wrong (though < 14)
         );
         assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
         assert_eq!(
