@@ -5,7 +5,6 @@ use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
-use dotenv::dotenv;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Response};
 use serde::Deserialize;
