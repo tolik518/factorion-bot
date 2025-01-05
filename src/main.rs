@@ -36,7 +36,7 @@ struct TimeMeasurement {
 #[derive(InfluxDbWriteable)]
 struct CommentMeasurement {
     time: DateTime<Utc>,
-    comment_id: String
+    comment_id: String,
 }
 
 #[tokio::main]
@@ -117,7 +117,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Ok(_) => {
                         already_replied_to_comments.push(comment_id.clone());
                         log_comment_reply(&influx_client, &comment_id).await?;
-                    },
+                    }
                     Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }
                 // Sleep to not spam comments too quickly
@@ -146,27 +146,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-async fn log_comment_reply(influx_client: &Option<InfluxDbClient>, comment_id: &str) -> Result<(), InfluxDbError> {
+async fn log_comment_reply(
+    influx_client: &Option<InfluxDbClient>,
+    comment_id: &str,
+) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
             .query(vec![CommentMeasurement {
                 time: DateTime::from(Utc::now()),
                 comment_id: comment_id.to_string(),
             }
-                .into_query("replied_to_comment")])
+            .into_query("replied_to_comment")])
             .await?;
     }
     Ok(())
 }
 
-async fn log_time_consumed(influx_client: &Option<InfluxDbClient>, start: SystemTime, end: SystemTime) -> Result<(), InfluxDbError> {
+async fn log_time_consumed(
+    influx_client: &Option<InfluxDbClient>,
+    start: SystemTime,
+    end: SystemTime,
+) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
             .query(vec![TimeMeasurement {
                 time: DateTime::from(Utc::now()),
                 time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
             }
-                .into_query("comment_loop")])
+            .into_query("comment_loop")])
             .await?;
     }
     Ok(())
