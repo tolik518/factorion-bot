@@ -5,6 +5,8 @@ use num_traits::{One, ToPrimitive};
 use std::fmt::Write;
 
 pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
+pub(crate) const UPPER_APPROXIMATION_LIMIT: i64 = 500_000_000_000;
+pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: i64 = 1_000_000_000_000_000;
 const PLACEHOLDER: &str = "Factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
@@ -30,6 +32,8 @@ pub(crate) enum Status {
     AlreadyReplied,
     NotReplied,
     NumberTooBig,
+    ApproximateFactorial,
+    ApproximateDigits,
     NoFactorial,
     ReplyWouldBeTooLong,
     FactorialsFound,
@@ -75,10 +79,15 @@ impl RedditComment {
                 .len()
                 .to_u64()
                 .expect("Failed to convert exclamation count to u64");
-
-            // Check if the number is within a reasonable range to compute
-            if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
+            // Check if we can approximate the number of digits
+            if num > BigInt::from(UPPER_DIGIT_APPROXIMATION_LIMIT) {
                 status.push(Status::NumberTooBig);
+            // Check if we can approximate it
+            } else if num > BigInt::from(UPPER_APPROXIMATION_LIMIT) || exclamation_count > 1 {
+                status.push(Status::ApproximateDigits);
+            // Check if the number is within a reasonable range to compute
+            } else if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
+                status.push(Status::ApproximateFactorial);
             } else if num == BigInt::one() {
                 continue;
             } else {
