@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or_default();
         let end = SystemTime::now();
 
-        log_time_consumed(influx_client, start, end).await?;
+        log_time_consumed(influx_client, start, end, "get_comments").await?;
 
         println!("Found {} comments", comments.len());
 
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         let end = SystemTime::now();
 
-        log_time_consumed(influx_client, start, end).await?;
+        log_time_consumed(influx_client, start, end, "comment_loop").await?;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -166,6 +166,7 @@ async fn log_time_consumed(
     influx_client: &Option<InfluxDbClient>,
     start: SystemTime,
     end: SystemTime,
+    metric_name: &str
 ) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
@@ -173,7 +174,7 @@ async fn log_time_consumed(
                 time: DateTime::from(Utc::now()),
                 time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
             }
-            .into_query("comment_loop")])
+            .into_query(metric_name)])
             .await?;
     }
     Ok(())
