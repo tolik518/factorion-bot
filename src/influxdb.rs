@@ -11,6 +11,7 @@ pub static INFLUX_CLIENT: Lazy<Option<InfluxDbClient>> = Lazy::new(|| {
     Some(InfluxDbClient::new(host, bucket).with_token(token))
 });
 
+
 #[derive(InfluxDbWriteable)]
 pub struct TimeMeasurement {
     pub time: DateTime<Utc>,
@@ -21,17 +22,25 @@ pub struct TimeMeasurement {
 pub struct CommentMeasurement {
     pub time: DateTime<Utc>,
     pub comment_id: String,
+    #[influxdb(tag)]
+    pub author: String,
+    #[influxdb(tag)]
+    pub subreddit: String,
 }
 
 pub async fn log_comment_reply(
     influx_client: &Option<InfluxDbClient>,
     comment_id: &str,
+    author: &str,
+    subreddit: &str,
 ) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
             .query(vec![CommentMeasurement {
                 time: Utc::now(),
                 comment_id: comment_id.to_string(),
+                author: author.to_string(),
+                subreddit: subreddit.to_string(),
             }
             .into_query("replied_to_comment")])
             .await?;

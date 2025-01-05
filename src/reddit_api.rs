@@ -265,13 +265,17 @@ impl RedditClient {
         let mut comments = Vec::new();
         for comment in comments_json {
             let body = comment["data"]["body"].as_str().unwrap_or("");
+            let author = comment["data"]["author"].as_str().unwrap_or("");
+            let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
 
-            let comment_id = comment["data"]["id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string();
+            let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
 
-            let mut comment = RedditComment::new(body, &comment_id);
+            let mut comment = RedditComment::new(
+                body,
+                comment_id,
+                author,
+                subreddit
+            );
 
             // set some statuses
             if !comment.status.contains(&Status::ReplyWouldBeTooLong)
@@ -280,7 +284,7 @@ impl RedditClient {
                 comment.add_status(Status::ReplyWouldBeTooLong);
             }
 
-            if already_replied_to_comments.contains(&comment_id) {
+            if already_replied_to_comments.contains(&comment_id.clone().to_string()) {
                 comment.add_status(Status::AlreadyReplied);
             } else {
                 comment.add_status(Status::NotReplied);

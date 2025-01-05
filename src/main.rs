@@ -76,6 +76,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let start = SystemTime::now();
         for comment in comments {
             let comment_id = comment.id.clone();
+            let comment_author = comment.author.clone();
+            let comment_subreddit = comment.subreddit.clone();
+
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
             let should_answer = status_set.contains(&Status::FactorialsFound)
                 && status_set.contains(&Status::NotReplied);
@@ -103,7 +106,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match reddit_client.reply_to_comment(comment, &reply).await {
                     Ok(_) => {
                         already_replied_to_comments.push(comment_id.clone());
-                        influxdb::log_comment_reply(influx_client, &comment_id).await?;
+                        influxdb::log_comment_reply(
+                            influx_client,
+                            &comment_id,
+                            &comment_author,
+                            &comment_subreddit
+                        ).await?;
                     }
                     Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }
