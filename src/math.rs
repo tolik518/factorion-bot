@@ -27,13 +27,15 @@ fn multifactorial_recursive(n: u64, k: u64, low_i: u64, high_i: u64) -> BigInt {
 
 /// Calculates Sterling's Approximation of large factorials.
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
-fn approximate_factorial(n: u64) -> (f64, u64) {
+///
+/// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
+pub fn approximate_factorial(n: u64) -> (f64, u64) {
     let n = n as f64;
     let base = n / std::f64::consts::E;
     let ten_in_base = 10.0f64.log(base);
     let extra = (n / ten_in_base) as u64;
     let exponent = n - ten_in_base * extra as f64;
-    let factorial = base.powf(exponent) * (2.0 * std::f64::consts::PI * n).sqrt();
+    let factorial = base.powf(exponent) * (std::f64::consts::TAU * n).sqrt();
     // Numerators from https://oeis.org/A001163 (cc-by-sa-4.0)
     let numerators: [f64; 17] = [
         1.0,
@@ -90,14 +92,17 @@ fn approximate_factorial(n: u64) -> (f64, u64) {
 /// # Panic
 /// This function will panic if the output is too large to fit in a u64.
 /// It is recommended to only use inputs up to 1 Quintillion.
-fn approximate_multifactorial_digits(n: u64, k: u64) -> u64 {
+///
+/// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
+pub fn approximate_multifactorial_digits(n: u64, k: u64) -> u64 {
     let n = n as f64;
     let k = k as f64;
     let base = n.log(10.0);
     ((0.5 + n / k) * base - n / k / 10.0f64.ln()) as u64 + 1
 }
 
-fn format_approximate_factorial((x, e): (f64, u64)) -> String {
+/// Formats the output of [`approximate_factorial`], by combining the 10 exponents of the number and the extra exponent.
+pub fn format_approximate_factorial((x, e): (f64, u64)) -> String {
     let extra = x.log10() as u64;
     let x = x / (10.0f64.powf(extra as f64));
     let total_exponent = extra + e;
@@ -324,6 +329,10 @@ mod tests {
             "7.7547455955465185e22845109185" // 4 decimals
         );
         assert_eq!(
+            format_approximate_factorial(approximate_factorial(500_000_000_000)),
+            "4.280903142280765e5632337761222" // 2 decimals
+        );
+        assert_eq!(
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
             "2.982723728493957e8135211294800" // 2 decimals
         );
@@ -346,7 +355,7 @@ mod tests {
         );
         assert_eq!(
             approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
-            17_565_705_518_096_744_449 // NOTE: It is unknown how many digits are wrong (though < 14)
+            17_565_705_518_096_744_449 // NOTE: Last 4 digits are wrong
         );
         assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
         assert_eq!(
