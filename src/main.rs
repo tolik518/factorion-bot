@@ -23,6 +23,13 @@ const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let influx_client = &*INFLUX_CLIENT;
+
+    if influx_client.is_none() {
+        eprintln!("InfluxDB client not configured. No influxdb metrics will be logged.");
+    } else {
+        println!("InfluxDB client configured. Metrics will be logged.");
+    }
+
     let mut reddit_client = RedditClient::new().await?;
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
     let subreddits = subreddits.as_str();
