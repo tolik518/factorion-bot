@@ -1,7 +1,5 @@
-use chrono::{DateTime, Utc};
 use dotenv::dotenv;
-use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable, ReadQuery};
-use once_cell::sync::Lazy;
+use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
 use reddit_comment::Status;
 use std::collections::HashSet;
@@ -13,31 +11,13 @@ use time::OffsetDateTime;
 use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
 
+mod influxdb;
 mod math;
 mod reddit_api;
 pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
-
-static INFLUX_CLIENT: Lazy<Option<InfluxDbClient>> = Lazy::new(|| {
-    let host = std::env::var("INFLUXDB_HOST").ok()?;
-    let bucket = std::env::var("INFLUXDB_BUCKET").ok()?;
-    let token = std::env::var("INFLUXDB_TOKEN").ok()?;
-    Some(InfluxDbClient::new(host, bucket).with_token(token))
-});
-
-#[derive(InfluxDbWriteable)]
-struct TimeMeasurement {
-    time: DateTime<Utc>,
-    time_consumed: f64,
-}
-
-#[derive(InfluxDbWriteable)]
-struct CommentMeasurement {
-    time: DateTime<Utc>,
-    comment_id: String,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -82,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or_default();
         let end = SystemTime::now();
 
-        log_time_consumed(influx_client, start, end, "get_comments").await?;
+        influxdb::log_time_consumed(influx_client, start, end, "get_comments").await?;
 
         println!("Found {} comments", comments.len());
 
@@ -116,7 +96,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match reddit_client.reply_to_comment(comment, &reply).await {
                     Ok(_) => {
                         already_replied_to_comments.push(comment_id.clone());
-                        log_comment_reply(&influx_client, &comment_id).await?;
+                        influxdb::log_comment_reply(influx_client, &comment_id).await?;
                     }
                     Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }
@@ -128,7 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         let end = SystemTime::now();
 
-        log_time_consumed(influx_client, start, end, "comment_loop").await?;
+        influxdb::log_time_consumed(influx_client, start, end, "comment_loop").await?;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -144,38 +124,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Sleep to avoid hitting API rate limits
         sleep(Duration::from_secs(sleep_between_requests)).await;
     }
-}
-
-async fn log_comment_reply(
-    influx_client: &Option<InfluxDbClient>,
-    comment_id: &str,
-) -> Result<(), InfluxDbError> {
-    if let Some(influx_client) = influx_client {
-        influx_client
-            .query(vec![CommentMeasurement {
-                time: DateTime::from(Utc::now()),
-                comment_id: comment_id.to_string(),
-            }
-            .into_query("replied_to_comment")])
-            .await?;
-    }
-    Ok(())
-}
-
-async fn log_time_consumed(
-    influx_client: &Option<InfluxDbClient>,
-    start: SystemTime,
-    end: SystemTime,
-    metric_name: &str
-) -> Result<(), InfluxDbError> {
-    if let Some(influx_client) = influx_client {
-        influx_client
-            .query(vec![TimeMeasurement {
-                time: DateTime::from(Utc::now()),
-                time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
-            }
-            .into_query(metric_name)])
-            .await?;
-    }
-    Ok(())
 }
