@@ -11,7 +11,6 @@ pub static INFLUX_CLIENT: Lazy<Option<InfluxDbClient>> = Lazy::new(|| {
     Some(InfluxDbClient::new(host, bucket).with_token(token))
 });
 
-
 #[derive(InfluxDbWriteable)]
 pub struct TimeMeasurement {
     pub time: DateTime<Utc>,

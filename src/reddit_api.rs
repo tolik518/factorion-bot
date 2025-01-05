@@ -270,12 +270,7 @@ impl RedditClient {
 
             let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
 
-            let mut comment = RedditComment::new(
-                body,
-                comment_id,
-                author,
-                subreddit
-            );
+            let mut comment = RedditComment::new(body, comment_id, author, subreddit);
 
             // set some statuses
             if !comment.status.contains(&Status::ReplyWouldBeTooLong)

@@ -110,8 +110,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             influx_client,
                             &comment_id,
                             &comment_author,
-                            &comment_subreddit
-                        ).await?;
+                            &comment_subreddit,
+                        )
+                        .await?;
                     }
                     Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }

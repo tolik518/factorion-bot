@@ -334,7 +334,7 @@ mod tests {
             "This is a test comment with a factorial of 5! and 6!",
             "123",
             "test_author",
-            "test_subreddit"
+            "test_subreddit",
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -357,7 +357,12 @@ mod tests {
 
     #[test]
     fn test_comment_new_double_factorial() {
-        let comment = RedditComment::new("This is a test comment with an n-factorial 6!!", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with an n-factorial 6!!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(
             comment.factorial_list,
             vec![Factorial {
@@ -371,7 +376,12 @@ mod tests {
 
     #[test]
     fn test_comment_new_triple_factorial() {
-        let comment = RedditComment::new("This is a test comment with an n-factorial 6!!!", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with an n-factorial 6!!!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(
             comment.factorial_list,
             vec![Factorial {
@@ -385,42 +395,72 @@ mod tests {
 
     #[test]
     fn test_comment_new_spoiler() {
-        let comment = RedditComment::new(">!This is a spoiler comment 5!<", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            ">!This is a spoiler comment 5!<",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
     #[test]
     fn test_comment_new_spoiler_html_encoded() {
-        let comment = RedditComment::new("&gt;!This is a spoiler comment 5!&lt;", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "&gt;!This is a spoiler comment 5!&lt;",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
     #[test]
     fn test_comment_new_exclamations_one() {
-        let comment = RedditComment::new("This is a test with exclamation mark stuff!!!1!", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test with exclamation mark stuff!!!1!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
     #[test]
     fn test_comment_new_exclamations_eleven() {
-        let comment = RedditComment::new("This is a test with exclamation mark stuff!!!11!", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test with exclamation mark stuff!!!11!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
     #[test]
     fn test_comment_new_decimals() {
-        let comment = RedditComment::new("This is a test comment with decimal number 0.5!", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 0.5!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
 
     #[test]
     fn test_comment_new_comma_decimals() {
-        let comment = RedditComment::new("This is a test comment with decimal number 0,5!", "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 0,5!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(comment.status, vec![Status::NoFactorial]);
     }
@@ -431,7 +471,7 @@ mod tests {
             "This is a test comment with a factorial of 555555555555555555555555555555555! and 6!",
             "123",
             "test_author",
-            "test_subreddit"
+            "test_subreddit",
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -466,7 +506,7 @@ mod tests {
             "This is a test comment with a factorial of 5! and 6!",
             "123",
             "test_author",
-            "test_subreddit"
+            "test_subreddit",
         );
         comment.add_status(Status::NotReplied);
         assert_eq!(
@@ -566,8 +606,12 @@ mod tests {
 
     #[test]
     fn test_get_reply_too_long_from_new_comment() {
-        let comment =
-            RedditComment::new("This is a test comment with a factorial of 4000!", "1234", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with a factorial of 4000!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
 
         let reply = comment.get_reply();
         assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the factorial of 4000 would be (roughly) 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -575,8 +619,12 @@ mod tests {
 
     #[test]
     fn test_get_reply_too_long_from_new_comment_for_multifactorial() {
-        let comment =
-            RedditComment::new("This is a test comment with a factorial of 9000!!!", "1234", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with a factorial of 9000!!!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
 
         let reply = comment.get_reply();
         assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the Triple-factorial of 9000 would be (roughly) 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -584,8 +632,12 @@ mod tests {
 
     #[test]
     fn test_get_reply_too_long_from_number_3250() {
-        let comment =
-            RedditComment::new("This is a test comment with a factorial of 3250!", "1234", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            "This is a test comment with a factorial of 3250!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
 
         let reply = comment.get_reply();
         assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the factorial of 3250 would be (roughly) 2.0840097486898794597623312984934641499860586341733439074965277708081597610387139819550932238765757432e10004 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
