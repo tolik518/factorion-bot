@@ -1,3 +1,5 @@
+use dotenv::dotenv;
+use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
 use reddit_comment::Status;
 use std::collections::HashSet;
@@ -6,8 +8,10 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::time::SystemTime;
 use time::OffsetDateTime;
+use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
 
+mod influxdb;
 mod math;
 mod reddit_api;
 pub(crate) mod reddit_comment;
@@ -17,6 +21,15 @@ const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    dotenv().ok();
+    let influx_client = &*INFLUX_CLIENT;
+
+    if influx_client.is_none() {
+        eprintln!("InfluxDB client not configured. No influxdb metrics will be logged.");
+    } else {
+        println!("InfluxDB client configured. Metrics will be logged.");
+    }
+
     let mut reddit_client = RedditClient::new().await?;
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
     let subreddits = subreddits.as_str();
@@ -49,15 +62,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
             today.time()
         );
 
+        let start = SystemTime::now();
         let comments = reddit_client
             .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_to_comments)
             .await
             .unwrap_or_default();
+        let end = SystemTime::now();
+
+        influxdb::log_time_consumed(influx_client, start, end, "get_comments").await?;
 
         println!("Found {} comments", comments.len());
 
+        let start = SystemTime::now();
         for comment in comments {
             let comment_id = comment.id.clone();
+            let comment_author = comment.author.clone();
+            let comment_subreddit = comment.subreddit.clone();
+
             let status_set: HashSet<_> = comment.status.iter().cloned().collect();
             let should_answer = status_set.contains(&Status::FactorialsFound)
                 && status_set.contains(&Status::NotReplied);
@@ -83,7 +104,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if should_answer {
                 let reply: String = comment.get_reply();
                 match reddit_client.reply_to_comment(comment, &reply).await {
-                    Ok(_) => already_replied_to_comments.push(comment_id.clone()),
+                    Ok(_) => {
+                        already_replied_to_comments.push(comment_id.clone());
+                        influxdb::log_comment_reply(
+                            influx_client,
+                            &comment_id,
+                            &comment_author,
+                            &comment_subreddit,
+                        )
+                        .await?;
+                    }
                     Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }
                 // Sleep to not spam comments too quickly
@@ -92,6 +122,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             println!(" [unknown] ");
         }
+        let end = SystemTime::now();
+
+        influxdb::log_time_consumed(influx_client, start, end, "comment_loop").await?;
 
         let mut file = OpenOptions::new()
             .create(true)
