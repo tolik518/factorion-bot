@@ -94,11 +94,11 @@ pub fn approximate_factorial(n: u64) -> (f64, u64) {
 /// It is recommended to only use inputs up to 1 Quintillion.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_multifactorial_digits(n: u64, k: u64) -> u64 {
+pub fn approximate_multifactorial_digits(n: u128, k: u64) -> u128 {
     let n = n as f64;
     let k = k as f64;
     let base = n.log(10.0);
-    ((0.5 + n / k) * base - n / k / 10.0f64.ln()) as u64 + 1
+    ((0.5 + n / k) * base - n / k / 10.0f64.ln()) as u128 + 1
 }
 
 /// Formats the output of [`approximate_factorial`], by combining the 10 exponents of the number and the extra exponent.
@@ -356,6 +356,10 @@ mod tests {
         assert_eq!(
             approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
             17_565_705_518_096_744_449 // NOTE: Last 4 digits are wrong
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(1_000_000_000_000_000_000_000_000_000_000_000_000, 1),
+            35_565_705_518_096_741_787_712_172_651_953_782_785 // NOTE: Last 22 digits are wrong
         );
         assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
         assert_eq!(

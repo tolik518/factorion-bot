@@ -4,9 +4,10 @@ use num_bigint::BigInt;
 use num_traits::{One, ToPrimitive};
 use std::fmt::Write;
 
-pub(crate) const UPPER_CALCULATION_LIMIT: i64 = 100_001;
-pub(crate) const UPPER_APPROXIMATION_LIMIT: i64 = 500_000_000_000;
-pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: i64 = 1_000_000_000_000_000;
+pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 100_001;
+pub(crate) const UPPER_APPROXIMATION_LIMIT: u64 = 500_000_000_000;
+pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: u128 =
+    1_000_000_000_000_000_000_000_000_000_000_000_000;
 const PLACEHOLDER: &str = "Factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
@@ -17,12 +18,12 @@ pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 100;
 pub(crate) enum CalculatedFactorial {
     Exact(BigInt),
     Approximate(f64, u64),
-    ApproximateDigits(u64),
+    ApproximateDigits(u128),
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
-    pub(crate) number: u64,
+    pub(crate) number: u128,
     pub(crate) level: u64,
     pub(crate) factorial: CalculatedFactorial,
 }
@@ -41,8 +42,6 @@ pub(crate) enum Status {
     AlreadyReplied,
     NotReplied,
     NumberTooBig,
-    ApproximateFactorial,
-    ApproximateDigits,
     NoFactorial,
     ReplyWouldBeTooLong,
     FactorialsFound,
@@ -92,8 +91,9 @@ impl std::hash::Hash for CalculatedFactorial {
 }
 
 impl Factorial {
-    fn format(&self, acc: &mut String, shorten: bool) -> Result<(), std::fmt::Error> {
+    fn format(&self, acc: &mut String) -> Result<(), std::fmt::Error> {
         let factorial_level_string = RedditComment::get_factorial_level_string(self.level);
+        let shorten = self.is_too_long();
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
                 if shorten {
@@ -148,6 +148,70 @@ impl Factorial {
             }
         }
     }
+    fn is_aproximate_digits(&self) -> bool {
+        if let CalculatedFactorial::ApproximateDigits(_) = self.factorial {
+            true
+        } else {
+            false
+        }
+    }
+    fn is_approximate(&self) -> bool {
+        if let CalculatedFactorial::Approximate(_, _) = self.factorial {
+            true
+        } else {
+            false
+        }
+    }
+    fn is_too_long(&self) -> bool {
+        match self.level {
+            1 => self.number > 3249,
+            2 => self.number > 5982,
+            3 => self.number > 8572,
+            4 => self.number > 11077,
+            5 => self.number > 13522,
+            6 => self.number > 15920,
+            7 => self.number > 18282,
+            8 => self.number > 20613,
+            9 => self.number > 22920,
+            10 => self.number > 25208,
+            11 => self.number > 27479,
+            12 => self.number > 29735,
+            13 => self.number > 31977,
+            14 => self.number > 34207,
+            15 => self.number > 36426,
+            16 => self.number > 38635,
+            17 => self.number > 40835,
+            18 => self.number > 43027,
+            19 => self.number > 45212,
+            20 => self.number > 47390,
+            21 => self.number > 49562,
+            22 => self.number > 51728,
+            23 => self.number > 53889,
+            24 => self.number > 56045,
+            25 => self.number > 58197,
+            26 => self.number > 60345,
+            27 => self.number > 62489,
+            28 => self.number > 64630,
+            29 => self.number > 66768,
+            30 => self.number > 68903,
+            31 => self.number > 71036,
+            32 => self.number > 73167,
+            33 => self.number > 75296,
+            34 => self.number > 77423,
+            35 => self.number > 79548,
+            36 => self.number > 81672,
+            37 => self.number > 83794,
+            38 => self.number > 85915,
+            39 => self.number > 88035,
+            40 => self.number > 90154,
+            41 => self.number > 92272,
+            42 => self.number > 94389,
+            43 => self.number > 96505,
+            44 => self.number > 98620,
+            45 => self.number > 100734,
+            _ => false,
+        }
+    }
 }
 
 impl RedditComment {
@@ -170,13 +234,12 @@ impl RedditComment {
                 .expect("Failed to convert exclamation count to u64");
             // Check if we can approximate the number of digits
             if num > BigInt::from(UPPER_DIGIT_APPROXIMATION_LIMIT) {
-                status.push(Status::NumberTooBig);
-            // Check if we can approximate it
+                status.push(Status::NumberTooBig)
+                // Check if we can approximate it
             } else if num > BigInt::from(UPPER_APPROXIMATION_LIMIT)
                 || (exclamation_count > 1 && num > BigInt::from(UPPER_CALCULATION_LIMIT))
             {
-                status.push(Status::ApproximateDigits);
-                let num = num.to_u64().expect("Failed to convert BigInt to i64");
+                let num = num.to_u128().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_multifactorial_digits(num, exclamation_count);
                 factorial_list.push(Factorial {
                     number: num,
@@ -185,11 +248,10 @@ impl RedditComment {
                 });
             // Check if the number is within a reasonable range to compute
             } else if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
-                status.push(Status::ApproximateFactorial);
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_factorial(num);
                 factorial_list.push(Factorial {
-                    number: num,
+                    number: num as u128,
                     level: exclamation_count,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
@@ -199,7 +261,7 @@ impl RedditComment {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
                 let factorial = math::factorial(num, exclamation_count);
                 factorial_list.push(Factorial {
-                    number: num,
+                    number: num as u128,
                     level: exclamation_count,
                     factorial: CalculatedFactorial::Exact(factorial),
                 });
@@ -216,9 +278,6 @@ impl RedditComment {
         }
 
         // rewrite for Factorial struct
-        if RedditComment::factorials_are_too_long(&factorial_list) {
-            status.push(Status::ReplyWouldBeTooLong);
-        }
 
         RedditComment {
             id: id.to_string(),
@@ -280,59 +339,6 @@ impl RedditComment {
         }
     }
 
-    fn factorials_are_too_long(factorial_list: &[Factorial]) -> bool {
-        factorial_list
-            .iter()
-            .any(|Factorial { number, level, .. }| match level {
-                1 => *number > 3249,
-                2 => *number > 5982,
-                3 => *number > 8572,
-                4 => *number > 11077,
-                5 => *number > 13522,
-                6 => *number > 15920,
-                7 => *number > 18282,
-                8 => *number > 20613,
-                9 => *number > 22920,
-                10 => *number > 25208,
-                11 => *number > 27479,
-                12 => *number > 29735,
-                13 => *number > 31977,
-                14 => *number > 34207,
-                15 => *number > 36426,
-                16 => *number > 38635,
-                17 => *number > 40835,
-                18 => *number > 43027,
-                19 => *number > 45212,
-                20 => *number > 47390,
-                21 => *number > 49562,
-                22 => *number > 51728,
-                23 => *number > 53889,
-                24 => *number > 56045,
-                25 => *number > 58197,
-                26 => *number > 60345,
-                27 => *number > 62489,
-                28 => *number > 64630,
-                29 => *number > 66768,
-                30 => *number > 68903,
-                31 => *number > 71036,
-                32 => *number > 73167,
-                33 => *number > 75296,
-                34 => *number > 77423,
-                35 => *number > 79548,
-                36 => *number > 81672,
-                37 => *number > 83794,
-                38 => *number > 85915,
-                39 => *number > 88035,
-                40 => *number > 90154,
-                41 => *number > 92272,
-                42 => *number > 94389,
-                43 => *number > 96505,
-                44 => *number > 98620,
-                45 => *number > 100734,
-                _ => false,
-            })
-    }
-
     pub(crate) fn add_status(&mut self, status: Status) {
         self.status.push(status);
     }
@@ -341,22 +347,41 @@ impl RedditComment {
         let mut reply = String::new();
 
         // Add Note
-        if self.status.contains(&Status::ApproximateDigits) {
-            let _ = reply.write_str("Some of these are so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\n");
-        } else if self.status.contains(&Status::ApproximateFactorial) {
-            let _ = reply.write_str(
-                "Sorry, that's a little bit much to calculate, so I'll have to approximate.\n\n",
+        let multiple = self.factorial_list.len() > 1;
+        if self
+            .factorial_list
+            .iter()
+            .any(Factorial::is_aproximate_digits)
+        {
+            if multiple {
+                let _ = reply.write_str("Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\n");
+            } else {
+                let _ = reply.write_str("That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\n");
+            }
+        } else if self.factorial_list.iter().any(Factorial::is_approximate) {
+            if multiple {
+                let _ = reply.write_str(
+                "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\n",
             );
-        } else if self.status.contains(&Status::ReplyWouldBeTooLong) {
-            let _ = reply.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
+            } else {
+                let _ = reply.write_str(
+                "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\n",
+            );
+            }
+        } else if self.factorial_list.iter().any(Factorial::is_too_long) {
+            if multiple {
+                let _ = reply.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
+            } else {
+                let _ = reply.write_str("If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\n");
+            }
         }
 
-        let shorten = self.status.contains(&Status::ReplyWouldBeTooLong);
+        // Add Factorials
         reply = self
             .factorial_list
             .iter()
             .fold(reply, |mut acc, factorial| {
-                let _ = factorial.format(&mut acc, shorten);
+                let _ = factorial.format(&mut acc);
                 acc
             });
 
@@ -660,7 +685,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the factorial of 4000 would be (roughly) 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nFactorial of 4000 is roughly 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -673,7 +698,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters.\n\n In scientific notation the Triple-factorial of 9000 would be (roughly) 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 though :)\n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nTriple-Factorial of 9000 is roughly 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
