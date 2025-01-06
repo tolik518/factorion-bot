@@ -14,7 +14,7 @@ const FOOTER_TEXT: &str =
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 100;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
     Exact(BigInt),
     Approximate(f64, u64),
@@ -65,6 +65,12 @@ impl Ord for CalculatedFactorial {
             (Self::ApproximateDigits(this), Self::ApproximateDigits(other)) => this.cmp(other),
             (Self::ApproximateDigits(_), _) => std::cmp::Ordering::Less,
         }
+    }
+}
+
+impl PartialOrd for CalculatedFactorial {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -149,18 +155,10 @@ impl Factorial {
         }
     }
     fn is_aproximate_digits(&self) -> bool {
-        if let CalculatedFactorial::ApproximateDigits(_) = self.factorial {
-            true
-        } else {
-            false
-        }
+        matches!(self.factorial, CalculatedFactorial::ApproximateDigits(_))
     }
     fn is_approximate(&self) -> bool {
-        if let CalculatedFactorial::Approximate(_, _) = self.factorial {
-            true
-        } else {
-            false
-        }
+        matches!(self.factorial, CalculatedFactorial::Approximate(_, _))
     }
     fn is_too_long(&self) -> bool {
         match self.level {
@@ -387,7 +385,7 @@ impl RedditComment {
 
         // If the reply was too long try force shortening all factorials
         if reply.len() > MAX_COMMENT_LENGTH as usize {
-            if &note == "" {
+            if note.is_empty() {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
             };
             reply = self.factorial_list.iter().fold(note, |mut acc, factorial| {
