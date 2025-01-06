@@ -5,7 +5,6 @@ use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
-use dotenv::dotenv;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Response};
 use serde::Deserialize;
@@ -31,7 +30,6 @@ pub(crate) struct RedditClient {
 
 impl RedditClient {
     pub(crate) async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        dotenv().ok();
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
 
@@ -267,13 +265,12 @@ impl RedditClient {
         let mut comments = Vec::new();
         for comment in comments_json {
             let body = comment["data"]["body"].as_str().unwrap_or("");
+            let author = comment["data"]["author"].as_str().unwrap_or("");
+            let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
 
-            let comment_id = comment["data"]["id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string();
+            let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
 
-            let mut comment = RedditComment::new(body, &comment_id);
+            let mut comment = RedditComment::new(body, comment_id, author, subreddit);
 
             // set some statuses
             if !comment.status.contains(&Status::ReplyWouldBeTooLong)
@@ -282,7 +279,7 @@ impl RedditClient {
                 comment.add_status(Status::ReplyWouldBeTooLong);
             }
 
-            if already_replied_to_comments.contains(&comment_id) {
+            if already_replied_to_comments.contains(&comment_id.clone().to_string()) {
                 comment.add_status(Status::AlreadyReplied);
             } else {
                 comment.add_status(Status::NotReplied);
