@@ -9,8 +9,6 @@ A reddit bot replying to comments, containing factorials, with the solution.
 This little fella is currently running on <b>r/mathmemes</b> and on <b>r/ProgrammerHumor</b>. 
 </p>
 
-###### Disclaimer: The icon was generated using Maze Guru.
-
 ## Table of Contents
 
 - [Getting Started](#getting-started)
