@@ -337,6 +337,27 @@ mod tests {
             "2.982723728493957e8135211294800" // 2 decimals
         );
     }
+    #[test]
+    #[ignore = "future_improvement"]
+    fn test_approximate_factorial_perfect() {
+        // NOTE: all decimal are correct
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(100_001)),
+            "2.8242576502544275e456578"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(2_546_372_899)),
+            "7.7547841018050521e22845109185"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(500_000_000_000)),
+            "4.2861118869966772e5632337761222"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(712_460_928_486)),
+            "2.988979640465335e8135211294800"
+        );
+    }
 
     #[test]
     fn test_approximate_digits() {
@@ -375,5 +396,45 @@ mod tests {
             7_236_742_262_513_376_257 // NOTE: Last 3 digits are wrong
         );
         // TODO(test): test digit approximations for n-factorials (need to find a good reference)
+    }
+
+    #[test]
+    #[ignore = "future_improvement"]
+    fn test_approximate_digits_perfect() {
+        // NOTE: All correct
+        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579);
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739, 1),
+            74_111_525_394
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(738_247_937_346_920, 1),
+            10_655_802_631_914_633
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(827_829_849_020_729_846, 1),
+            14_473_484_525_026_753_452
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
+            17_565_705_518_096_748_182
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(1_000_000_000_000_000_000_000_000_000_000_000_000, 1),
+            35_565_705_518_096_748_172_348_871_081_083_394_937
+        );
+        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739, 2),
+            37_055_762_699
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(738_247_937_346_920, 2),
+            5_327_901_315_957_321
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(827_829_849_020_729_846, 2),
+            7_236_742_262_513_376_731
+        );
     }
 }
