@@ -117,15 +117,23 @@ impl Factorial {
                     if truncated_number.len() > 1 {
                         truncated_number.insert(1, '.'); // Decimal point
                     }
-                    write!(
-                        acc,
-                        "{}{}{} is roughly {}e{} \n\n",
-                        factorial_level_string,
-                        PLACEHOLDER,
-                        self.number,
-                        truncated_number,
-                        length - 1
-                    )
+                    if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
+                        write!(
+                            acc,
+                            "{}{}{} is roughly {}e{} \n\n",
+                            factorial_level_string,
+                            PLACEHOLDER,
+                            self.number,
+                            truncated_number,
+                            length - 1
+                        )
+                    } else {
+                        write!(
+                            acc,
+                            "{}{}{} is {} \n\n",
+                            factorial_level_string, PLACEHOLDER, self.number, factorial
+                        )
+                    }
                 } else {
                     write!(
                         acc,
@@ -682,7 +690,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-Factorial of 5 is roughly 6.0e1 \n\nFactorial of 6 is roughly 7.20e2 \n\nFactorial of 3249 is roughly 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-Factorial of 5 is 60 \n\nFactorial of 6 is 720 \n\nFactorial of 3249 is roughly 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
