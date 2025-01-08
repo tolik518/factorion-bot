@@ -4,8 +4,11 @@ use num_bigint::BigInt;
 use num_traits::{One, ToPrimitive};
 use std::fmt::Write;
 
+// Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 100_001;
+// Limit for approximation, set to ensure enough accuracy (aftewards, only single correct decimals have been observed)
 pub(crate) const UPPER_APPROXIMATION_LIMIT: u64 = 500_000_000_000;
+// Limit for number of digits approximation, set to prevent panics, due to the result overflowing u128
 pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: u128 =
     1_000_000_000_000_000_000_000_000_000_000_000_000;
 const PLACEHOLDER: &str = "Factorial of ";
@@ -99,10 +102,9 @@ impl std::hash::Hash for CalculatedFactorial {
 impl Factorial {
     fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
         let factorial_level_string = RedditComment::get_factorial_level_string(self.level);
-        let shorten = self.is_too_long() || force_shorten;
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
-                if shorten {
+                if self.is_too_long() || force_shorten {
                     let mut truncated_number = factorial.to_string();
                     let length = truncated_number.len();
                     truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
@@ -145,7 +147,7 @@ impl Factorial {
             CalculatedFactorial::ApproximateDigits(digits) => {
                 write!(
                     acc,
-                    "{}{}{} has approximately {} Digits \n\n",
+                    "{}{}{} has approximately {} digits \n\n",
                     RedditComment::get_factorial_level_string(self.level),
                     PLACEHOLDER,
                     self.number,
@@ -758,7 +760,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 67839127837442 has approximately 908853398380684 Digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 67839127837442 has approximately 908853398380684 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -771,7 +773,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-Factorial of 8394763 has approximately 13619907 Digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-Factorial of 8394763 has approximately 13619907 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -784,7 +786,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 1000000000000000000000000000000000000 has approximately 35565705518096741787712172651953782785 Digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 1000000000000000000000000000000000000 has approximately 35565705518096741787712172651953782785 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -824,6 +826,6 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-Factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.8462596809170545189064132121198688901480514017027992307941799942744113400037644437729907867577847758e35659 \n\nFactorial of 37923648 is approximately 1.7605854240375498e270949892 \n\nDouble-Factorial of 283462 has approximately 711238 Digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-Factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.8462596809170545189064132121198688901480514017027992307941799942744113400037644437729907867577847758e35659 \n\nFactorial of 37923648 is approximately 1.7605854240375498e270949892 \n\nDouble-Factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 }
