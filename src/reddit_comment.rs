@@ -1,7 +1,7 @@
 use crate::math;
 use fancy_regex::Regex;
-use num_bigint::BigInt;
-use num_traits::{One, ToPrimitive};
+use num_traits::ToPrimitive;
+use rug::Integer;
 use std::fmt::Write;
 
 // Limit for exact calculation, set to limit calculation time
@@ -19,7 +19,7 @@ pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 100;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
-    Exact(BigInt),
+    Exact(Integer),
     Approximate(f64, u64),
     ApproximateDigits(u128),
 }
@@ -233,7 +233,7 @@ impl RedditComment {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
-                .parse::<BigInt>()
+                .parse::<Integer>()
                 .expect("Failed to parse number");
 
             let exclamation_count = regex_capture[2]
@@ -241,11 +241,11 @@ impl RedditComment {
                 .to_u64()
                 .expect("Failed to convert exclamation count to u64");
             // Check if we can approximate the number of digits
-            if num > BigInt::from(UPPER_DIGIT_APPROXIMATION_LIMIT) {
+            if num > UPPER_DIGIT_APPROXIMATION_LIMIT {
                 status.push(Status::NumberTooBig)
                 // Check if we can approximate it
-            } else if num > BigInt::from(UPPER_APPROXIMATION_LIMIT)
-                || (exclamation_count > 1 && num > BigInt::from(UPPER_CALCULATION_LIMIT))
+            } else if num > UPPER_APPROXIMATION_LIMIT
+                || (exclamation_count > 1 && num > UPPER_CALCULATION_LIMIT)
             {
                 let num = num.to_u128().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_multifactorial_digits(num, exclamation_count);
@@ -255,7 +255,7 @@ impl RedditComment {
                     factorial: CalculatedFactorial::ApproximateDigits(factorial),
                 });
             // Check if the number is within a reasonable range to compute
-            } else if num > BigInt::from(UPPER_CALCULATION_LIMIT) {
+            } else if num > UPPER_CALCULATION_LIMIT {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_factorial(num);
                 factorial_list.push(Factorial {
@@ -263,7 +263,7 @@ impl RedditComment {
                     level: exclamation_count,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
-            } else if num == BigInt::one() {
+            } else if num == 1 {
                 continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
@@ -343,7 +343,11 @@ impl RedditComment {
             43 => "Trequadragintuple-",
             44 => "Quattuorquadragintuple-",
             45 => "Quinquadragintuple-",
-            _ => "n-",
+            _ => {
+                let mut suffix = String::new();
+                write!(&mut suffix, "{}-", level).unwrap();
+                Box::leak(suffix.into_boxed_str())
+            }
         }
     }
 
@@ -415,7 +419,6 @@ impl RedditComment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::ToBigInt;
 
     #[test]
     fn test_comment_new() {
@@ -432,12 +435,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: CalculatedFactorial::Exact(120.to_bigint().unwrap()),
+                    factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: CalculatedFactorial::Exact(720.to_bigint().unwrap()),
+                    factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
             ],
         );
@@ -457,7 +460,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 2,
-                factorial: CalculatedFactorial::Exact(48.to_bigint().unwrap()),
+                factorial: CalculatedFactorial::Exact(Integer::from(48)),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -476,7 +479,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 3,
-                factorial: CalculatedFactorial::Exact(18.to_bigint().unwrap()),
+                factorial: CalculatedFactorial::Exact(Integer::from(18)),
             }]
         );
         assert_eq!(comment.status, vec![Status::FactorialsFound]);
@@ -568,7 +571,7 @@ mod tests {
             vec![Factorial {
                 number: 6,
                 level: 1,
-                factorial: CalculatedFactorial::Exact(720.to_bigint().unwrap())
+                factorial: CalculatedFactorial::Exact(Integer::from(720))
             }]
         );
         assert_eq!(
@@ -627,7 +630,7 @@ mod tests {
             factorial_list: vec![Factorial {
                 number: 10,
                 level: 3,
-                factorial: CalculatedFactorial::Exact(280.to_bigint().unwrap()),
+                factorial: CalculatedFactorial::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -639,6 +642,24 @@ mod tests {
     }
 
     #[test]
+    fn test_get_reply_for_high_multifactorial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            factorial_list: vec![Factorial {
+                number: 10,
+                level: 46,
+                factorial: CalculatedFactorial::Exact(Integer::from(10)),
+            }],
+            author: "test_author".to_string(),
+            subreddit: "test_subreddit".to_string(),
+            status: vec![Status::FactorialsFound],
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "46-Factorial of 10 is 10 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
     fn test_get_reply_for_multiple() {
         let comment = RedditComment {
             id: "123".to_string(),
@@ -646,12 +667,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 1,
-                    factorial: CalculatedFactorial::Exact(120.to_bigint().unwrap()),
+                    factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: CalculatedFactorial::Exact(720.to_bigint().unwrap()),
+                    factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
             ],
             author: "test_author".to_string(),
@@ -671,12 +692,12 @@ mod tests {
                 Factorial {
                     number: 5,
                     level: 2,
-                    factorial: CalculatedFactorial::Exact(60.to_bigint().unwrap()),
+                    factorial: CalculatedFactorial::Exact(Integer::from(60)),
                 },
                 Factorial {
                     number: 6,
                     level: 1,
-                    factorial: CalculatedFactorial::Exact(720.to_bigint().unwrap()),
+                    factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
                 Factorial {
                     number: 3249,
@@ -805,7 +826,7 @@ mod tests {
                 Factorial {
                     number: 8,
                     level: 2,
-                    factorial: CalculatedFactorial::Exact(BigInt::from(384)),
+                    factorial: CalculatedFactorial::Exact(Integer::from(384)),
                 },
                 Factorial {
                     number: 10000,
