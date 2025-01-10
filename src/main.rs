@@ -1,4 +1,4 @@
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
 use reddit_comment::Status;
