@@ -279,7 +279,7 @@ impl RedditClient {
                 comment.add_status(Status::ReplyWouldBeTooLong);
             }
 
-            if already_replied_to_comments.contains(&comment_id.clone().to_string()) {
+            if already_replied_to_comments.contains(&comment_id.to_string()) {
                 comment.add_status(Status::AlreadyReplied);
             } else {
                 comment.add_status(Status::NotReplied);

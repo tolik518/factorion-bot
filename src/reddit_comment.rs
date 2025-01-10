@@ -1,8 +1,8 @@
 use crate::math;
 use fancy_regex::Regex;
-use num_traits::{One, ToPrimitive};
-use std::fmt::Write;
+use num_traits::ToPrimitive;
 use rug::Integer;
+use std::fmt::Write;
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 100_001;
@@ -241,11 +241,11 @@ impl RedditComment {
                 .to_u64()
                 .expect("Failed to convert exclamation count to u64");
             // Check if we can approximate the number of digits
-            if num > Integer::from(UPPER_DIGIT_APPROXIMATION_LIMIT) {
+            if num > UPPER_DIGIT_APPROXIMATION_LIMIT {
                 status.push(Status::NumberTooBig)
                 // Check if we can approximate it
-            } else if num > Integer::from(UPPER_APPROXIMATION_LIMIT)
-                || (exclamation_count > 1 && num > Integer::from(UPPER_CALCULATION_LIMIT))
+            } else if num > UPPER_APPROXIMATION_LIMIT
+                || (exclamation_count > 1 && num > UPPER_CALCULATION_LIMIT)
             {
                 let num = num.to_u128().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_multifactorial_digits(num, exclamation_count);
@@ -255,7 +255,7 @@ impl RedditComment {
                     factorial: CalculatedFactorial::ApproximateDigits(factorial),
                 });
             // Check if the number is within a reasonable range to compute
-            } else if num > Integer::from(UPPER_CALCULATION_LIMIT) {
+            } else if num > UPPER_CALCULATION_LIMIT {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_factorial(num);
                 factorial_list.push(Factorial {
@@ -263,7 +263,7 @@ impl RedditComment {
                     level: exclamation_count,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
-            } else if num == Integer::from(1) {
+            } else if num == 1 {
                 continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
@@ -795,7 +795,6 @@ mod tests {
     #[test]
     fn test_get_reply_approximate_digits_from_multifactorial() {
         let comment = RedditComment::new(
-
             "This is a test comment with a multi-factorial of 8394763!!!!",
             "1234",
             "test_author",

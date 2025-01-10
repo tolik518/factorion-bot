@@ -127,8 +127,8 @@ pub(crate) fn round(number: &mut String) {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::approximate_factorial;
     use super::*;
+    use crate::math::approximate_factorial;
     use std::str::FromStr;
 
     #[test]
@@ -164,7 +164,7 @@ mod tests {
             Integer::from_str(
                 "34243224702511976248246432895208185975118675053719198827915654463488000000000000"
             )
-                .unwrap()
+            .unwrap()
         );
     }
 

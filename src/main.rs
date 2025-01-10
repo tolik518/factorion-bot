@@ -8,7 +8,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::time::SystemTime;
 use time::OffsetDateTime;
-use tokio::io::AsyncWriteExt;
 use tokio::time::{sleep, Duration};
 
 mod influxdb;
