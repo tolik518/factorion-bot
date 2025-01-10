@@ -1,28 +1,8 @@
-use num_bigint::BigInt;
-use num_traits::One;
+use rug::integer::IntegerExt64;
+use rug::{Complete, Integer};
 
-pub fn factorial(n: u64, k: u64) -> BigInt {
-    if n <= 1 {
-        return BigInt::one();
-    }
-    let i_max = (n - 1) / k;
-    multifactorial_recursive(n, k, 0, i_max)
-}
-fn multifactorial_recursive(n: u64, k: u64, low_i: u64, high_i: u64) -> BigInt {
-    if low_i > high_i {
-        One::one()
-    } else if low_i == high_i {
-        BigInt::from(n - k * low_i)
-    } else if high_i - low_i == 1 {
-        let t_low = n - k * low_i;
-        let t_high = n - k * high_i;
-        BigInt::from(t_low) * BigInt::from(t_high)
-    } else {
-        let mid_i = (low_i + high_i) / 2;
-        let left = multifactorial_recursive(n, k, low_i, mid_i);
-        let right = multifactorial_recursive(n, k, mid_i + 1, high_i);
-        left * right
-    }
+pub fn factorial(n: u64, k: u64) -> Integer {
+    Integer::factorial_m_64(n, k).complete()
 }
 
 /// Calculates Sterling's Approximation of large factorials.
@@ -148,112 +128,113 @@ pub(crate) fn round(number: &mut String) {
 #[cfg(test)]
 mod tests {
     use crate::math::approximate_factorial;
-
     use super::*;
-    use num_bigint::ToBigInt;
-    use num_traits::Zero;
     use std::str::FromStr;
+
     #[test]
     fn test_calculate_multi_single_factorial() {
-        assert_eq!(factorial(0, 1), 1.to_bigint().unwrap());
-        assert_eq!(factorial(1, 1), 1.to_bigint().unwrap());
-        assert_eq!(factorial(2, 1), 2.to_bigint().unwrap());
-        assert_eq!(factorial(3, 1), 6.to_bigint().unwrap());
-        assert_eq!(factorial(4, 1), 24.to_bigint().unwrap());
-        assert_eq!(factorial(5, 1), 120.to_bigint().unwrap());
-        assert_eq!(factorial(6, 1), 720.to_bigint().unwrap());
-        assert_eq!(factorial(7, 1), 5040.to_bigint().unwrap());
-        assert_eq!(factorial(8, 1), 40320.to_bigint().unwrap());
-        assert_eq!(factorial(9, 1), 362880.to_bigint().unwrap());
-        assert_eq!(factorial(10, 1), 3628800.to_bigint().unwrap());
+        assert_eq!(factorial(0, 1), Integer::from(1));
+        assert_eq!(factorial(1, 1), Integer::from(1));
+        assert_eq!(factorial(2, 1), Integer::from(2));
+        assert_eq!(factorial(3, 1), Integer::from(6));
+        assert_eq!(factorial(4, 1), Integer::from(24));
+        assert_eq!(factorial(5, 1), Integer::from(120));
+        assert_eq!(factorial(6, 1), Integer::from(720));
+        assert_eq!(factorial(7, 1), Integer::from(5040));
+        assert_eq!(factorial(8, 1), Integer::from(40320));
+        assert_eq!(factorial(9, 1), Integer::from(362880));
+        assert_eq!(factorial(10, 1), Integer::from(3628800));
     }
 
     #[test]
     fn test_calculate_multi_double_factorial() {
-        assert_eq!(factorial(0, 2), 1.to_bigint().unwrap());
-        assert_eq!(factorial(1, 2), 1.to_bigint().unwrap());
-        assert_eq!(factorial(2, 2), 2.to_bigint().unwrap());
-        assert_eq!(factorial(3, 2), 3.to_bigint().unwrap());
-        assert_eq!(factorial(4, 2), 8.to_bigint().unwrap());
-        assert_eq!(factorial(5, 2), 15.to_bigint().unwrap());
-        assert_eq!(factorial(6, 2), 48.to_bigint().unwrap());
-        assert_eq!(factorial(7, 2), 105.to_bigint().unwrap());
-        assert_eq!(factorial(8, 2), 384.to_bigint().unwrap());
-        assert_eq!(factorial(9, 2), 945.to_bigint().unwrap());
-        assert_eq!(factorial(10, 2), 3840.to_bigint().unwrap());
+        assert_eq!(factorial(0, 2), Integer::from(1));
+        assert_eq!(factorial(1, 2), Integer::from(1));
+        assert_eq!(factorial(2, 2), Integer::from(2));
+        assert_eq!(factorial(3, 2), Integer::from(3));
+        assert_eq!(factorial(4, 2), Integer::from(8));
+        assert_eq!(factorial(5, 2), Integer::from(15));
+        assert_eq!(factorial(6, 2), Integer::from(48));
+        assert_eq!(factorial(7, 2), Integer::from(105));
+        assert_eq!(factorial(8, 2), Integer::from(384));
+        assert_eq!(factorial(9, 2), Integer::from(945));
+        assert_eq!(factorial(10, 2), Integer::from(3840));
         assert_eq!(
             factorial(100, 2),
-            BigInt::from_str(
+            Integer::from_str(
                 "34243224702511976248246432895208185975118675053719198827915654463488000000000000"
             )
-            .unwrap()
+                .unwrap()
         );
     }
 
     #[test]
     fn test_calculate_triple_factorial() {
-        assert_eq!(factorial(0, 3), 1.to_bigint().unwrap());
-        assert_eq!(factorial(1, 3), 1.to_bigint().unwrap());
-        assert_eq!(factorial(2, 3), 2.to_bigint().unwrap());
-        assert_eq!(factorial(3, 3), 3.to_bigint().unwrap());
-        assert_eq!(factorial(4, 3), 4.to_bigint().unwrap());
-        assert_eq!(factorial(5, 3), 10.to_bigint().unwrap());
-        assert_eq!(factorial(6, 3), 18.to_bigint().unwrap());
-        assert_eq!(factorial(7, 3), 28.to_bigint().unwrap());
-        assert_eq!(factorial(8, 3), 80.to_bigint().unwrap());
-        assert_eq!(factorial(9, 3), 162.to_bigint().unwrap());
-        assert_eq!(factorial(10, 3), 280.to_bigint().unwrap());
-        assert_eq!(factorial(20, 3), 4188800.to_bigint().unwrap());
-        assert_eq!(factorial(22, 3), 24344320.to_bigint().unwrap());
-        assert_eq!(factorial(25, 3), 608608000.to_bigint().unwrap());
+        assert_eq!(factorial(0, 3), Integer::from(1));
+        assert_eq!(factorial(1, 3), Integer::from(1));
+        assert_eq!(factorial(2, 3), Integer::from(2));
+        assert_eq!(factorial(3, 3), Integer::from(3));
+        assert_eq!(factorial(4, 3), Integer::from(4));
+        assert_eq!(factorial(5, 3), Integer::from(10));
+        assert_eq!(factorial(6, 3), Integer::from(18));
+        assert_eq!(factorial(7, 3), Integer::from(28));
+        assert_eq!(factorial(8, 3), Integer::from(80));
+        assert_eq!(factorial(9, 3), Integer::from(162));
+        assert_eq!(factorial(10, 3), Integer::from(280));
+
+        assert_eq!(factorial(20, 3), Integer::from(4188800));
+        assert_eq!(factorial(22, 3), Integer::from(24344320));
+        assert_eq!(factorial(25, 3), Integer::from(608608000));
         assert_eq!(
             factorial(100, 3),
-            BigInt::from_str("174548867015437739741494347897360069928419328000000000").unwrap()
+            Integer::from_str("174548867015437739741494347897360069928419328000000000").unwrap()
         );
     }
 
     #[test]
     fn test_calculate_quadruple_factorial() {
-        assert_eq!(factorial(0, 4), 1.to_bigint().unwrap());
-        assert_eq!(factorial(1, 4), 1.to_bigint().unwrap());
-        assert_eq!(factorial(2, 4), 2.to_bigint().unwrap());
-        assert_eq!(factorial(3, 4), 3.to_bigint().unwrap());
-        assert_eq!(factorial(4, 4), 4.to_bigint().unwrap());
-        assert_eq!(factorial(5, 4), 5.to_bigint().unwrap());
-        assert_eq!(factorial(6, 4), 12.to_bigint().unwrap());
-        assert_eq!(factorial(7, 4), 21.to_bigint().unwrap());
-        assert_eq!(factorial(8, 4), 32.to_bigint().unwrap());
-        assert_eq!(factorial(9, 4), 45.to_bigint().unwrap());
-        assert_eq!(factorial(10, 4), 120.to_bigint().unwrap());
-        assert_eq!(factorial(20, 4), 122880.to_bigint().unwrap());
-        assert_eq!(factorial(22, 4), 665280.to_bigint().unwrap());
-        assert_eq!(factorial(25, 4), 5221125.to_bigint().unwrap());
+        assert_eq!(factorial(0, 4), Integer::from(1));
+        assert_eq!(factorial(1, 4), Integer::from(1));
+        assert_eq!(factorial(2, 4), Integer::from(2));
+        assert_eq!(factorial(3, 4), Integer::from(3));
+        assert_eq!(factorial(4, 4), Integer::from(4));
+        assert_eq!(factorial(5, 4), Integer::from(5));
+        assert_eq!(factorial(6, 4), Integer::from(12));
+        assert_eq!(factorial(7, 4), Integer::from(21));
+        assert_eq!(factorial(8, 4), Integer::from(32));
+        assert_eq!(factorial(9, 4), Integer::from(45));
+        assert_eq!(factorial(10, 4), Integer::from(120));
+
+        assert_eq!(factorial(20, 4), Integer::from(122880));
+        assert_eq!(factorial(22, 4), Integer::from(665280));
+        assert_eq!(factorial(25, 4), Integer::from(5221125));
         assert_eq!(
             factorial(100, 4),
-            BigInt::from_str("17464069942802730897824646237782016000000").unwrap()
+            Integer::from_str("17464069942802730897824646237782016000000").unwrap()
         );
     }
 
     #[test]
     fn test_calculate_quituple_factorial() {
-        assert_eq!(factorial(0, 5), 1.to_bigint().unwrap());
-        assert_eq!(factorial(1, 5), 1.to_bigint().unwrap());
-        assert_eq!(factorial(2, 5), 2.to_bigint().unwrap());
-        assert_eq!(factorial(3, 5), 3.to_bigint().unwrap());
-        assert_eq!(factorial(4, 5), 4.to_bigint().unwrap());
-        assert_eq!(factorial(5, 5), 5.to_bigint().unwrap());
-        assert_eq!(factorial(6, 5), 6.to_bigint().unwrap());
-        assert_eq!(factorial(7, 5), 14.to_bigint().unwrap());
-        assert_eq!(factorial(8, 5), 24.to_bigint().unwrap());
-        assert_eq!(factorial(9, 5), 36.to_bigint().unwrap());
-        assert_eq!(factorial(10, 5), 50.to_bigint().unwrap());
-        assert_eq!(factorial(15, 5), 750.to_bigint().unwrap());
-        assert_eq!(factorial(20, 5), 15000.to_bigint().unwrap());
-        assert_eq!(factorial(22, 5), 62832.to_bigint().unwrap());
-        assert_eq!(factorial(25, 5), 375000.to_bigint().unwrap());
+        assert_eq!(factorial(0, 5), Integer::from(1));
+        assert_eq!(factorial(1, 5), Integer::from(1));
+        assert_eq!(factorial(2, 5), Integer::from(2));
+        assert_eq!(factorial(3, 5), Integer::from(3));
+        assert_eq!(factorial(4, 5), Integer::from(4));
+        assert_eq!(factorial(5, 5), Integer::from(5));
+        assert_eq!(factorial(6, 5), Integer::from(6));
+        assert_eq!(factorial(7, 5), Integer::from(14));
+        assert_eq!(factorial(8, 5), Integer::from(24));
+        assert_eq!(factorial(9, 5), Integer::from(36));
+        assert_eq!(factorial(10, 5), Integer::from(50));
+
+        assert_eq!(factorial(15, 5), Integer::from(750));
+        assert_eq!(factorial(20, 5), Integer::from(15000));
+        assert_eq!(factorial(22, 5), Integer::from(62832));
+        assert_eq!(factorial(25, 5), Integer::from(375000));
         assert_eq!(
             factorial(100, 5),
-            BigInt::from_str("232019615953125000000000000000000").unwrap()
+            Integer::from_str("232019615953125000000000000000000").unwrap()
         );
     }
 
@@ -281,7 +262,7 @@ mod tests {
     #[test]
     fn test_calculate_factorial_with_ten_thousand_digits() {
         let mut num = 0;
-        let mut result = BigInt::zero();
+        let mut result = Integer::new();
         while result.to_string().len() < 10_000 {
             num += 1;
             result = factorial(num, 1);
@@ -294,6 +275,20 @@ mod tests {
         let num = 100_001;
         let result = factorial(num, 1);
         assert_eq!(result.to_string().len(), 456579);
+    }
+
+    #[test]
+    fn test_calculate_factorial_multilevel_hundred_thousand() {
+        let num = 100_001;
+        let result = factorial(num, 10);
+        assert_eq!(result.to_string().len(), 45660);
+    }
+
+    #[test]
+    fn test_calculate_two_hundred_thousand() {
+        let num = 200_000;
+        let result = factorial(num, 1);
+        assert_eq!(result.to_string().len(), 973351);
     }
 
     #[test]
