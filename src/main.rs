@@ -14,6 +14,7 @@ mod influxdb;
 mod math;
 mod reddit_api;
 pub(crate) mod reddit_comment;
+mod factorial;
 
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
