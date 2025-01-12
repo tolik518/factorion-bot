@@ -97,7 +97,7 @@ impl Factorial {
                     if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
                         write!(
                             acc,
-                            "{}{}{} is roughly {}e{} \n\n",
+                            "{}{}{} is roughly {} × 10^{} \n\n",
                             factorial_level_string,
                             PLACEHOLDER,
                             self.number,
@@ -289,7 +289,7 @@ mod tests {
             factorial: CalculatedFactorial::Approximate(120.0, 3),
         };
         factorial.format(&mut acc, false).unwrap();
-        assert_eq!(acc, "Factorial of 5 is approximately 1.2e5 \n\n");
+        assert_eq!(acc, "Factorial of 5 is approximately 1.2 × 10^5 \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {

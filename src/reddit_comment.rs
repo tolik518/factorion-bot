@@ -31,7 +31,7 @@ pub(crate) const PLACEHOLDER: &str = "Factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
-pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 100;
+pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str, author: &str, subreddit: &str) -> Self {
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn test_reply_text_too_long() {
         let comment = RedditComment::new(
-            "3500! 3501! 3502! 3503! 3504! 3505! 3506! 3507! 3508! 3509! 3510! 3511! 3512! 3513! 3514! 3515! 3516! 3517! 3518! 3519! 3520! 3521! 3522! 3523! 3524! 3525! 3526! 3527! 3528! 3529! 3530! 3531! 3532! 3533! 3534! 3535! 3536! 3537! 3538! 3539! 3540! 3541! 3542! 3543! 3544! 3545! 3546! 3547! 3548! 3549! 3550! 3551! 3552! 3553! 3554! 3555! 3556! 3557! 3558! 3559! 3560! 3561! 3562! 3563! 3564! 3565! 3566! 3567! 3568! 3569! 3570! 3571! 3572! 3573! 3574! 3575! 3576! 3577! 3578! 3579! 3580! 3581! 3582! 3583! 3584! 3585! 3586! 3587! 3588! 3589! 3590! 3591! 3592! 3593! 3594! 3595! 3596! 3597! 3598! 3599! 3600!",
+            "3500! 3501! 3502! 3503! 3504! 3505! 3506! 3507! 3508! 3509! 3510! 3511! 3512! 3513! 3514! 3515! 3516! 3517! 3518! 3519! 3520! 3521! 3522! 3523! 3524! 3525! 3526! 3527! 3528! 3529! 3530! 3531! 3532! 3533! 3534! 3535! 3536! 3537! 3538! 3539! 3540! 3541! 3542! 3543! 3544! 3545! 3546! 3547! 3548! 3549! 3550! 3551! 3552! 3553! 3554! 3555! 3556! 3557! 3558! 3559! 3560! 3561! 3562! 3563! 3564! 3565! 3566! 3567! 3568! 3569! 3570! 3571! 3572! 3573! 3574! 3575! 3576! 3577! 3578! 3579! 3580! 3581! 3582! 3583! 3584! 3585! 3586! 3587! 3588! 3589! 3590! 3591! 3592! 3593! 3594! 3595! 3596! 3597! 3598! 3599! 3600! 3600! 3601! 3602! 3603! 3604! 3605! 3606! 3607! 3608! 3609! 3610! 3611! 3612! 3613! 3614! 3615! 3616! 3617! 3618! 3619! 3620! 3621! 3622! 3623! 3624! 3625! 3626! 3627! 3628! 3629! 3630! 3631! 3632! 3633! 3634! 3636! 3636! 3637! 3638! 3639! 3640! 3641! 3642! 3643! 3644! 3645! 3646! 3647! 3648! 3649! 3650! 3651! 3652! 3653! 3654! 3655! 3656! 3657! 3658! 3659! 3660! 3661! 3662! 3663! 3664! 3665! 3666! 3667! 3668! 3669! 3670! 3671! 3672! 3673! 3674! 3675! 3676! 3677! 3678! 3679! 3680! 3681! 3682! 3683! 3684! 3685! 3686! 3687! 3688! 3689! 3690! 3691! 3692! 3693! 3694! 3695! 3696! 3697! 3698! 3699! 3600!",
             "123",
             "test_author",
             "test_subreddit"
@@ -478,7 +478,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-Factorial of 5 is 60 \n\nFactorial of 6 is 720 \n\nFactorial of 3249 is roughly 6.4123376882765521838840963030568127691878727205333658692200854486404915724268122521695176119279253636e10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-Factorial of 5 is 60 \n\nFactorial of 6 is 720 \n\nFactorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -491,7 +491,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nFactorial of 4000 is roughly 1.8288019515140650133147431755739190442173777107304392197064526954208959797973177364850370286870484107e12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nFactorial of 4000 is roughly 1.828801951514065013314743175574 × 10^12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -504,7 +504,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nTriple-Factorial of 9000 is roughly 9.5883799146548267640341391648545903348878025438772769707015576436531779580675303393957674423348854753e10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nTriple-Factorial of 9000 is roughly 9.588379914654826764034139164855 × 10^10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -517,7 +517,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nFactorial of 3250 is roughly 2.0840097486898794597623312984934641499860586341733439074965277708081597610387139819550932238765757432e10004 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nFactorial of 3250 is roughly 2.084009748689879459762331298493 × 10^10004 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -530,7 +530,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.1202596158713205e8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.1202596158713205 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -543,7 +543,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956477060345e5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956477060345 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -622,6 +622,6 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-Factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.8462596809170545189064132121198688901480514017027992307941799942744113400037644437729907867577847758e35659 \n\nFactorial of 37923648 is approximately 1.7605854240375498e270949892 \n\nDouble-Factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-Factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nFactorial of 37923648 is approximately 1.7605854240375498 × 10^270949892 \n\nDouble-Factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 }
