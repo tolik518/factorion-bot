@@ -10,11 +10,11 @@ use std::time::SystemTime;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
+mod factorial;
 mod influxdb;
 mod math;
 mod reddit_api;
 pub(crate) mod reddit_comment;
-mod factorial;
 
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
@@ -81,7 +81,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let should_answer = status_set.contains(&Status::FactorialsFound)
                 && status_set.contains(&Status::NotReplied);
 
-            if status_set.contains(&Status::NoFactorial) && !status_set.contains(&Status::NumberTooBigToCalculate) {
+            if status_set.contains(&Status::NoFactorial)
+                && !status_set.contains(&Status::NumberTooBigToCalculate)
+            {
                 continue;
             }
 

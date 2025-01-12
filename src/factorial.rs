@@ -1,6 +1,6 @@
-use rug::Integer;
 use crate::math;
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
+use rug::Integer;
 use std::fmt::Write;
 
 // Limit for exact calculation, set to limit calculation time
@@ -73,7 +73,11 @@ impl std::hash::Hash for CalculatedFactorial {
 }
 
 impl Factorial {
-    pub(crate) fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
+    pub(crate) fn format(
+        &self,
+        acc: &mut String,
+        force_shorten: bool,
+    ) -> Result<(), std::fmt::Error> {
         let factorial_level_string = Factorial::get_factorial_level_string(self.level);
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
@@ -260,7 +264,10 @@ mod tests {
         assert_eq!(Factorial::get_factorial_level_string(1), "");
         assert_eq!(Factorial::get_factorial_level_string(2), "Double-");
         assert_eq!(Factorial::get_factorial_level_string(3), "Triple-");
-        assert_eq!(Factorial::get_factorial_level_string(45), "Quinquadragintuple-");
+        assert_eq!(
+            Factorial::get_factorial_level_string(45),
+            "Quinquadragintuple-"
+        );
         assert_eq!(Factorial::get_factorial_level_string(50), "50-");
     }
 

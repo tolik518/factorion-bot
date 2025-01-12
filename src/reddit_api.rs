@@ -86,9 +86,9 @@ impl RedditClient {
 
     fn is_token_expired(&self) -> bool {
         let now = Utc::now();
-        let expired = now > self.token.expiration_time;
+        
 
-        expired
+        now > self.token.expiration_time
     }
 
     pub(crate) async fn reply_to_comment(
@@ -207,7 +207,8 @@ impl RedditClient {
 
         println!(
             "Now: {:#?} | Expiration time: {:#?}",
-            Utc::now(), token_expiration_time
+            Utc::now(),
+            token_expiration_time
         );
 
         Ok(Token {
@@ -269,7 +270,9 @@ impl RedditClient {
             let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
 
             if already_replied_to_comments.contains(&comment_id.to_string()) {
-                comments.push(RedditComment::new_already_replied(comment_id, author, subreddit));
+                comments.push(RedditComment::new_already_replied(
+                    comment_id, author, subreddit,
+                ));
             } else {
                 let mut comment = RedditComment::new(body, comment_id, author, subreddit);
 

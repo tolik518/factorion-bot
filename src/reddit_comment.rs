@@ -1,9 +1,12 @@
+use crate::factorial::{
+    CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT,
+    UPPER_DIGIT_APPROXIMATION_LIMIT,
+};
 use crate::math;
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
 use rug::Integer;
 use std::fmt::Write;
-use crate::factorial::{CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT, UPPER_DIGIT_APPROXIMATION_LIMIT};
 
 #[derive(Debug)]
 pub(crate) struct RedditComment {
@@ -29,7 +32,6 @@ const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 100;
-
 
 impl RedditComment {
     pub(crate) fn new(body: &str, id: &str, author: &str, subreddit: &str) -> Self {
