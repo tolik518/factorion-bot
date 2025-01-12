@@ -86,7 +86,7 @@ pub fn format_approximate_factorial((x, e): (f64, u64)) -> String {
     let extra = x.log10() as u64;
     let x = x / (10.0f64.powf(extra as f64));
     let total_exponent = extra + e;
-    format!("{x}e{total_exponent}")
+    format!("{x} × 10^{total_exponent}")
 }
 
 /// Rounds a base 10 number string.
@@ -128,6 +128,7 @@ pub(crate) fn round(number: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::factorial::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
     use std::str::FromStr;
 
@@ -285,10 +286,10 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_two_hundred_thousand() {
-        let num = 200_000;
+    fn test_calculate_upper_limit() {
+        let num = UPPER_CALCULATION_LIMIT;
         let result = factorial(num, 1);
-        assert_eq!(result.to_string().len(), 973351);
+        assert_eq!(result.to_string().len(), 5565709);
     }
 
     #[test]
@@ -317,19 +318,19 @@ mod tests {
         // NOTE: only the first decimals are correct
         assert_eq!(
             format_approximate_factorial(approximate_factorial(100_001)),
-            "2.8242576501182115e456578" // 9 decimals
+            "2.8242576501182115 × 10^456578" // 9 decimals
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(2_546_372_899)),
-            "7.7547455955465185e22845109185" // 4 decimals
+            "7.7547455955465185 × 10^22845109185" // 4 decimals
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(500_000_000_000)),
-            "4.280903142280765e5632337761222" // 2 decimals
+            "4.280903142280765 × 10^5632337761222" // 2 decimals
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
-            "2.982723728493957e8135211294800" // 2 decimals
+            "2.982723728493957 × 10^8135211294800" // 2 decimals
         );
     }
     #[test]
@@ -338,19 +339,19 @@ mod tests {
         // NOTE: all decimal are correct
         assert_eq!(
             format_approximate_factorial(approximate_factorial(100_001)),
-            "2.8242576502544275e456578"
+            "2.8242576502544275 × 10^456578"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(2_546_372_899)),
-            "7.7547841018050521e22845109185"
+            "7.7547841018050521 × 10^22845109185"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(500_000_000_000)),
-            "4.2861118869966772e5632337761222"
+            "4.2861118869966772 × 10^5632337761222"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
-            "2.988979640465335e8135211294800"
+            "2.988979640465335 × 10^8135211294800"
         );
     }
 

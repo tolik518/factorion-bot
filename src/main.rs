@@ -10,6 +10,7 @@ use std::time::SystemTime;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
+mod factorial;
 mod influxdb;
 mod math;
 mod reddit_api;
@@ -47,7 +48,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("Found comment_ids in the file");
     }
 
-    let mut already_replied_to_comments: Vec<String> = already_replied_to_comments
+    let mut already_replied_or_rejected: Vec<String> = already_replied_to_comments
         .lines()
         .map(|s| s.to_string())
         .collect::<Vec<String>>();
@@ -63,14 +64,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         let comments = reddit_client
-            .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_to_comments)
+            .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_or_rejected)
             .await
             .unwrap_or_default();
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "get_comments").await?;
-
-        println!("Found {} comments", comments.len());
 
         let start = SystemTime::now();
         for comment in comments {
@@ -82,21 +81,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let should_answer = status_set.contains(&Status::FactorialsFound)
                 && status_set.contains(&Status::NotReplied);
 
-            if status_set.contains(&Status::NoFactorial) {
+            if status_set.contains(&Status::NoFactorial)
+                && !status_set.contains(&Status::NumberTooBigToCalculate)
+            {
                 continue;
             }
 
             print!("Comment ID {} -> {:?}", comment.id, comment.status);
 
-            if status_set.contains(&Status::NumberTooBig) {
-                println!(" -> {:?}", comment.factorial_list);
+            if status_set.contains(&Status::NumberTooBigToCalculate) {
+                println!(" -> number too big to calculate");
+                already_replied_or_rejected.push(comment_id.clone());
                 continue;
             }
 
-            if status_set.contains(&Status::AlreadyReplied) {
-                println!(" [already replied] ");
+            if status_set.contains(&Status::AlreadyRepliedOrRejected) {
+                println!(" -> already replied or rejected");
                 continue;
             }
+
             if status_set.contains(&Status::FactorialsFound) {
                 println!(" -> {:?}", comment.factorial_list);
             }
@@ -104,7 +107,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let reply: String = comment.get_reply();
                 match reddit_client.reply_to_comment(comment, &reply).await {
                     Ok(_) => {
-                        already_replied_to_comments.push(comment_id.clone());
+                        already_replied_or_rejected.push(comment_id.clone());
                         influxdb::log_comment_reply(
                             influx_client,
                             &comment_id,
@@ -119,7 +122,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
-            println!(" [unknown] ");
+            println!(" -> unknown");
         }
         let end = SystemTime::now();
 
@@ -132,7 +135,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .open(COMMENT_IDS_FILE_PATH)
             .expect("Unable to open or create file");
 
-        for comment_id in already_replied_to_comments.iter() {
+        for comment_id in already_replied_or_rejected.iter() {
             writeln!(file, "{}", comment_id).expect("Unable to write to file");
         }
 
