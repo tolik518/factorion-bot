@@ -16,9 +16,9 @@ pub(crate) struct RedditComment {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Status {
-    AlreadyReplied,
+    AlreadyRepliedOrRejected,
     NotReplied,
-    NumberTooBig,
+    NumberTooBigToCalculate,
     NoFactorial,
     ReplyWouldBeTooLong,
     FactorialsFound,
@@ -45,22 +45,22 @@ impl RedditComment {
                 .parse::<Integer>()
                 .expect("Failed to parse number");
 
-            let exclamation_count = regex_capture[2]
+            let factorial_level = regex_capture[2]
                 .len()
                 .to_u64()
                 .expect("Failed to convert exclamation count to u64");
             // Check if we can approximate the number of digits
             if num > UPPER_DIGIT_APPROXIMATION_LIMIT {
-                status.push(Status::NumberTooBig)
+                status.push(Status::NumberTooBigToCalculate)
                 // Check if we can approximate it
             } else if num > UPPER_APPROXIMATION_LIMIT
-                || (exclamation_count > 1 && num > UPPER_CALCULATION_LIMIT)
+                || (factorial_level > 1 && num > UPPER_CALCULATION_LIMIT)
             {
                 let num = num.to_u128().expect("Failed to convert BigInt to i64");
-                let factorial = math::approximate_multifactorial_digits(num, exclamation_count);
+                let factorial = math::approximate_multifactorial_digits(num, factorial_level);
                 factorial_list.push(Factorial {
                     number: num,
-                    level: exclamation_count,
+                    level: factorial_level,
                     factorial: CalculatedFactorial::ApproximateDigits(factorial),
                 });
             // Check if the number is within a reasonable range to compute
@@ -69,17 +69,17 @@ impl RedditComment {
                 let factorial = math::approximate_factorial(num);
                 factorial_list.push(Factorial {
                     number: num as u128,
-                    level: exclamation_count,
+                    level: factorial_level,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
             } else if num == 1 {
                 continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
-                let factorial = math::factorial(num, exclamation_count);
+                let factorial = math::factorial(num, factorial_level);
                 factorial_list.push(Factorial {
                     number: num as u128,
-                    level: exclamation_count,
+                    level: factorial_level,
                     factorial: CalculatedFactorial::Exact(factorial),
                 });
             }
@@ -94,7 +94,18 @@ impl RedditComment {
             status.push(Status::FactorialsFound);
         }
 
-        // rewrite for Factorial struct
+        RedditComment {
+            id: id.to_string(),
+            author: author.to_string(),
+            subreddit: subreddit.to_string(),
+            factorial_list,
+            status,
+        }
+    }
+
+    pub(crate) fn new_already_replied(id: &str, author: &str, subreddit: &str) -> Self {
+        let factorial_list: Vec<Factorial> = Vec::new();
+        let status: Vec<Status> = vec![Status::AlreadyRepliedOrRejected];
 
         RedditComment {
             id: id.to_string(),
@@ -330,7 +341,7 @@ mod tests {
         );
         assert_eq!(
             comment.status,
-            vec![Status::NumberTooBig, Status::FactorialsFound]
+            vec![Status::NumberTooBigToCalculate, Status::FactorialsFound]
         );
     }
 
@@ -342,7 +353,7 @@ mod tests {
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(
             comment.status,
-            vec![Status::NumberTooBig, Status::NoFactorial]
+            vec![Status::NumberTooBigToCalculate, Status::NoFactorial]
         );
     }
 

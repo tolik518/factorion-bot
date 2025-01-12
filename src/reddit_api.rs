@@ -88,12 +88,6 @@ impl RedditClient {
         let now = Utc::now();
         let expired = now > self.token.expiration_time;
 
-        println!(
-            "Now: {:#?} | Expiration time: {:#?}",
-            now, self.token.expiration_time
-        );
-        println!("Token expired: {:#?}", expired);
-
         expired
     }
 
@@ -211,6 +205,11 @@ impl RedditClient {
             token_expiration_time
         );
 
+        println!(
+            "Now: {:#?} | Expiration time: {:#?}",
+            Utc::now(), token_expiration_time
+        );
+
         Ok(Token {
             access_token: response.access_token,
             expiration_time: token_expiration_time,
@@ -267,24 +266,24 @@ impl RedditClient {
             let body = comment["data"]["body"].as_str().unwrap_or("");
             let author = comment["data"]["author"].as_str().unwrap_or("");
             let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
-
             let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
 
-            let mut comment = RedditComment::new(body, comment_id, author, subreddit);
-
-            // set some statuses
-            if !comment.status.contains(&Status::ReplyWouldBeTooLong)
-                && (comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH)
-            {
-                comment.add_status(Status::ReplyWouldBeTooLong);
-            }
-
             if already_replied_to_comments.contains(&comment_id.to_string()) {
-                comment.add_status(Status::AlreadyReplied);
+                comments.push(RedditComment::new_already_replied(comment_id, author, subreddit));
             } else {
+                let mut comment = RedditComment::new(body, comment_id, author, subreddit);
+
+                // set some statuses
+                if !comment.status.contains(&Status::ReplyWouldBeTooLong)
+                    && (comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH)
+                {
+                    comment.add_status(Status::ReplyWouldBeTooLong);
+                }
+
                 comment.add_status(Status::NotReplied);
+
+                comments.push(comment);
             }
-            comments.push(comment);
         }
 
         Ok(comments)
