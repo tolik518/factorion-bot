@@ -523,27 +523,27 @@ mod tests {
     #[test]
     fn test_get_reply_approximate_from_new_comment() {
         let comment = RedditComment::new(
-            "This is a test comment with a factorial of 489232!",
+            "This is a test comment with a factorial of 1489232!",
             "1234",
             "test_author",
             "test_subreddit",
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 489232 is approximately 1.6514332659579547e2571025 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.1202596158713205e8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
-    fn test_get_reply_approximate_from_number_100002() {
+    fn test_get_reply_approximate_from_number_1000002() {
         let comment = RedditComment::new(
-            "This is a test comment with a factorial of 100002!",
+            "This is a test comment with a factorial of 1000002!",
             "1234",
             "test_author",
             "test_subreddit",
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 100002 is approximately 2.8243141352927332e456583 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956477060345e5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

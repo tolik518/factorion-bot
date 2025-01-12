@@ -128,6 +128,7 @@ pub(crate) fn round(number: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::factorial::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
     use std::str::FromStr;
 
@@ -285,10 +286,10 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_two_hundred_thousand() {
-        let num = 200_000;
+    fn test_calculate_upper_limit() {
+        let num = UPPER_CALCULATION_LIMIT;
         let result = factorial(num, 1);
-        assert_eq!(result.to_string().len(), 973351);
+        assert_eq!(result.to_string().len(), 5565709);
     }
 
     #[test]
