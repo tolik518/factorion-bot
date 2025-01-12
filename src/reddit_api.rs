@@ -86,7 +86,6 @@ impl RedditClient {
 
     fn is_token_expired(&self) -> bool {
         let now = Utc::now();
-        
 
         now > self.token.expiration_time
     }
