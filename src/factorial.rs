@@ -11,6 +11,8 @@ pub(crate) const UPPER_APPROXIMATION_LIMIT: u64 = 500_000_000_000;
 pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: u128 =
     1_000_000_000_000_000_000_000_000_000_000_000_000;
 
+pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
     Exact(Integer),

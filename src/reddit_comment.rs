@@ -1,6 +1,6 @@
 use crate::factorial::{
     CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT,
-    UPPER_DIGIT_APPROXIMATION_LIMIT,
+    UPPER_DIGIT_APPROXIMATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT
 };
 use crate::math;
 use fancy_regex::Regex;
@@ -34,13 +34,19 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
-    pub(crate) fn new(body: &str, id: &str, author: &str, subreddit: &str) -> Self {
-        let factorial_regex =
-            Regex::new(r"(?<![,.!?\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex");
+    pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
+        let factorial_regex = Regex::new(
+            r"(?<![,.?\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex"
+        );
+        let subfactorial_regex = Regex::new(
+            r"(?<![,.!?\d])(!)\b(\d+)(?![<\d]|&lt;)").expect("Invalid subfactorial regex"
+        );
+
         let mut factorial_list: Vec<Factorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
-        for regex_capture in factorial_regex.captures_iter(body) {
+        // for every regex/factorial in the comment
+        for regex_capture in factorial_regex.captures_iter(comment_text) {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
@@ -74,8 +80,6 @@ impl RedditComment {
                     level: factorial_level,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
-            } else if num == 1 {
-                continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
                 let factorial = math::factorial(num, factorial_level);
@@ -85,6 +89,16 @@ impl RedditComment {
                     factorial: CalculatedFactorial::Exact(factorial),
                 });
             }
+        }
+
+        for regex_capture in subfactorial_regex.captures_iter(comment_text) {
+            let regex_capture = regex_capture.expect("Failed to capture regex");
+
+            let num = regex_capture[1]
+                .parse::<Integer>()
+                .expect("Failed to parse number");
+
+            //TODO: Implement subfactorial further
         }
 
         factorial_list.sort();
