@@ -112,10 +112,7 @@ impl Factorial {
                 write!(
                     acc,
                     "{}{}{} has approximately {} digits \n\n",
-                    factorial_level_string,
-                    PLACEHOLDER,
-                    self.number,
-                    digits
+                    factorial_level_string, PLACEHOLDER, self.number, digits
                 )
             }
         }
