@@ -1,7 +1,7 @@
 use crate::math;
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 use rug::Integer;
-use std::fmt::Write;
+use std::fmt::{Error, Write};
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
@@ -16,6 +16,7 @@ pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
     Exact(Integer),
+    ExactSubfactorial(Integer),
     Approximate(f64, u64),
     ApproximateDigits(u128),
 }
@@ -27,11 +28,18 @@ pub(crate) struct Factorial {
     pub(crate) factorial: CalculatedFactorial,
 }
 
+pub(crate) struct FactorialTree {
+    pub(crate) factorial: Factorial,
+    pub(crate) children: Vec<FactorialTree>,
+}
+
 impl Ord for CalculatedFactorial {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
             (Self::Exact(this), Self::Exact(other)) => this.cmp(other),
             (Self::Exact(_), _) => std::cmp::Ordering::Greater,
+            (Self::ExactSubfactorial(this), Self::ExactSubfactorial(other)) => this.cmp(other),
+            (Self::ExactSubfactorial(_), _) => std::cmp::Ordering::Greater,
             (Self::Approximate(this_base, this_exp), Self::Approximate(other_base, other_exp)) => {
                 let exp_ord = this_exp.cmp(other_exp);
                 let std::cmp::Ordering::Equal = exp_ord else {
@@ -70,6 +78,10 @@ impl std::hash::Hash for CalculatedFactorial {
                 state.write_u8(3);
                 digits.hash(state);
             }
+            Self::ExactSubfactorial(subfactorial) => {
+                state.write_u8(4);
+                subfactorial.hash(state);
+            }
         }
     }
 }
@@ -84,40 +96,23 @@ impl Factorial {
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
                 if self.is_too_long() || force_shorten {
-                    let mut truncated_number = factorial.to_string();
-                    let length = truncated_number.len();
-                    truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
-
-                    // Round if we had to truncate
-                    if truncated_number.len() >= NUMBER_DECIMALS_SCIENTIFIC + 2 {
-                        math::round(&mut truncated_number);
-                    };
-                    // Only add decimal if we have more than one digit
-                    if truncated_number.len() > 1 {
-                        truncated_number.insert(1, '.'); // Decimal point
-                    }
-                    if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
-                        write!(
-                            acc,
-                            "{}{}{} is roughly {} × 10^{} \n\n",
-                            factorial_level_string,
-                            PLACEHOLDER,
-                            self.number,
-                            truncated_number,
-                            length - 1
-                        )
-                    } else {
-                        write!(
-                            acc,
-                            "{}{}{} is {} \n\n",
-                            factorial_level_string, PLACEHOLDER, self.number, factorial
-                        )
-                    }
+                    self.truncate(acc, factorial_level_string, factorial)
                 } else {
                     write!(
                         acc,
                         "{}{}{} is {} \n\n",
                         factorial_level_string, PLACEHOLDER, self.number, factorial
+                    )
+                }
+            }
+            CalculatedFactorial::ExactSubfactorial(factorial) => {
+                if self.is_too_long() || force_shorten {
+                    self.truncate(acc, factorial_level_string, factorial)
+                } else {
+                    write!(
+                        acc,
+                        "Subfactorial of {} is {} \n\n",
+                         self.number, factorial
                     )
                 }
             }
@@ -143,6 +138,44 @@ impl Factorial {
             }
         }
     }
+
+    fn truncate(
+        &self,
+        acc: &mut String,
+        factorial_level_string: &str,
+        factorial: &Integer,
+    ) -> Result<(), Error> {
+        let mut truncated_number = factorial.to_string();
+        let length = truncated_number.len();
+        truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
+
+        // Round if we had to truncate
+        if truncated_number.len() >= NUMBER_DECIMALS_SCIENTIFIC + 2 {
+            math::round(&mut truncated_number);
+        };
+        // Only add decimal if we have more than one digit
+        if truncated_number.len() > 1 {
+            truncated_number.insert(1, '.'); // Decimal point
+        }
+        if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
+            write!(
+                acc,
+                "{}{}{} is roughly {} × 10^{} \n\n",
+                factorial_level_string,
+                PLACEHOLDER,
+                self.number,
+                truncated_number,
+                length - 1
+            )
+        } else {
+            write!(
+                acc,
+                "{}{}{} is {} \n\n",
+                factorial_level_string, PLACEHOLDER, self.number, factorial
+            )
+        }
+    }
+
     pub(crate) fn is_aproximate_digits(&self) -> bool {
         matches!(self.factorial, CalculatedFactorial::ApproximateDigits(_))
     }
@@ -283,6 +316,15 @@ mod tests {
         };
         factorial.format(&mut acc, false).unwrap();
         assert_eq!(acc, "Factorial of 5 is 120 \n\n");
+
+        let mut acc = String::new();
+        let factorial = Factorial {
+            number: 5,
+            level: 1,
+            factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(120)),
+        };
+        factorial.format(&mut acc, false).unwrap();
+        assert_eq!(acc, "Subfactorial of 5 is 120 \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {
