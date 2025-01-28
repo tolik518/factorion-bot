@@ -1,6 +1,6 @@
 use crate::factorial::{
     CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT,
-    UPPER_DIGIT_APPROXIMATION_LIMIT,
+    UPPER_DIGIT_APPROXIMATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math;
 use fancy_regex::Regex;
@@ -34,13 +34,17 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
-    pub(crate) fn new(body: &str, id: &str, author: &str, subreddit: &str) -> Self {
+    pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
         let factorial_regex =
-            Regex::new(r"(?<![,.!?\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex");
+            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex");
+        let subfactorial_regex = Regex::new(r"(?<![,.!?\d])(!)\b(\d+)(?![<\d]|&lt;)")
+            .expect("Invalid subfactorial regex");
+
         let mut factorial_list: Vec<Factorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
-        for regex_capture in factorial_regex.captures_iter(body) {
+        // for every regex/factorial in the comment
+        for regex_capture in factorial_regex.captures_iter(comment_text) {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
@@ -74,8 +78,6 @@ impl RedditComment {
                     level: factorial_level,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
-            } else if num == 1 {
-                continue;
             } else {
                 let num = num.to_u64().expect("Failed to convert BigInt to i64");
                 let factorial = math::factorial(num, factorial_level);
@@ -83,6 +85,28 @@ impl RedditComment {
                     number: num as u128,
                     level: factorial_level,
                     factorial: CalculatedFactorial::Exact(factorial),
+                });
+            }
+        }
+
+        for regex_capture in subfactorial_regex.captures_iter(comment_text) {
+            let regex_capture = regex_capture.expect("Failed to capture regex");
+
+            let num = regex_capture[2]
+                .parse::<Integer>()
+                .expect("Failed to parse number");
+
+            //TODO: Implement subfactorial further
+
+            if num > UPPER_SUBFACTORIAL_LIMIT {
+                status.push(Status::NumberTooBigToCalculate)
+            } else {
+                let num = num.to_u64().expect("Failed to convert BigInt to i64");
+                let factorial = math::subfactorial(num);
+                factorial_list.push(Factorial {
+                    number: num as u128,
+                    level: 1,
+                    factorial: CalculatedFactorial::ExactSubfactorial(factorial),
                 });
             }
         }
@@ -277,6 +301,25 @@ mod tests {
     }
 
     #[test]
+    fn test_comment_new_subfactorial() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment !5",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+
+        assert_eq!(
+            comment.factorial_list,
+            vec![Factorial {
+                number: 5,
+                level: 1,
+                factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(44)),
+            }]
+        );
+    }
+
+    #[test]
     fn test_comment_new_exclamations_one() {
         let comment = RedditComment::new(
             "This is a test with exclamation mark stuff!!!1!",
@@ -406,6 +449,24 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "Triple-Factorial of 10 is 280 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_for_subfactorial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            factorial_list: vec![Factorial {
+                number: 5,
+                level: 1,
+                factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(44)),
+            }],
+            author: "test_author".to_string(),
+            subreddit: "test_subreddit".to_string(),
+            status: vec![Status::FactorialsFound],
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Subfactorial of 5 is 44 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
