@@ -109,11 +109,7 @@ impl Factorial {
                 if self.is_too_long() || force_shorten {
                     self.truncate(acc, factorial_level_string, factorial)
                 } else {
-                    write!(
-                        acc,
-                        "Subfactorial of {} is {} \n\n",
-                         self.number, factorial
-                    )
+                    write!(acc, "Subfactorial of {} is {} \n\n", self.number, factorial)
                 }
             }
             CalculatedFactorial::Approximate(base, exponent) => {

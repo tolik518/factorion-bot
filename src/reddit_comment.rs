@@ -309,8 +309,9 @@ mod tests {
             "test_subreddit",
         );
 
-        assert_eq!(comment.factorial_list,
-           vec![Factorial {
+        assert_eq!(
+            comment.factorial_list,
+            vec![Factorial {
                 number: 5,
                 level: 1,
                 factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(44)),
