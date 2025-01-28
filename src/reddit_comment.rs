@@ -27,7 +27,7 @@ pub(crate) enum Status {
     FactorialsFound,
 }
 
-pub(crate) const PLACEHOLDER: &str = "Factorial of ";
+pub(crate) const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
@@ -53,7 +53,7 @@ impl RedditComment {
 
             let factorial_level = regex_capture[2]
                 .len()
-                .to_u64()
+                .to_i32()
                 .expect("Failed to convert exclamation count to u64");
             // Check if we can approximate the number of digits
             if num > UPPER_DIGIT_APPROXIMATION_LIMIT {
@@ -105,8 +105,8 @@ impl RedditComment {
                 let factorial = math::subfactorial(num);
                 factorial_list.push(Factorial {
                     number: num as u128,
-                    level: 1,
-                    factorial: CalculatedFactorial::ExactSubfactorial(factorial),
+                    level: -1,
+                    factorial: CalculatedFactorial::Exact(factorial),
                 });
             }
         }
@@ -313,8 +313,8 @@ mod tests {
             comment.factorial_list,
             vec![Factorial {
                 number: 5,
-                level: 1,
-                factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(44)),
+                level: -1,
+                factorial: CalculatedFactorial::Exact(Integer::from(44)),
             }]
         );
     }
@@ -418,6 +418,20 @@ mod tests {
     }
 
     #[test]
+    fn test_can_reply_to_factorial_that_is_subfactorial() {
+        let comment = RedditComment::new(
+            "This comment has a subfactorial which is also a factorial !23!",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+        assert_eq!(
+            comment.get_reply(),
+            "Subfactorial of 23 is 9510425471055777937262 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
     fn test_reply_text_too_long() {
         let comment = RedditComment::new(
             "3500! 3501! 3502! 3503! 3504! 3505! 3506! 3507! 3508! 3509! 3510! 3511! 3512! 3513! 3514! 3515! 3516! 3517! 3518! 3519! 3520! 3521! 3522! 3523! 3524! 3525! 3526! 3527! 3528! 3529! 3530! 3531! 3532! 3533! 3534! 3535! 3536! 3537! 3538! 3539! 3540! 3541! 3542! 3543! 3544! 3545! 3546! 3547! 3548! 3549! 3550! 3551! 3552! 3553! 3554! 3555! 3556! 3557! 3558! 3559! 3560! 3561! 3562! 3563! 3564! 3565! 3566! 3567! 3568! 3569! 3570! 3571! 3572! 3573! 3574! 3575! 3576! 3577! 3578! 3579! 3580! 3581! 3582! 3583! 3584! 3585! 3586! 3587! 3588! 3589! 3590! 3591! 3592! 3593! 3594! 3595! 3596! 3597! 3598! 3599! 3600! 3600! 3601! 3602! 3603! 3604! 3605! 3606! 3607! 3608! 3609! 3610! 3611! 3612! 3613! 3614! 3615! 3616! 3617! 3618! 3619! 3620! 3621! 3622! 3623! 3624! 3625! 3626! 3627! 3628! 3629! 3630! 3631! 3632! 3633! 3634! 3636! 3636! 3637! 3638! 3639! 3640! 3641! 3642! 3643! 3644! 3645! 3646! 3647! 3648! 3649! 3650! 3651! 3652! 3653! 3654! 3655! 3656! 3657! 3658! 3659! 3660! 3661! 3662! 3663! 3664! 3665! 3666! 3667! 3668! 3669! 3670! 3671! 3672! 3673! 3674! 3675! 3676! 3677! 3678! 3679! 3680! 3681! 3682! 3683! 3684! 3685! 3686! 3687! 3688! 3689! 3690! 3691! 3692! 3693! 3694! 3695! 3696! 3697! 3698! 3699! 3600!",
@@ -448,7 +462,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Triple-Factorial of 10 is 280 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Triple-factorial of 10 is 280 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -457,8 +471,8 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
                 number: 5,
-                level: 1,
-                factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(44)),
+                level: -1,
+                factorial: CalculatedFactorial::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -467,6 +481,23 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "Subfactorial of 5 is 44 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+    #[test]
+    fn test_get_reply_for_big_subfactorial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            factorial_list: vec![Factorial {
+                number: 5000,
+                level: -1,
+                factorial: CalculatedFactorial::Exact(math::subfactorial(5000)),
+            }],
+            author: "test_author".to_string(),
+            subreddit: "test_subreddit".to_string(),
+            status: vec![Status::FactorialsFound],
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nSubfactorial of 5000 is roughly 1.555606884589543595233339289773 × 10^16325 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -484,7 +515,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "46-Factorial of 10 is 10 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "46-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -509,7 +540,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Factorial of 5 is 120 \n\nFactorial of 6 is 720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of 5 is 120 \n\nThe factorial of 6 is 720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -539,7 +570,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-Factorial of 5 is 60 \n\nFactorial of 6 is 720 \n\nFactorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-factorial of 5 is 60 \n\nThe factorial of 6 is 720 \n\nThe factorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -552,7 +583,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nFactorial of 4000 is roughly 1.828801951514065013314743175574 × 10^12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nThe factorial of 4000 is roughly 1.828801951514065013314743175574 × 10^12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -565,7 +596,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nTriple-Factorial of 9000 is roughly 9.588379914654826764034139164855 × 10^10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nTriple-factorial of 9000 is roughly 9.588379914654826764034139164855 × 10^10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -578,7 +609,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nFactorial of 3250 is roughly 2.084009748689879459762331298493 × 10^10004 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nThe factorial of 3250 is roughly 2.084009748689879459762331298493 × 10^10004 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -591,7 +622,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.1202596158713205 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1489232 is approximately 2.1202596158713205 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -604,7 +635,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956477060345 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1000002 is approximately 8.263956477060345 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -617,7 +648,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 67839127837442 has approximately 908853398380684 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 67839127837442 has approximately 908853398380684 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -630,7 +661,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-Factorial of 8394763 has approximately 13619907 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-factorial of 8394763 has approximately 13619907 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -643,7 +674,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 1000000000000000000000000000000000000 has approximately 35565705518096741787712172651953782785 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 1000000000000000000000000000000000000 has approximately 35565705518096741787712172651953782785 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -683,6 +714,6 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-Factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nFactorial of 37923648 is approximately 1.7605854240375498 × 10^270949892 \n\nDouble-Factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nThe factorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nThe factorial of 37923648 is approximately 1.7605854240375498 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 }
