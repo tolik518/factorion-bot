@@ -16,7 +16,6 @@ pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
     Exact(Integer),
-    ExactSubfactorial(Integer),
     Approximate(f64, u64),
     ApproximateDigits(u128),
 }
@@ -24,7 +23,7 @@ pub(crate) enum CalculatedFactorial {
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
     pub(crate) number: u128,
-    pub(crate) level: u64,
+    pub(crate) level: i32,
     pub(crate) factorial: CalculatedFactorial,
 }
 
@@ -38,8 +37,6 @@ impl Ord for CalculatedFactorial {
         match (self, other) {
             (Self::Exact(this), Self::Exact(other)) => this.cmp(other),
             (Self::Exact(_), _) => std::cmp::Ordering::Greater,
-            (Self::ExactSubfactorial(this), Self::ExactSubfactorial(other)) => this.cmp(other),
-            (Self::ExactSubfactorial(_), _) => std::cmp::Ordering::Greater,
             (Self::Approximate(this_base, this_exp), Self::Approximate(other_base, other_exp)) => {
                 let exp_ord = this_exp.cmp(other_exp);
                 let std::cmp::Ordering::Equal = exp_ord else {
@@ -78,10 +75,6 @@ impl std::hash::Hash for CalculatedFactorial {
                 state.write_u8(3);
                 digits.hash(state);
             }
-            Self::ExactSubfactorial(subfactorial) => {
-                state.write_u8(4);
-                subfactorial.hash(state);
-            }
         }
     }
 }
@@ -105,13 +98,6 @@ impl Factorial {
                     )
                 }
             }
-            CalculatedFactorial::ExactSubfactorial(factorial) => {
-                if self.is_too_long() || force_shorten {
-                    self.truncate(acc, factorial_level_string, factorial)
-                } else {
-                    write!(acc, "Subfactorial of {} is {} \n\n", self.number, factorial)
-                }
-            }
             CalculatedFactorial::Approximate(base, exponent) => {
                 write!(
                     acc,
@@ -126,7 +112,7 @@ impl Factorial {
                 write!(
                     acc,
                     "{}{}{} has approximately {} digits \n\n",
-                    Factorial::get_factorial_level_string(self.level),
+                    factorial_level_string,
                     PLACEHOLDER,
                     self.number,
                     digits
@@ -229,9 +215,10 @@ impl Factorial {
         }
     }
 
-    pub(crate) fn get_factorial_level_string(level: u64) -> &'static str {
-        match level {
-            1 => "",
+    pub(crate) fn get_factorial_level_string(level: i32) -> &'static str {
+        let prefix = match level {
+            -1 => "Sub",
+            1 => "The ",
             2 => "Double-",
             3 => "Triple-",
             4 => "Quadruple-",
@@ -281,7 +268,9 @@ impl Factorial {
                 write!(&mut suffix, "{}-", level).unwrap();
                 Box::leak(suffix.into_boxed_str())
             }
-        }
+        };
+
+        prefix
     }
 }
 
@@ -292,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_factorial_level_string() {
-        assert_eq!(Factorial::get_factorial_level_string(1), "");
+        assert_eq!(Factorial::get_factorial_level_string(1), "The ");
         assert_eq!(Factorial::get_factorial_level_string(2), "Double-");
         assert_eq!(Factorial::get_factorial_level_string(3), "Triple-");
         assert_eq!(
@@ -311,13 +300,13 @@ mod tests {
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, false).unwrap();
-        assert_eq!(acc, "Factorial of 5 is 120 \n\n");
+        assert_eq!(acc, "The factorial of 5 is 120 \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {
             number: 5,
-            level: 1,
-            factorial: CalculatedFactorial::ExactSubfactorial(Integer::from(120)),
+            level: -1,
+            factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, false).unwrap();
         assert_eq!(acc, "Subfactorial of 5 is 120 \n\n");
@@ -329,7 +318,7 @@ mod tests {
             factorial: CalculatedFactorial::Approximate(120.0, 3),
         };
         factorial.format(&mut acc, false).unwrap();
-        assert_eq!(acc, "Factorial of 5 is approximately 1.2 × 10^5 \n\n");
+        assert_eq!(acc, "The factorial of 5 is approximately 1.2 × 10^5 \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {
@@ -338,7 +327,7 @@ mod tests {
             factorial: CalculatedFactorial::ApproximateDigits(3),
         };
         factorial.format(&mut acc, false).unwrap();
-        assert_eq!(acc, "Factorial of 5 has approximately 3 digits \n\n");
+        assert_eq!(acc, "The factorial of 5 has approximately 3 digits \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {
@@ -347,6 +336,6 @@ mod tests {
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, true).unwrap();
-        assert_eq!(acc, "Factorial of 5 is 120 \n\n");
+        assert_eq!(acc, "The factorial of 5 is 120 \n\n");
     }
 }

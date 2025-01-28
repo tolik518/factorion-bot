@@ -4,8 +4,8 @@ use rug::integer::IntegerExt64;
 use rug::{Complete, Integer};
 use std::str::FromStr;
 
-pub fn factorial(n: u64, k: u64) -> Integer {
-    Integer::factorial_m_64(n, k).complete()
+pub fn factorial(n: u64, k: i32) -> Integer {
+    Integer::factorial_m_64(n, k as u64).complete()
 }
 
 pub(crate) fn subfactorial(n: u64) -> Integer {
@@ -81,7 +81,7 @@ pub fn approximate_factorial(n: u64) -> (f64, u64) {
 /// It is recommended to only use inputs up to 1 Quintillion.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_multifactorial_digits(n: u128, k: u64) -> u128 {
+pub fn approximate_multifactorial_digits(n: u128, k: i32) -> u128 {
     let n = n as f64;
     let k = k as f64;
     let base = n.log(10.0);
