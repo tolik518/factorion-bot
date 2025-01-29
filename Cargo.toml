@@ -20,6 +20,6 @@ anyhow = { version = "1.0.95", default-features = false }
 http = { version = "1.2.0", default-features = false }
 influxdb = { version = "0.7.2", features = ["derive", "reqwest"], default-features = true }
 once_cell = { version = "1.10.0", default-features = false }
-rug = { version = "1.26.1", features = ["integer", "float"], default-features = false }
+rug = { version = "1.27.0", features = ["integer", "float"], default-features = false }
 malachite-nz = "0.4.16"
 malachite-base = "0.4.16"
