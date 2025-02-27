@@ -27,7 +27,11 @@ pub fn approximate_factorial(n: u64) -> (Float, Integer) {
         .to_integer_round(rug::float::Round::Down)
         .unwrap();
     let exponent = n.clone() - ten_in_base * Float::with_val(FLOAT_PRECISION, extra.clone());
-    let factorial = base.pow(exponent) * (std::f64::consts::TAU * n.clone()).sqrt();
+    let factorial = base.pow(exponent)
+        * (Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi)
+            * Float::with_val(FLOAT_PRECISION, 2)
+            * n.clone())
+        .sqrt();
     // Numerators from https://oeis.org/A001163 (cc-by-sa-4.0)
     let numerators: [f64; 17] = [
         1.0,
@@ -90,12 +94,13 @@ pub fn approximate_factorial(n: u64) -> (Float, Integer) {
 pub fn approximate_multifactorial_digits(n: u128, k: i32) -> Integer {
     let n = Float::with_val(FLOAT_PRECISION, n);
     let k = Float::with_val(FLOAT_PRECISION, k);
-    let base = n.clone().ln() / Float::with_val(FLOAT_PRECISION, 10).ln();
-    ((Float::with_val(FLOAT_PRECISION, 0.5) + n.clone() / k.clone()) * base
-        - n / k / Float::with_val(FLOAT_PRECISION, 10).ln())
-    .to_integer_round(rug::float::Round::Down)
-    .unwrap()
-    .0 + Integer::ONE
+    let ln10 = Float::with_val(FLOAT_PRECISION, 10).ln();
+    let base = n.clone().ln() / ln10.clone();
+    ((Float::with_val(FLOAT_PRECISION, 0.5) + n.clone() / k.clone()) * base - n / k / ln10)
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap()
+        .0
+        + Integer::ONE
 }
 
 /// Formats the output of [`approximate_factorial`], by combining the 10 exponents of the number and the extra exponent.
