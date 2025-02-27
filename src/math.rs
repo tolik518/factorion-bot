@@ -1,8 +1,11 @@
 use malachite_base::num::arithmetic::traits::Subfactorial;
 use malachite_nz::natural::Natural;
 use rug::integer::IntegerExt64;
-use rug::{Complete, Integer};
+use rug::ops::*;
+use rug::{Complete, Float, Integer};
 use std::str::FromStr;
+
+pub const FLOAT_PRECISION: u32 = 1024;
 
 pub fn factorial(n: u64, k: i32) -> Integer {
     Integer::factorial_m_64(n, k as u64).complete()
@@ -16,13 +19,15 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_factorial(n: u64) -> (f64, u64) {
-    let n = n as f64;
-    let base = n / std::f64::consts::E;
-    let ten_in_base = 10.0f64.log(base);
-    let extra = (n / ten_in_base) as u64;
-    let exponent = n - ten_in_base * extra as f64;
-    let factorial = base.powf(exponent) * (std::f64::consts::TAU * n).sqrt();
+pub fn approximate_factorial(n: u64) -> (Float, Integer) {
+    let n = Float::with_val(FLOAT_PRECISION, n);
+    let base = n.clone() / Float::with_val(FLOAT_PRECISION, 1).exp();
+    let ten_in_base = Float::with_val(FLOAT_PRECISION, 10).ln() / base.clone().ln();
+    let (extra, _) = (n.clone() / ten_in_base.clone())
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap();
+    let exponent = n.clone() - ten_in_base * Float::with_val(FLOAT_PRECISION, extra.clone());
+    let factorial = base.pow(exponent) * (std::f64::consts::TAU * n.clone()).sqrt();
     // Numerators from https://oeis.org/A001163 (cc-by-sa-4.0)
     let numerators: [f64; 17] = [
         1.0,
@@ -63,12 +68,13 @@ pub fn approximate_factorial(n: u64) -> (f64, u64) {
         299692087104605205332754432000000.0,
         57540880724084199423888850944000000.0,
     ];
-    let series_sum: f64 = numerators
+    let series_sum: Float = numerators
         .into_iter()
         .zip(denominators)
         .enumerate()
-        .map(|(m, (num, den))| num / (den * n.powf(m as f64)))
-        .sum();
+        .map(|(m, (num, den))| num / (den * n.clone().pow(m)))
+        .reduce(|a, e| a + e)
+        .unwrap_or(Float::new(FLOAT_PRECISION));
     let factorial = factorial * series_sum;
     (factorial, extra)
 }
@@ -81,17 +87,25 @@ pub fn approximate_factorial(n: u64) -> (f64, u64) {
 /// It is recommended to only use inputs up to 1 Quintillion.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_multifactorial_digits(n: u128, k: i32) -> u128 {
-    let n = n as f64;
-    let k = k as f64;
-    let base = n.log(10.0);
-    ((0.5 + n / k) * base - n / k / 10.0f64.ln()) as u128 + 1
+pub fn approximate_multifactorial_digits(n: u128, k: i32) -> Integer {
+    let n = Float::with_val(FLOAT_PRECISION, n);
+    let k = Float::with_val(FLOAT_PRECISION, k);
+    let base = n.clone().ln() / Float::with_val(FLOAT_PRECISION, 10).ln();
+    ((Float::with_val(FLOAT_PRECISION, 0.5) + n.clone() / k.clone()) * base
+        - n / k / Float::with_val(FLOAT_PRECISION, 10).ln())
+    .to_integer_round(rug::float::Round::Down)
+    .unwrap()
+    .0 + Integer::ONE
 }
 
 /// Formats the output of [`approximate_factorial`], by combining the 10 exponents of the number and the extra exponent.
-pub fn format_approximate_factorial((x, e): (f64, u64)) -> String {
-    let extra = x.log10() as u64;
-    let x = x / (10.0f64.powf(extra as f64));
+pub fn format_approximate_factorial((x, e): (Float, Integer)) -> String {
+    let (extra, _) = x
+        .clone()
+        .log10()
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap();
+    let x = (x / (Float::with_val(FLOAT_PRECISION, 10).pow(extra.clone()))).to_f64();
     let total_exponent = extra + e;
     format!("{x} × 10^{total_exponent}")
 }
@@ -355,22 +369,22 @@ mod tests {
 
     #[test]
     fn test_approximate_factorial() {
-        // NOTE: only the first decimals are correct
+        // NOTE: the last digit may not be correct
         assert_eq!(
             format_approximate_factorial(approximate_factorial(100_001)),
-            "2.8242576501182115 × 10^456578" // 9 decimals
+            "2.8242576502544274 × 10^456578"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(2_546_372_899)),
-            "7.7547455955465185 × 10^22845109185" // 4 decimals
+            "7.754784101805052 × 10^22845109185"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(500_000_000_000)),
-            "4.280903142280765 × 10^5632337761222" // 2 decimals
+            "4.286111886996677 × 10^5632337761222"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
-            "2.982723728493957 × 10^8135211294800" // 2 decimals
+            "2.988979640465335 × 10^8135211294800"
         );
     }
     #[test]
@@ -397,39 +411,43 @@ mod tests {
 
     #[test]
     fn test_approximate_digits() {
-        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579);
+        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579u128);
         assert_eq!(
             approximate_multifactorial_digits(7_834_436_739, 1),
-            74_111_525_394
+            74_111_525_394u128
         );
         assert_eq!(
             approximate_multifactorial_digits(738_247_937_346_920, 1),
-            10_655_802_631_914_633
+            10_655_802_631_914_633u128
         );
         assert_eq!(
             approximate_multifactorial_digits(827_829_849_020_729_846, 1),
-            14_473_484_525_026_752_513 // NOTE: Last 4 digits are wrong
+            14_473_484_525_026_753_452u128
         );
         assert_eq!(
             approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
-            17_565_705_518_096_744_449 // NOTE: Last 4 digits are wrong
+            17_565_705_518_096_748_182u128
         );
         assert_eq!(
             approximate_multifactorial_digits(1_000_000_000_000_000_000_000_000_000_000_000_000, 1),
-            35_565_705_518_096_741_787_712_172_651_953_782_785 // NOTE: Last 22 digits are wrong
+            35_565_705_518_096_748_172_348_871_081_083_394_936u128 // NOTE: Last digit is wrong
         );
-        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
+        assert_eq!(
+            approximate_multifactorial_digits(dbg!(u128::MAX), 1),
+            Integer::from_str("12963922773915897352139996524992575205342").unwrap()
+        );
+        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291u128);
         assert_eq!(
             approximate_multifactorial_digits(7_834_436_739, 2),
-            37_055_762_699
+            37_055_762_699u128
         );
         assert_eq!(
             approximate_multifactorial_digits(738_247_937_346_920, 2),
-            5_327_901_315_957_321
+            5_327_901_315_957_320u128 // NOTE: Last digit is wrong
         );
         assert_eq!(
             approximate_multifactorial_digits(827_829_849_020_729_846, 2),
-            7_236_742_262_513_376_257 // NOTE: Last 3 digits are wrong
+            7_236_742_262_513_376_731u128
         );
         // TODO(test): test digit approximations for n-factorials (need to find a good reference)
     }
@@ -438,39 +456,43 @@ mod tests {
     #[ignore = "future_improvement"]
     fn test_approximate_digits_perfect() {
         // NOTE: All correct
-        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579);
+        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579u128);
         assert_eq!(
             approximate_multifactorial_digits(7_834_436_739, 1),
-            74_111_525_394
+            74_111_525_394u128
         );
         assert_eq!(
             approximate_multifactorial_digits(738_247_937_346_920, 1),
-            10_655_802_631_914_633
+            10_655_802_631_914_633u128
         );
         assert_eq!(
             approximate_multifactorial_digits(827_829_849_020_729_846, 1),
-            14_473_484_525_026_753_452
+            14_473_484_525_026_753_452u128
         );
         assert_eq!(
             approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
-            17_565_705_518_096_748_182
+            17_565_705_518_096_748_182u128
         );
         assert_eq!(
             approximate_multifactorial_digits(1_000_000_000_000_000_000_000_000_000_000_000_000, 1),
-            35_565_705_518_096_748_172_348_871_081_083_394_937
+            35_565_705_518_096_748_172_348_871_081_083_394_937u128
         );
-        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291);
+        assert_eq!(
+            approximate_multifactorial_digits(dbg!(u128::MAX), 1),
+            Integer::from_str("12963922773915897352139996524992575205342").unwrap()
+        );
+        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291u128);
         assert_eq!(
             approximate_multifactorial_digits(7_834_436_739, 2),
-            37_055_762_699
+            37_055_762_699u128
         );
         assert_eq!(
             approximate_multifactorial_digits(738_247_937_346_920, 2),
-            5_327_901_315_957_321
+            5_327_901_315_957_321u128
         );
         assert_eq!(
             approximate_multifactorial_digits(827_829_849_020_729_846, 2),
-            7_236_742_262_513_376_731
+            7_236_742_262_513_376_731u128
         );
     }
 }

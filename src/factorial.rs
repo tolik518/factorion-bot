@@ -1,6 +1,6 @@
 use crate::math;
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
-use rug::Integer;
+use rug::{Float, Integer};
 use std::fmt::{Error, Write};
 
 // Limit for exact calculation, set to limit calculation time
@@ -16,8 +16,8 @@ pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
     Exact(Integer),
-    Approximate(f64, u64),
-    ApproximateDigits(u128),
+    Approximate(Float, Integer),
+    ApproximateDigits(Integer),
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
@@ -68,7 +68,11 @@ impl std::hash::Hash for CalculatedFactorial {
             }
             Self::Approximate(base, exponent) => {
                 state.write_u8(2);
-                base.to_bits().hash(state);
+                let raw_base = base.clone().into_raw();
+                raw_base.prec.hash(state);
+                raw_base.sign.hash(state);
+                raw_base.exp.hash(state);
+                raw_base.d.hash(state);
                 exponent.hash(state);
             }
             Self::ApproximateDigits(digits) => {
@@ -105,7 +109,7 @@ impl Factorial {
                     factorial_level_string,
                     PLACEHOLDER,
                     self.number,
-                    math::format_approximate_factorial((*base, *exponent))
+                    math::format_approximate_factorial((base.clone(), exponent.clone()))
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
@@ -274,6 +278,7 @@ impl Factorial {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use math::FLOAT_PRECISION;
     use rug::Integer;
 
     #[test]
@@ -312,7 +317,10 @@ mod tests {
         let factorial = Factorial {
             number: 5,
             level: 1,
-            factorial: CalculatedFactorial::Approximate(120.0, 3),
+            factorial: CalculatedFactorial::Approximate(
+                Float::with_val(FLOAT_PRECISION, 120),
+                3.into(),
+            ),
         };
         factorial.format(&mut acc, false).unwrap();
         assert_eq!(acc, "The factorial of 5 is approximately 1.2 × 10^5 \n\n");
@@ -321,7 +329,7 @@ mod tests {
         let factorial = Factorial {
             number: 5,
             level: 1,
-            factorial: CalculatedFactorial::ApproximateDigits(3),
+            factorial: CalculatedFactorial::ApproximateDigits(3.into()),
         };
         factorial.format(&mut acc, false).unwrap();
         assert_eq!(acc, "The factorial of 5 has approximately 3 digits \n\n");
