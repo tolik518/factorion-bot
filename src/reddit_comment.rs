@@ -1,6 +1,6 @@
 use crate::factorial::{
     CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT,
-    UPPER_DIGIT_APPROXIMATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT,
+    UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math;
 use fancy_regex::Regex;
@@ -55,11 +55,7 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to u64");
-            // Check if we can approximate the number of digits
-            if num > UPPER_DIGIT_APPROXIMATION_LIMIT {
-                status.push(Status::NumberTooBigToCalculate)
-                // Check if we can approximate it
-            } else if num > UPPER_APPROXIMATION_LIMIT
+            if num > UPPER_APPROXIMATION_LIMIT
                 || (factorial_level > 1 && num > UPPER_CALCULATION_LIMIT)
             {
                 let num = num.to_u128().expect("Failed to convert BigInt to i64");
