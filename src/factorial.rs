@@ -5,11 +5,9 @@ use std::fmt::{Error, Write};
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
-// Limit for approximation, set to ensure enough accuracy (aftewards, only single correct decimals may be observed)
-pub(crate) const UPPER_APPROXIMATION_LIMIT: u128 = u128::MAX;
-// Limit for number of digits approximation, to fit the input a u128
-pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: u128 = u128::MAX;
-
+// Limit for approximation, set to ensure enough accuracy (I have no way to verify after)
+pub(crate) const UPPER_APPROXIMATION_LIMIT: &str = 
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +19,7 @@ pub(crate) enum CalculatedFactorial {
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
-    pub(crate) number: u128,
+    pub(crate) number: Integer,
     pub(crate) level: i32,
     pub(crate) factorial: CalculatedFactorial,
 }
@@ -296,7 +294,7 @@ mod tests {
     fn test_factorial_format() {
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
@@ -305,7 +303,7 @@ mod tests {
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: -1,
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
@@ -314,7 +312,7 @@ mod tests {
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
             factorial: CalculatedFactorial::Approximate(
                 Float::with_val(FLOAT_PRECISION, 120),
@@ -326,7 +324,7 @@ mod tests {
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
             factorial: CalculatedFactorial::ApproximateDigits(3.into()),
         };
@@ -335,7 +333,7 @@ mod tests {
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };

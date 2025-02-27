@@ -19,7 +19,7 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_factorial(n: u128) -> (Float, Integer) {
+pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
     let n = Float::with_val(FLOAT_PRECISION, n);
     let base = n.clone() / Float::with_val(FLOAT_PRECISION, 1).exp();
     let ten_in_base = Float::with_val(FLOAT_PRECISION, 10).ln() / base.clone().ln();
@@ -91,7 +91,7 @@ pub fn approximate_factorial(n: u128) -> (Float, Integer) {
 /// It is recommended to only use inputs up to 1 Quintillion.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_multifactorial_digits(n: u128, k: i32) -> Integer {
+pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
     let n = Float::with_val(FLOAT_PRECISION, n);
     let k = Float::with_val(FLOAT_PRECISION, k);
     let ln10 = Float::with_val(FLOAT_PRECISION, 10).ln();
@@ -376,34 +376,45 @@ mod tests {
     fn test_approximate_factorial() {
         // NOTE: the last digit may not be correct
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(100_001)),
+            format_approximate_factorial(approximate_factorial(100_001.into())),
             "2.8242576502544274 × 10^456578"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(2_546_372_899)),
+            format_approximate_factorial(approximate_factorial(2_546_372_899u128.into())),
             "7.754784101805052 × 10^22845109185"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(500_000_000_000)),
+            format_approximate_factorial(approximate_factorial(500_000_000_000u128.into())),
             "4.286111886996677 × 10^5632337761222"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(712_460_928_486)),
+            format_approximate_factorial(approximate_factorial(712_460_928_486u128.into())),
             "2.988979640465335 × 10^8135211294800"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(8_392_739_232_838_237_120)),
+            format_approximate_factorial(approximate_factorial(
+                8_392_739_232_838_237_120u128.into()
+            )),
             "5.321682559738788 × 10^155178468932549925384"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(
-                78_473_843_792_461_001_798_392_739_232_838_237_120
+                78_473_843_792_461_001_798_392_739_232_838_237_120u128.into()
             )),
             "1.726535267725453 × 10^2939663967042394848929844071091736224040"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(u128::MAX)),
+            format_approximate_factorial(approximate_factorial(u128::MAX.into())),
             "4.780505917797121 × 10^12963922773915897352139996524992575205341"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap()
+            )),
+            "6.185167193060592 × 10^197565705518096748172348871081083394917705602994196333433885546216834135350791129225270775050661568251681293893255233696266358320712841036093430778935337187734147872913431329670406629130341173311668935"
         );
     }
     #[test]
@@ -411,75 +422,105 @@ mod tests {
     fn test_approximate_factorial_perfect() {
         // NOTE: all decimal are correct
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(100_001)),
+            format_approximate_factorial(approximate_factorial(100_001.into())),
             "2.8242576502544275 × 10^456578"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(2_546_372_899)),
+            format_approximate_factorial(approximate_factorial(2_546_372_899u128.into())),
             "7.7547841018050521 × 10^22845109185"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(500_000_000_000)),
+            format_approximate_factorial(approximate_factorial(500_000_000_000u128.into())),
             "4.2861118869966772 × 10^5632337761222"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(712_460_928_486)),
+            format_approximate_factorial(approximate_factorial(712_460_928_486u128.into())),
             "2.988979640465335 × 10^8135211294800"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(8_392_739_232_838_237_120)),
+            format_approximate_factorial(approximate_factorial(
+                8_392_739_232_838_237_120u128.into()
+            )),
             "5.321682559738788 × 10^155178468932549925384"
         );
         assert_eq!(
             format_approximate_factorial(approximate_factorial(
-                78_473_843_792_461_001_798_392_739_232_838_237_120
+                78_473_843_792_461_001_798_392_739_232_838_237_120u128.into()
             )),
             "1.726535267725453 × 10^2939663967042394848929844071091736224040"
         );
         assert_eq!(
-            format_approximate_factorial(approximate_factorial(u128::MAX)),
+            format_approximate_factorial(approximate_factorial(u128::MAX.into())),
             "4.780505917797121 × 10^12963922773915897352139996524992575205341"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap()
+            )),
+            "6.185167193060592 × 10^197565705518096748172348871081083394917705602994196333433885546216834135350791129225270775050661568251681293893255233696266358320712841036093430778935337187734147872913431329670406629130341173311668935"
         );
     }
 
     #[test]
     fn test_approximate_digits() {
-        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579u128);
         assert_eq!(
-            approximate_multifactorial_digits(7_834_436_739, 1),
+            approximate_multifactorial_digits(100_001.into(), 1),
+            456_579u128
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739u128.into(), 1),
             74_111_525_394u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(738_247_937_346_920, 1),
+            approximate_multifactorial_digits(738_247_937_346_920u128.into(), 1),
             10_655_802_631_914_633u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(827_829_849_020_729_846, 1),
+            approximate_multifactorial_digits(827_829_849_020_729_846u128.into(), 1),
             14_473_484_525_026_753_452u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
+            approximate_multifactorial_digits(1_000_000_000_000_000_000u128.into(), 1),
             17_565_705_518_096_748_182u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(1_000_000_000_000_000_000_000_000_000_000_000_000, 1),
+            approximate_multifactorial_digits(
+                1_000_000_000_000_000_000_000_000_000_000_000_000u128.into(),
+                1
+            ),
             35_565_705_518_096_748_172_348_871_081_083_394_936u128 // NOTE: Last digit is wrong
         );
         assert_eq!(
-            approximate_multifactorial_digits(dbg!(u128::MAX), 1),
+            approximate_multifactorial_digits(u128::MAX.into(), 1),
             Integer::from_str("12963922773915897352139996524992575205342").unwrap()
         );
-        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291u128);
         assert_eq!(
-            approximate_multifactorial_digits(7_834_436_739, 2),
+            approximate_multifactorial_digits(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap(),
+                1
+            ),
+            Integer::from_str("197565705518096748172348871081083394917705602994196333433885546216834135350791129225270775050661568251681293893255233696266358320712841036093430778935337187734147872913431329670406629130341173311668936").unwrap()
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(100_001.into(), 2),
+            228_291u128
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739u128.into(), 2),
             37_055_762_699u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(738_247_937_346_920, 2),
+            approximate_multifactorial_digits(738_247_937_346_920u128.into(), 2),
             5_327_901_315_957_320u128 // NOTE: Last digit is wrong
         );
         assert_eq!(
-            approximate_multifactorial_digits(827_829_849_020_729_846, 2),
+            approximate_multifactorial_digits(827_829_849_020_729_846u128.into(), 2),
             7_236_742_262_513_376_731u128
         );
         // TODO(test): test digit approximations for n-factorials (need to find a good reference)
@@ -489,42 +530,61 @@ mod tests {
     #[ignore = "future_improvement"]
     fn test_approximate_digits_perfect() {
         // NOTE: All correct
-        assert_eq!(approximate_multifactorial_digits(100_001, 1), 456_579u128);
         assert_eq!(
-            approximate_multifactorial_digits(7_834_436_739, 1),
+            approximate_multifactorial_digits(100_001.into(), 1),
+            456_579u128
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739u128.into(), 1),
             74_111_525_394u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(738_247_937_346_920, 1),
+            approximate_multifactorial_digits(738_247_937_346_920u128.into(), 1),
             10_655_802_631_914_633u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(827_829_849_020_729_846, 1),
+            approximate_multifactorial_digits(827_829_849_020_729_846u128.into(), 1),
             14_473_484_525_026_753_452u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(1_000_000_000_000_000_000, 1),
+            approximate_multifactorial_digits(1_000_000_000_000_000_000u128.into(), 1),
             17_565_705_518_096_748_182u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(1_000_000_000_000_000_000_000_000_000_000_000_000, 1),
+            approximate_multifactorial_digits(
+                1_000_000_000_000_000_000_000_000_000_000_000_000u128.into(),
+                1
+            ),
             35_565_705_518_096_748_172_348_871_081_083_394_937u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(dbg!(u128::MAX), 1),
+            approximate_multifactorial_digits(u128::MAX.into(), 1),
             Integer::from_str("12963922773915897352139996524992575205342").unwrap()
         );
-        assert_eq!(approximate_multifactorial_digits(100_001, 2), 228_291u128);
         assert_eq!(
-            approximate_multifactorial_digits(7_834_436_739, 2),
+            approximate_multifactorial_digits(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap(),
+                1
+            ),
+            Integer::from_str("197565705518096748172348871081083394917705602994196333433885546216834135350791129225270775050661568251681293893255233696266358320712841036093430778935337187734147872913431329670406629130341173311668936").unwrap()
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(100_001.into(), 2),
+            228_291u128
+        );
+        assert_eq!(
+            approximate_multifactorial_digits(7_834_436_739u128.into(), 2),
             37_055_762_699u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(738_247_937_346_920, 2),
+            approximate_multifactorial_digits(738_247_937_346_920u128.into(), 2),
             5_327_901_315_957_321u128
         );
         assert_eq!(
-            approximate_multifactorial_digits(827_829_849_020_729_846, 2),
+            approximate_multifactorial_digits(827_829_849_020_729_846u128.into(), 2),
             7_236_742_262_513_376_731u128
         );
     }

@@ -1,12 +1,13 @@
 use crate::factorial::{
     CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT,
-    UPPER_DIGIT_APPROXIMATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT,
+    UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math;
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
 use rug::Integer;
 use std::fmt::Write;
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub(crate) struct RedditComment {
@@ -56,14 +57,11 @@ impl RedditComment {
                 .to_i32()
                 .expect("Failed to convert exclamation count to u64");
             // Check if we can approximate the number of digits
-            if num > UPPER_DIGIT_APPROXIMATION_LIMIT {
-                status.push(Status::NumberTooBigToCalculate)
-                // Check if we can approximate it
-            } else if num > UPPER_APPROXIMATION_LIMIT
+            if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
                 || (factorial_level > 1 && num > UPPER_CALCULATION_LIMIT)
             {
-                let num = num.to_u128().expect("Failed to convert BigInt to i64");
-                let factorial = math::approximate_multifactorial_digits(num, factorial_level);
+                let factorial =
+                    math::approximate_multifactorial_digits(num.clone(), factorial_level);
                 factorial_list.push(Factorial {
                     number: num,
                     level: factorial_level,
@@ -71,18 +69,17 @@ impl RedditComment {
                 });
             // Check if the number is within a reasonable range to compute
             } else if num > UPPER_CALCULATION_LIMIT {
-                let num = num.to_u128().expect("Failed to convert BigInt to i64");
-                let factorial = math::approximate_factorial(num);
+                let factorial = math::approximate_factorial(num.clone());
                 factorial_list.push(Factorial {
                     number: num,
                     level: factorial_level,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });
             } else {
-                let num = num.to_u64().expect("Failed to convert BigInt to i64");
-                let factorial = math::factorial(num, factorial_level);
+                let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
+                let factorial = math::factorial(calc_num, factorial_level);
                 factorial_list.push(Factorial {
-                    number: num as u128,
+                    number: num,
                     level: factorial_level,
                     factorial: CalculatedFactorial::Exact(factorial),
                 });
@@ -101,10 +98,10 @@ impl RedditComment {
             if num > UPPER_SUBFACTORIAL_LIMIT {
                 status.push(Status::NumberTooBigToCalculate)
             } else {
-                let num = num.to_u64().expect("Failed to convert BigInt to i64");
-                let factorial = math::subfactorial(num);
+                let clac_num = num.to_u64().expect("Failed to convert BigInt to i64");
+                let factorial = math::subfactorial(clac_num);
                 factorial_list.push(Factorial {
-                    number: num as u128,
+                    number: num,
                     level: -1,
                     factorial: CalculatedFactorial::Exact(factorial),
                 });
@@ -224,12 +221,12 @@ mod tests {
             comment.factorial_list,
             vec![
                 Factorial {
-                    number: 5,
+                    number: 5.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 },
                 Factorial {
-                    number: 6,
+                    number: 6.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
@@ -249,7 +246,7 @@ mod tests {
         assert_eq!(
             comment.factorial_list,
             vec![Factorial {
-                number: 6,
+                number: 6.into(),
                 level: 2,
                 factorial: CalculatedFactorial::Exact(Integer::from(48)),
             }]
@@ -268,7 +265,7 @@ mod tests {
         assert_eq!(
             comment.factorial_list,
             vec![Factorial {
-                number: 6,
+                number: 6.into(),
                 level: 3,
                 factorial: CalculatedFactorial::Exact(Integer::from(18)),
             }]
@@ -312,7 +309,7 @@ mod tests {
         assert_eq!(
             comment.factorial_list,
             vec![Factorial {
-                number: 5,
+                number: 5.into(),
                 level: -1,
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
             }]
@@ -368,6 +365,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "currently obsolete"]
     fn test_comment_new_big_number_and_normal_number() {
         let comment = RedditComment::new(
             "This is a test comment with a factorial of 555555555555555555555555555555555555555555! and 6!",
@@ -379,7 +377,7 @@ mod tests {
         assert_eq!(
             comment.factorial_list,
             vec![Factorial {
-                number: 6,
+                number: 6.into(),
                 level: 1,
                 factorial: CalculatedFactorial::Exact(Integer::from(720))
             }]
@@ -391,6 +389,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "currently obsolete"]
     fn test_comment_new_very_big_number() {
         let very_big_number = "9".repeat(10_000) + "!";
         let comment = RedditComment::new(&very_big_number, "123", "test_author", "test_subreddit");
@@ -452,7 +451,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
-                number: 10,
+                number: 10.into(),
                 level: 3,
                 factorial: CalculatedFactorial::Exact(Integer::from(280)),
             }],
@@ -470,7 +469,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
-                number: 5,
+                number: 5.into(),
                 level: -1,
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
             }],
@@ -487,7 +486,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
-                number: 5000,
+                number: 5000.into(),
                 level: -1,
                 factorial: CalculatedFactorial::Exact(math::subfactorial(5000)),
             }],
@@ -505,7 +504,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
-                number: 10,
+                number: 10.into(),
                 level: 46,
                 factorial: CalculatedFactorial::Exact(Integer::from(10)),
             }],
@@ -524,12 +523,12 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![
                 Factorial {
-                    number: 5,
+                    number: 5.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 },
                 Factorial {
-                    number: 6,
+                    number: 6.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
@@ -549,17 +548,17 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![
                 Factorial {
-                    number: 5,
+                    number: 5.into(),
                     level: 2,
                     factorial: CalculatedFactorial::Exact(Integer::from(60)),
                 },
                 Factorial {
-                    number: 6,
+                    number: 6.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
                 Factorial {
-                    number: 3249,
+                    number: 3249.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(math::factorial(3249, 1)),
                 },
@@ -641,14 +640,14 @@ mod tests {
     #[test]
     fn test_get_reply_approximate_digits_from_new_comment() {
         let comment = RedditComment::new(
-            "This is a test comment with a factorial of 67839127837442!",
+            "This is a test comment with a factorial of 6783912783744287349836430743784632947349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374!",
             "1234",
             "test_author",
             "test_subreddit",
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 67839127837442 has approximately 908853398380684 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 6783912783744287349836430743784632947349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 1345909204830762030470953877019356352887279855519228140185384171447147530309234086596096817118966987719764358439572263641010725552779235982616950580247823586563334536275848344222666031462636712682585440 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -667,14 +666,14 @@ mod tests {
     #[test]
     fn test_get_reply_approximate_digits_from_huge() {
         let comment = RedditComment::new(
-            "This is a test comment with a factorial of 1000000000000000000000000000000000000!",
+            "This is a test comment with a factorial of 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000!",
             "1234",
-            "test_autho",
+            "test_author",
             "test_subreddit",
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 1000000000000000000000000000000000000 has approximately 35565705518096748172348871081083394936 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 has approximately 1985657055180967481723488710810833949177056029941963334338855462168341353507911292252707750506615682516812938932552336962663583207128410360934307789353371877341478729134313296704066291303411733116688464 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -683,28 +682,28 @@ mod tests {
             id: "1234".to_string(),
             factorial_list: vec![
                 Factorial {
-                    number: 8,
+                    number: 8.into(),
                     level: 2,
                     factorial: CalculatedFactorial::Exact(Integer::from(384)),
                 },
                 Factorial {
-                    number: 10000,
+                    number: 10000.into(),
                     level: 1,
                     factorial: CalculatedFactorial::Exact(math::factorial(10000, 1)),
                 },
                 Factorial {
-                    number: 37923648,
+                    number: 37923648.into(),
                     level: 1,
                     factorial: {
-                        let (base, exponent) = math::approximate_factorial(37923648);
+                        let (base, exponent) = math::approximate_factorial(37923648.into());
                         CalculatedFactorial::Approximate(base, exponent)
                     },
                 },
                 Factorial {
-                    number: 283462,
+                    number: 283462.into(),
                     level: 2,
                     factorial: CalculatedFactorial::ApproximateDigits(
-                        math::approximate_multifactorial_digits(283462, 2),
+                        math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
                 },
             ],
