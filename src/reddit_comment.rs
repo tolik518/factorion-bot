@@ -71,10 +71,10 @@ impl RedditComment {
                 });
             // Check if the number is within a reasonable range to compute
             } else if num > UPPER_CALCULATION_LIMIT {
-                let num = num.to_u64().expect("Failed to convert BigInt to i64");
+                let num = num.to_u128().expect("Failed to convert BigInt to i64");
                 let factorial = math::approximate_factorial(num);
                 factorial_list.push(Factorial {
-                    number: num as u128,
+                    number: num,
                     level: factorial_level,
                     factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                 });

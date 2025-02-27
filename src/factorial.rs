@@ -5,8 +5,8 @@ use std::fmt::{Error, Write};
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
-// Limit for approximation, set to ensure enough accuracy (aftewards, only single correct decimals have been observed)
-pub(crate) const UPPER_APPROXIMATION_LIMIT: u64 = 500_000_000_000;
+// Limit for approximation, set to ensure enough accuracy (aftewards, only single correct decimals may be observed)
+pub(crate) const UPPER_APPROXIMATION_LIMIT: u128 = u128::MAX;
 // Limit for number of digits approximation, to fit the input a u128
 pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: u128 = u128::MAX;
 

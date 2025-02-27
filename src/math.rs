@@ -19,7 +19,7 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_factorial(n: u64) -> (Float, Integer) {
+pub fn approximate_factorial(n: u128) -> (Float, Integer) {
     let n = Float::with_val(FLOAT_PRECISION, n);
     let base = n.clone() / Float::with_val(FLOAT_PRECISION, 1).exp();
     let ten_in_base = Float::with_val(FLOAT_PRECISION, 10).ln() / base.clone().ln();
@@ -391,6 +391,20 @@ mod tests {
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
             "2.988979640465335 × 10^8135211294800"
         );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(8_392_739_232_838_237_120)),
+            "5.321682559738788 × 10^155178468932549925384"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(
+                78_473_843_792_461_001_798_392_739_232_838_237_120
+            )),
+            "1.726535267725453 × 10^2939663967042394848929844071091736224040"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(u128::MAX)),
+            "4.780505917797121 × 10^12963922773915897352139996524992575205341"
+        );
     }
     #[test]
     #[ignore = "future_improvement"]
@@ -411,6 +425,20 @@ mod tests {
         assert_eq!(
             format_approximate_factorial(approximate_factorial(712_460_928_486)),
             "2.988979640465335 × 10^8135211294800"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(8_392_739_232_838_237_120)),
+            "5.321682559738788 × 10^155178468932549925384"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(
+                78_473_843_792_461_001_798_392_739_232_838_237_120
+            )),
+            "1.726535267725453 × 10^2939663967042394848929844071091736224040"
+        );
+        assert_eq!(
+            format_approximate_factorial(approximate_factorial(u128::MAX)),
+            "4.780505917797121 × 10^12963922773915897352139996524992575205341"
         );
     }
 
