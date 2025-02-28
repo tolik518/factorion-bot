@@ -3,7 +3,6 @@ use malachite_nz::natural::Natural;
 use rug::integer::IntegerExt64;
 use rug::ops::*;
 use rug::{Complete, Float, Integer};
-use std::str::FromStr;
 
 pub const FLOAT_PRECISION: u32 = 1024;
 
@@ -12,7 +11,10 @@ pub fn factorial(n: u64, k: i32) -> Integer {
 }
 
 pub(crate) fn subfactorial(n: u64) -> Integer {
-    Integer::from_str(&Natural::subfactorial(n).to_string()).unwrap()
+    Integer::from_digits(
+        &Natural::subfactorial(n).into_limbs_asc(),
+        rug::integer::Order::Lsf,
+    )
 }
 
 /// Calculates Sterling's Approximation of large factorials.
