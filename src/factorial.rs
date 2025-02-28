@@ -1,4 +1,4 @@
-use crate::math;
+use crate::math::{self, adjust_approximate_factorial};
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 use rug::{Float, Integer};
 use std::fmt::Write;
@@ -100,13 +100,18 @@ impl Factorial {
                 )
             }
             CalculatedFactorial::Approximate(base, exponent) => {
+                let (base, exponent) =
+                    adjust_approximate_factorial((base.clone(), exponent.clone()));
+                let exponent = if force_shorten {
+                    format!("({})", Self::truncate(&exponent, false))
+                } else {
+                    exponent.to_string()
+                };
+                let base = base.to_f64();
                 write!(
                     acc,
-                    "{}{}{} is approximately {} \n\n",
-                    factorial_level_string,
-                    PLACEHOLDER,
-                    self.number,
-                    math::format_approximate_factorial((base.clone(), exponent.clone()))
+                    "{}{}{} is approximately {} × 10^{} \n\n",
+                    factorial_level_string, PLACEHOLDER, self.number, base, exponent
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
