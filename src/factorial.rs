@@ -1,28 +1,24 @@
-use crate::math;
+use crate::math::{self, adjust_approximate_factorial};
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
-use rug::Integer;
-use std::fmt::{Error, Write};
+use rug::{Float, Integer};
+use std::fmt::Write;
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
-// Limit for approximation, set to ensure enough accuracy (aftewards, only single correct decimals have been observed)
-pub(crate) const UPPER_APPROXIMATION_LIMIT: u64 = 500_000_000_000;
-// Limit for number of digits approximation, set to prevent panics, due to the result overflowing u128
-pub(crate) const UPPER_DIGIT_APPROXIMATION_LIMIT: u128 =
-    1_000_000_000_000_000_000_000_000_000_000_000_000;
-
+// Limit for approximation, set to ensure enough accuracy (I have no way to verify after)
+pub(crate) const UPPER_APPROXIMATION_LIMIT: &str = "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
     Exact(Integer),
-    Approximate(f64, u64),
-    ApproximateDigits(u128),
+    Approximate(Float, Integer),
+    ApproximateDigits(Integer),
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
-    pub(crate) number: u128,
+    pub(crate) number: Integer,
     pub(crate) level: i32,
     pub(crate) factorial: CalculatedFactorial,
 }
@@ -68,7 +64,11 @@ impl std::hash::Hash for CalculatedFactorial {
             }
             Self::Approximate(base, exponent) => {
                 state.write_u8(2);
-                base.to_bits().hash(state);
+                let raw_base = base.clone().into_raw();
+                raw_base.prec.hash(state);
+                raw_base.sign.hash(state);
+                raw_base.exp.hash(state);
+                raw_base.d.hash(state);
                 exponent.hash(state);
             }
             Self::ApproximateDigits(digits) => {
@@ -88,27 +88,38 @@ impl Factorial {
         let factorial_level_string = Factorial::get_factorial_level_string(self.level);
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
-                if self.is_too_long() || force_shorten {
-                    self.truncate(acc, factorial_level_string, factorial)
+                let factorial = if self.is_too_long() || force_shorten {
+                    Self::truncate(factorial, true)
                 } else {
-                    write!(
-                        acc,
-                        "{}{}{} is {} \n\n",
-                        factorial_level_string, PLACEHOLDER, self.number, factorial
-                    )
-                }
-            }
-            CalculatedFactorial::Approximate(base, exponent) => {
+                    factorial.to_string()
+                };
                 write!(
                     acc,
-                    "{}{}{} is approximately {} \n\n",
-                    factorial_level_string,
-                    PLACEHOLDER,
-                    self.number,
-                    math::format_approximate_factorial((*base, *exponent))
+                    "{}{}{} is {} \n\n",
+                    factorial_level_string, PLACEHOLDER, self.number, factorial
+                )
+            }
+            CalculatedFactorial::Approximate(base, exponent) => {
+                let (base, exponent) =
+                    adjust_approximate_factorial((base.clone(), exponent.clone()));
+                let exponent = if force_shorten {
+                    format!("({})", Self::truncate(&exponent, false))
+                } else {
+                    exponent.to_string()
+                };
+                let base = base.to_f64();
+                write!(
+                    acc,
+                    "{}{}{} is approximately {} × 10^{} \n\n",
+                    factorial_level_string, PLACEHOLDER, self.number, base, exponent
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
+                let digits = if force_shorten {
+                    Self::truncate(digits, false)
+                } else {
+                    digits.to_string()
+                };
                 write!(
                     acc,
                     "{}{}{} has approximately {} digits \n\n",
@@ -118,13 +129,8 @@ impl Factorial {
         }
     }
 
-    fn truncate(
-        &self,
-        acc: &mut String,
-        factorial_level_string: &str,
-        factorial: &Integer,
-    ) -> Result<(), Error> {
-        let mut truncated_number = factorial.to_string();
+    fn truncate(number: &Integer, add_roughly: bool) -> String {
+        let mut truncated_number = number.to_string();
         let length = truncated_number.len();
         truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
 
@@ -137,21 +143,14 @@ impl Factorial {
             truncated_number.insert(1, '.'); // Decimal point
         }
         if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
-            write!(
-                acc,
-                "{}{}{} is roughly {} × 10^{} \n\n",
-                factorial_level_string,
-                PLACEHOLDER,
-                self.number,
+            format!(
+                "{}{} × 10^{}",
+                if add_roughly { "roughly " } else { "" },
                 truncated_number,
                 length - 1
             )
         } else {
-            write!(
-                acc,
-                "{}{}{} is {} \n\n",
-                factorial_level_string, PLACEHOLDER, self.number, factorial
-            )
+            number.to_string()
         }
     }
 
@@ -274,6 +273,7 @@ impl Factorial {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use math::FLOAT_PRECISION;
     use rug::Integer;
 
     #[test]
@@ -292,7 +292,7 @@ mod tests {
     fn test_factorial_format() {
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
@@ -301,7 +301,7 @@ mod tests {
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: -1,
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
@@ -310,25 +310,28 @@ mod tests {
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
-            factorial: CalculatedFactorial::Approximate(120.0, 3),
+            factorial: CalculatedFactorial::Approximate(
+                Float::with_val(FLOAT_PRECISION, 120),
+                3.into(),
+            ),
         };
         factorial.format(&mut acc, false).unwrap();
         assert_eq!(acc, "The factorial of 5 is approximately 1.2 × 10^5 \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
-            factorial: CalculatedFactorial::ApproximateDigits(3),
+            factorial: CalculatedFactorial::ApproximateDigits(3.into()),
         };
         factorial.format(&mut acc, false).unwrap();
         assert_eq!(acc, "The factorial of 5 has approximately 3 digits \n\n");
 
         let mut acc = String::new();
         let factorial = Factorial {
-            number: 5,
+            number: 5.into(),
             level: 1,
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
