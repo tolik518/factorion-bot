@@ -1,7 +1,7 @@
 use crate::math;
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 use rug::{Float, Integer};
-use std::fmt::{Error, Write};
+use std::fmt::Write;
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
@@ -88,15 +88,16 @@ impl Factorial {
         let factorial_level_string = Factorial::get_factorial_level_string(self.level);
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
-                if self.is_too_long() || force_shorten {
-                    self.truncate(acc, factorial_level_string, factorial)
+                let factorial = if self.is_too_long() || force_shorten {
+                    Self::truncate(factorial, true)
                 } else {
-                    write!(
-                        acc,
-                        "{}{}{} is {} \n\n",
-                        factorial_level_string, PLACEHOLDER, self.number, factorial
-                    )
-                }
+                    factorial.to_string()
+                };
+                write!(
+                    acc,
+                    "{}{}{} is {} \n\n",
+                    factorial_level_string, PLACEHOLDER, self.number, factorial
+                )
             }
             CalculatedFactorial::Approximate(base, exponent) => {
                 write!(
@@ -109,6 +110,11 @@ impl Factorial {
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
+                let digits = if force_shorten {
+                    Self::truncate(digits, false)
+                } else {
+                    digits.to_string()
+                };
                 write!(
                     acc,
                     "{}{}{} has approximately {} digits \n\n",
@@ -118,13 +124,8 @@ impl Factorial {
         }
     }
 
-    fn truncate(
-        &self,
-        acc: &mut String,
-        factorial_level_string: &str,
-        factorial: &Integer,
-    ) -> Result<(), Error> {
-        let mut truncated_number = factorial.to_string();
+    fn truncate(number: &Integer, add_roughly: bool) -> String {
+        let mut truncated_number = number.to_string();
         let length = truncated_number.len();
         truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
 
@@ -137,21 +138,14 @@ impl Factorial {
             truncated_number.insert(1, '.'); // Decimal point
         }
         if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
-            write!(
-                acc,
-                "{}{}{} is roughly {} × 10^{} \n\n",
-                factorial_level_string,
-                PLACEHOLDER,
-                self.number,
+            format!(
+                "{}{} × 10^{}",
+                if add_roughly { "roughly " } else { "" },
                 truncated_number,
                 length - 1
             )
         } else {
-            write!(
-                acc,
-                "{}{}{} is {} \n\n",
-                factorial_level_string, PLACEHOLDER, self.number, factorial
-            )
+            number.to_string()
         }
     }
 
