@@ -231,7 +231,7 @@ dependencies = [
  "fancy-regex",
  "http 1.2.0",
  "influxdb",
- "malachite-base",
+ "malachite-base 0.4.16",
  "malachite-nz",
  "num-traits",
  "once_cell",
@@ -821,14 +821,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "malachite-nz"
-version = "0.4.16"
+name = "malachite-base"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1503b27e825cabd1c3d0ff1e95a39fb2ec9eab6fd3da6cfa41aec7091d273e78"
+checksum = "ef157484a1d7246fbff1a4fd2c148b83ac7324161963af61001ea43dc9086076"
+dependencies = [
+ "hashbrown 0.14.5",
+ "itertools",
+ "libm",
+ "ryu",
+]
+
+[[package]]
+name = "malachite-nz"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de4451b2e0e0ec6e4f39ee311b72154d291b185f5450474ace5663e37d7f8360"
 dependencies = [
  "itertools",
  "libm",
- "malachite-base",
+ "malachite-base 0.5.0",
 ]
 
 [[package]]
