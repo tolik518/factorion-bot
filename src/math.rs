@@ -18,6 +18,9 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
 /// Calculates Sterling's Approximation of large factorials.
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
 ///
+/// # Panic
+/// Will panic if `n` is `0`.
+///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
     let n = Float::with_val(FLOAT_PRECISION, n);
@@ -25,7 +28,7 @@ pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
     let ten_in_base = Float::with_val(FLOAT_PRECISION, 10).ln() / base.clone().ln();
     let (extra, _) = (n.clone() / ten_in_base.clone())
         .to_integer_round(rug::float::Round::Down)
-        .unwrap();
+        .expect("Got non-finite number, n is likely 0");
     let exponent = n.clone() - ten_in_base * Float::with_val(FLOAT_PRECISION, extra.clone());
     let factorial = base.pow(exponent)
         * (Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi)
@@ -87,8 +90,7 @@ pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
 /// # Panic
-/// This function will panic if the output is too large to fit in a u64.
-/// It is recommended to only use inputs up to 1 Quintillion.
+/// Will panic if either `n` or `k` are `0`.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
@@ -98,17 +100,20 @@ pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
     let base = n.clone().ln() / ln10.clone();
     ((Float::with_val(FLOAT_PRECISION, 0.5) + n.clone() / k.clone()) * base - n / k / ln10)
         .to_integer_round(rug::float::Round::Down)
-        .unwrap()
+        .expect("Got non-finite number, n or k is likely 0")
         .0
         + Integer::ONE
 }
 /// Adjusts the output of [`approximate_factorial`], by combining the 10 exponents of the number and the extra exponent.
+///
+/// # Panic
+/// Will panic if `x` is not finite.
 pub fn adjust_approximate_factorial((x, e): (Float, Integer)) -> (Float, Integer) {
     let (extra, _) = x
         .clone()
         .log10()
         .to_integer_round(rug::float::Round::Down)
-        .unwrap();
+        .expect("Got non-finite number, x is likely not finite");
     let x = x / (Float::with_val(FLOAT_PRECISION, 10).pow(extra.clone()));
     let total_exponent = extra + e;
     (x, total_exponent)
