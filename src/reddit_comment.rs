@@ -140,6 +140,10 @@ impl RedditComment {
                 base: PendingFactorialBase::Number(num),
                 level: factorial_level,
             };
+            // Remove duplicate base (also captured by factorial regex)
+            // NOTE: This will remove all occurences of that factorial.
+            //       Change this if chains don't show every step!
+            factorial_list.retain(|fact| fact != &factorial);
             for factorial_level in factorial_levels.into_iter().rev() {
                 factorial = PendingFactorial {
                     base: PendingFactorialBase::Factorial(Box::new(factorial)),
@@ -152,7 +156,7 @@ impl RedditComment {
         factorial_list.sort();
         factorial_list.dedup();
 
-        let mut factorial_list: Vec<Factorial> = factorial_list
+        let factorial_list: Vec<Factorial> = factorial_list
             .into_iter()
             .flat_map(Self::calculate_pending)
             .filter_map(|x| {
@@ -162,9 +166,6 @@ impl RedditComment {
                 x
             })
             .collect();
-
-        factorial_list.sort();
-        factorial_list.dedup();
 
         if factorial_list.is_empty() {
             status.push(Status::NoFactorial);
