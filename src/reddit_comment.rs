@@ -8,6 +8,7 @@ use num_traits::ToPrimitive;
 use rug::Integer;
 use std::fmt::Write;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 #[derive(Debug)]
 pub(crate) struct RedditComment {
@@ -36,16 +37,23 @@ pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
     pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
-        let factorial_regex =
-            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex");
-        let subfactorial_regex = Regex::new(r"(?<![,.!?\d])(!)\b(\d+)(?![<\d]|&lt;)")
-            .expect("Invalid subfactorial regex");
+        static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+        });
+        static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.!?\d])(!)\b(\d+)(?![<\d]|&lt;)")
+                .expect("Invalid subfactorial regex")
+        });
+        static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
+        });
 
         let mut factorial_list: Vec<Factorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
         // for every regex/factorial in the comment
-        for regex_capture in factorial_regex.captures_iter(comment_text) {
+        for regex_capture in FACTORIAL_REGEX.captures_iter(comment_text) {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[1]
@@ -56,37 +64,11 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            // Check if we can approximate the number of digits
-            if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
-                || (factorial_level > 1 && num > UPPER_CALCULATION_LIMIT)
-            {
-                let factorial =
-                    math::approximate_multifactorial_digits(num.clone(), factorial_level);
-                factorial_list.push(Factorial {
-                    number: num,
-                    level: factorial_level,
-                    factorial: CalculatedFactorial::ApproximateDigits(factorial),
-                });
-            // Check if the number is within a reasonable range to compute
-            } else if num > UPPER_CALCULATION_LIMIT {
-                let factorial = math::approximate_factorial(num.clone());
-                factorial_list.push(Factorial {
-                    number: num,
-                    level: factorial_level,
-                    factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
-                });
-            } else {
-                let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial = math::factorial(calc_num, factorial_level);
-                factorial_list.push(Factorial {
-                    number: num,
-                    level: factorial_level,
-                    factorial: CalculatedFactorial::Exact(factorial),
-                });
-            }
+
+            factorial_list.push(Self::calculate_appropriate_factorial(num, factorial_level));
         }
 
-        for regex_capture in subfactorial_regex.captures_iter(comment_text) {
+        for regex_capture in SUBFACTORIAL_REGEX.captures_iter(comment_text) {
             let regex_capture = regex_capture.expect("Failed to capture regex");
 
             let num = regex_capture[2]
@@ -107,6 +89,52 @@ impl RedditComment {
                 });
             }
         }
+        for regex_capture in FACTORIAL_CHAIN_REGEX.captures_iter(comment_text) {
+            eprintln!("Found a chain!");
+            let regex_capture = regex_capture.expect("Failed to capture regex");
+            let mut factorial_levels = vec![regex_capture[2]
+                .len()
+                .to_i32()
+                .expect("Failed to convert exclamation count to i32")];
+            let mut current_string = regex_capture[1].to_string();
+            while let Some(regex_capture) = FACTORIAL_CHAIN_REGEX
+                .captures(&current_string)
+                .expect("Failed to capture regex")
+            {
+                factorial_levels.push(
+                    regex_capture[2]
+                        .len()
+                        .to_i32()
+                        .expect("Failed to convert exclamation count to i32"),
+                );
+                current_string = regex_capture[1].to_string();
+            }
+            let Some(regex_capture) = FACTORIAL_REGEX
+                .captures(&current_string)
+                .expect("Failed to capture regex")
+            else {
+                continue;
+            };
+            let factorial_level = regex_capture[2]
+                .len()
+                .to_i32()
+                .expect("Failed to convert exclamation count to i32");
+            let num = regex_capture[1]
+                .parse::<Integer>()
+                .expect("Failed to parse number");
+            factorial_list.push(Self::calculate_appropriate_factorial(num, factorial_level));
+            for factorial_level in factorial_levels.into_iter().rev() {
+                match &factorial_list.last().unwrap().factorial {
+                    CalculatedFactorial::Exact(factorial) => {
+                        factorial_list.push(Self::calculate_appropriate_factorial(
+                            factorial.clone(),
+                            factorial_level,
+                        ));
+                    }
+                    _ => break,
+                }
+            }
+        }
 
         factorial_list.sort();
         factorial_list.dedup();
@@ -123,6 +151,36 @@ impl RedditComment {
             subreddit: subreddit.to_string(),
             factorial_list,
             status,
+        }
+    }
+
+    fn calculate_appropriate_factorial(num: Integer, level: i32) -> Factorial {
+        // Check if we can approximate the number of digits
+        if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
+            || (level > 1 && num > UPPER_CALCULATION_LIMIT)
+        {
+            let factorial = math::approximate_multifactorial_digits(num.clone(), level);
+            Factorial {
+                number: num,
+                level,
+                factorial: CalculatedFactorial::ApproximateDigits(factorial),
+            }
+        // Check if the number is within a reasonable range to compute
+        } else if num > UPPER_CALCULATION_LIMIT {
+            let factorial = math::approximate_factorial(num.clone());
+            Factorial {
+                number: num,
+                level,
+                factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
+            }
+        } else {
+            let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
+            let factorial = math::factorial(calc_num, level);
+            Factorial {
+                number: num,
+                level,
+                factorial: CalculatedFactorial::Exact(factorial),
+            }
         }
     }
 
@@ -705,6 +763,19 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 has approximately 1985657055180967481723488710810833949177056029941963334338855462168341353507911292252707750506615682516812938932552336962663583207128410360934307789353371877341478729134313296704066291303411733116688464 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_factorial_chain() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain (((5!)!)!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 5 is 120 \n\nThe factorial of 120 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\nThe factorial of 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 has approximately 1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969733 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
