@@ -1,6 +1,6 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
-use crate::reddit_comment::{RedditComment, Status, MAX_COMMENT_LENGTH};
+use crate::reddit_comment::{RedditComment, Status};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -275,14 +275,7 @@ impl RedditClient {
             } else {
                 let mut comment = RedditComment::new(comment_text, comment_id, author, subreddit);
 
-                // set some statuses
-                if !comment.status.contains(&Status::ReplyWouldBeTooLong)
-                    && (comment.get_reply().len() as i64 > MAX_COMMENT_LENGTH)
-                {
-                    comment.add_status(Status::ReplyWouldBeTooLong);
-                }
-
-                comment.add_status(Status::NotReplied);
+                comment.add_status(Status::NOT_REPLIED);
 
                 comments.push(comment);
             }

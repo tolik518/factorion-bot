@@ -17,17 +17,75 @@ pub(crate) struct RedditComment {
     pub(crate) factorial_list: Vec<Factorial>,
     pub(crate) author: String,
     pub(crate) subreddit: String,
-    pub(crate) status: Vec<Status>,
+    pub(crate) status: Status,
+    pub(crate) commands: Commands,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum Status {
-    AlreadyRepliedOrRejected,
-    NotReplied,
-    NumberTooBigToCalculate,
-    NoFactorial,
-    ReplyWouldBeTooLong,
-    FactorialsFound,
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+pub(crate) struct Status {
+    pub(crate) already_replied_or_rejected: bool,
+    pub(crate) not_replied: bool,
+    pub(crate) number_too_big_to_calculate: bool,
+    pub(crate) no_factorial: bool,
+    pub(crate) reply_would_be_too_long: bool,
+    pub(crate) factorials_found: bool,
+}
+
+impl std::ops::BitOr for Status {
+    type Output = Status;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Status {
+            already_replied_or_rejected: self.already_replied_or_rejected
+                | rhs.already_replied_or_rejected,
+            not_replied: self.not_replied | rhs.not_replied,
+            number_too_big_to_calculate: self.number_too_big_to_calculate
+                | rhs.number_too_big_to_calculate,
+            no_factorial: self.no_factorial | rhs.no_factorial,
+            reply_would_be_too_long: self.reply_would_be_too_long | rhs.reply_would_be_too_long,
+            factorials_found: self.factorials_found | rhs.factorials_found,
+        }
+    }
+}
+#[allow(dead_code)]
+impl Status {
+    pub(crate) const NONE: Self = Self {
+        already_replied_or_rejected: false,
+        not_replied: false,
+        number_too_big_to_calculate: false,
+        no_factorial: false,
+        reply_would_be_too_long: false,
+        factorials_found: false,
+    };
+    pub(crate) const ALREADY_REPLIED_OR_REJECTED: Self = Self {
+        already_replied_or_rejected: true,
+        ..Self::NONE
+    };
+    pub(crate) const NOT_REPLIED: Self = Self {
+        not_replied: true,
+        ..Self::NONE
+    };
+    pub(crate) const NUMBER_TOO_BIG_TO_CALCULATE: Self = Self {
+        number_too_big_to_calculate: true,
+        ..Self::NONE
+    };
+    pub(crate) const NO_FACTORIAL: Self = Self {
+        no_factorial: true,
+        ..Self::NONE
+    };
+    pub(crate) const REPLY_WOULD_BE_TOO_LONG: Self = Self {
+        reply_would_be_too_long: true,
+        ..Self::NONE
+    };
+    pub(crate) const FACTORIALS_FOUND: Self = Self {
+        factorials_found: true,
+        ..Self::NONE
+    };
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+pub(crate) struct Commands {
+    shorten: bool,
+    include_steps: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -61,8 +119,28 @@ impl RedditComment {
                 .expect("Invalid factorial-chain regex")
         });
 
+        let mut commands: Commands = Commands {
+            shorten: false,
+            include_steps: false,
+        };
+
+        if comment_text.contains("[short]")
+            || comment_text.contains("[shorten]")
+            || comment_text.contains("!short")
+            || comment_text.contains("!shorten")
+        {
+            commands.shorten = true;
+        }
+        if comment_text.contains("[steps]")
+            || comment_text.contains("[all]")
+            || comment_text.contains("!steps")
+            || comment_text.contains("!all")
+        {
+            commands.include_steps = true;
+        }
+
         let mut factorial_list: Vec<PendingFactorial> = Vec::new();
-        let mut status: Vec<Status> = vec![];
+        let mut status: Status = Default::default();
 
         // for every regex/factorial in the comment
         for regex_capture in FACTORIAL_REGEX.captures_iter(comment_text) {
@@ -163,19 +241,19 @@ impl RedditComment {
 
         let factorial_list: Vec<Factorial> = factorial_list
             .into_iter()
-            .map(Self::calculate_pending)
+            .flat_map(|fact| Self::calculate_pending(fact, commands.include_steps))
             .filter_map(|x| {
                 if x.is_none() {
-                    status.push(Status::NumberTooBigToCalculate);
+                    status.number_too_big_to_calculate = true;
                 };
                 x
             })
             .collect();
 
         if factorial_list.is_empty() {
-            status.push(Status::NoFactorial);
+            status.no_factorial = true;
         } else {
-            status.push(Status::FactorialsFound);
+            status.factorials_found = true;
         }
 
         RedditComment {
@@ -184,20 +262,26 @@ impl RedditComment {
             subreddit: subreddit.to_string(),
             factorial_list,
             status,
+            commands,
         }
     }
 
-    fn calculate_pending(PendingFactorial { base, level }: PendingFactorial) -> Option<Factorial> {
+    fn calculate_pending(
+        PendingFactorial { base, level }: PendingFactorial,
+        include_steps: bool,
+    ) -> Vec<Option<Factorial>> {
         match base {
-            PendingFactorialBase::Number(num) => Self::calculate_appropriate_factorial(num, level),
+            PendingFactorialBase::Number(num) => {
+                vec![Self::calculate_appropriate_factorial(num, level)]
+            }
             PendingFactorialBase::Factorial(factorial) => {
-                let factorial = Self::calculate_pending(*factorial);
-                match &factorial {
-                    Some(Factorial {
+                let mut factorials = Self::calculate_pending(*factorial, include_steps);
+                match factorials.last() {
+                    Some(Some(Factorial {
                         factorial: res,
                         levels,
                         number,
-                    }) => {
+                    })) => {
                         let res = match res {
                             CalculatedFactorial::Exact(res) => res.clone(),
                             CalculatedFactorial::Approximate(base, exponent)
@@ -205,22 +289,29 @@ impl RedditComment {
                             {
                                 let res = base * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
                                 let Some(res) = res.to_integer() else {
-                                    return factorial;
+                                    return factorials;
                                 };
                                 res
                             }
-                            _ => return factorial,
+                            _ => return factorials,
                         };
-                        Self::calculate_appropriate_factorial(res, level).map(|mut res| {
-                            let current_levels = res.levels;
-                            res.levels = levels.clone();
-                            res.levels.extend(current_levels);
-                            res.number = number.clone();
-                            res
-                        })
+                        let factorial =
+                            Self::calculate_appropriate_factorial(res, level).map(|mut res| {
+                                let current_levels = res.levels;
+                                res.levels = levels.clone();
+                                res.levels.extend(current_levels);
+                                res.number = number.clone();
+                                res
+                            });
+                        if include_steps {
+                            factorials.push(factorial);
+                        } else {
+                            factorials = vec![factorial];
+                        }
                     }
-                    _ => factorial,
-                }
+                    _ => return factorials,
+                };
+                factorials
             }
         }
     }
@@ -275,7 +366,11 @@ impl RedditComment {
 
     pub(crate) fn new_already_replied(id: &str, author: &str, subreddit: &str) -> Self {
         let factorial_list: Vec<Factorial> = Vec::new();
-        let status: Vec<Status> = vec![Status::AlreadyRepliedOrRejected];
+        let status: Status = Status {
+            already_replied_or_rejected: true,
+            ..Default::default()
+        };
+        let commands: Commands = Default::default();
 
         RedditComment {
             id: id.to_string(),
@@ -283,11 +378,12 @@ impl RedditComment {
             subreddit: subreddit.to_string(),
             factorial_list,
             status,
+            commands,
         }
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {
-        self.status.push(status);
+        self.status = self.status | status;
     }
 
     pub(crate) fn get_reply(&self) -> String {
@@ -328,12 +424,12 @@ impl RedditComment {
             .factorial_list
             .iter()
             .fold(note.clone(), |mut acc, factorial| {
-                let _ = factorial.format(&mut acc, false);
+                let _ = factorial.format(&mut acc, self.commands.shorten);
                 acc
             });
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() > MAX_COMMENT_LENGTH as usize {
+        if reply.len() > MAX_COMMENT_LENGTH as usize && !self.commands.shorten {
             if note.is_empty() {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
             };
@@ -395,7 +491,7 @@ mod tests {
                 },
             ],
         );
-        assert_eq!(comment.status, vec![Status::FactorialsFound]);
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
 
     #[test]
@@ -414,7 +510,7 @@ mod tests {
                 factorial: CalculatedFactorial::Exact(Integer::from(48)),
             }]
         );
-        assert_eq!(comment.status, vec![Status::FactorialsFound]);
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
 
     #[test]
@@ -433,7 +529,7 @@ mod tests {
                 factorial: CalculatedFactorial::Exact(Integer::from(18)),
             }]
         );
-        assert_eq!(comment.status, vec![Status::FactorialsFound]);
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
 
     #[test]
@@ -445,7 +541,7 @@ mod tests {
             "test_subreddit",
         );
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(comment.status, vec![Status::NoFactorial]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
     #[test]
@@ -457,7 +553,7 @@ mod tests {
             "test_subreddit",
         );
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(comment.status, vec![Status::NoFactorial]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
     #[test]
@@ -488,7 +584,7 @@ mod tests {
             "test_subreddit",
         );
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(comment.status, vec![Status::NoFactorial]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
     #[test]
@@ -500,7 +596,7 @@ mod tests {
             "test_subreddit",
         );
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(comment.status, vec![Status::NoFactorial]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
     #[test]
@@ -512,7 +608,7 @@ mod tests {
             "test_subreddit",
         );
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(comment.status, vec![Status::NoFactorial]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
     #[test]
@@ -524,7 +620,7 @@ mod tests {
             "test_subreddit",
         );
         assert_eq!(comment.factorial_list, vec![]);
-        assert_eq!(comment.status, vec![Status::NoFactorial]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
     #[test]
@@ -547,7 +643,7 @@ mod tests {
         );
         assert_eq!(
             comment.status,
-            vec![Status::NumberTooBigToCalculate, Status::FactorialsFound]
+            Status::FACTORIALS_FOUND | Status::NUMBER_TOO_BIG_TO_CALCULATE
         );
     }
 
@@ -560,7 +656,7 @@ mod tests {
         assert_eq!(comment.factorial_list, vec![]);
         assert_eq!(
             comment.status,
-            vec![Status::NumberTooBigToCalculate, Status::NoFactorial]
+            Status::FACTORIALS_FOUND | Status::NUMBER_TOO_BIG_TO_CALCULATE
         );
     }
 
@@ -572,10 +668,10 @@ mod tests {
             "test_author",
             "test_subreddit",
         );
-        comment.add_status(Status::NotReplied);
+        comment.add_status(Status::NOT_REPLIED);
         assert_eq!(
             comment.status,
-            vec![Status::FactorialsFound, Status::NotReplied]
+            Status::FACTORIALS_FOUND | Status::NOT_REPLIED
         );
     }
 
@@ -591,6 +687,30 @@ mod tests {
             comment.get_reply(),
             "Subfactorial of 23 is 9510425471055777937262 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
+    }
+
+    #[test]
+    fn test_command_shorten() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 200! [short]",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+        let reply = comment.get_reply();
+        assert_eq!(reply, "The factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_command_steps() {
+        let comment = RedditComment::new(
+            "This comment would like to know all the steps to this factorial chain ((3!)!)! [all] [short]",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+        let reply = comment.get_reply();
+        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of The factorial of 3 is 720 \n\nThe factorial of The factorial of The factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -635,7 +755,8 @@ mod tests {
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::FactorialsFound],
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
@@ -653,7 +774,8 @@ mod tests {
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::FactorialsFound],
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
@@ -670,7 +792,8 @@ mod tests {
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::FactorialsFound],
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
@@ -688,7 +811,8 @@ mod tests {
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::FactorialsFound],
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
@@ -713,7 +837,8 @@ mod tests {
             ],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::FactorialsFound],
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
@@ -743,7 +868,8 @@ mod tests {
             ],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::FactorialsFound, Status::ReplyWouldBeTooLong],
+            status: Status::FACTORIALS_FOUND | Status::REPLY_WOULD_BE_TOO_LONG,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
@@ -912,7 +1038,8 @@ mod tests {
             ],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
-            status: vec![Status::ReplyWouldBeTooLong],
+            status: Status::REPLY_WOULD_BE_TOO_LONG,
+            commands: Default::default(),
         };
 
         let reply = comment.get_reply();
