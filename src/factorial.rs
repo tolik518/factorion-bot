@@ -1,7 +1,10 @@
-use crate::math::{self, adjust_approximate_factorial};
+use crate::math::{self, adjust_approximate_factorial, FLOAT_PRECISION};
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
+use rug::ops::Pow;
 use rug::{Float, Integer};
 use std::fmt::Write;
+use std::str::FromStr;
+use std::sync::LazyLock;
 
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
@@ -9,8 +12,9 @@ pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
 pub(crate) const UPPER_APPROXIMATION_LIMIT: &str = "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 // Limit for exact subfactorial calculation, set to limit calculation time
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
-// Limit for everything (applicable on approximate inputs), set to limit number formatting time (size before truncation)
-pub(crate) const TOTAL_UPPER_CALULATION_LIMIT_EXPONENT: u64 = 10_000_000;
+
+pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
+    LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
@@ -112,7 +116,7 @@ impl Factorial {
             CalculatedFactorial::Approximate(base, exponent) => {
                 let (base, exponent) =
                     adjust_approximate_factorial((base.clone(), exponent.clone()));
-                let exponent = if force_shorten {
+                let exponent = if self.is_too_long() || force_shorten {
                     format!("({})", Self::truncate(&exponent, false))
                 } else {
                     exponent.to_string()
@@ -130,7 +134,7 @@ impl Factorial {
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
-                let digits = if force_shorten {
+                let digits = if self.is_too_long() || force_shorten {
                     Self::truncate(digits, false)
                 } else {
                     digits.to_string()
@@ -150,14 +154,20 @@ impl Factorial {
     }
 
     fn truncate(number: &Integer, add_roughly: bool) -> String {
-        let mut truncated_number = number.to_string();
-        let length = truncated_number.len();
-        truncated_number.truncate(NUMBER_DECIMALS_SCIENTIFIC + 2); // There is one digit before the decimals and the digit for rounding
-
-        // Round if we had to truncate
-        if truncated_number.len() >= NUMBER_DECIMALS_SCIENTIFIC + 2 {
+        let length = Float::with_val(FLOAT_PRECISION, number)
+            .log10()
+            .to_integer_round(rug::float::Round::Down)
+            .unwrap()
+            .0;
+        let truncated_number: Integer = number
+            / (Float::with_val(FLOAT_PRECISION, 10)
+                .pow((length.clone() - NUMBER_DECIMALS_SCIENTIFIC - 1u8).max(Integer::ZERO))
+                .to_integer()
+                .unwrap());
+        let mut truncated_number = truncated_number.to_string();
+        if truncated_number.len() > NUMBER_DECIMALS_SCIENTIFIC {
             math::round(&mut truncated_number);
-        };
+        }
         // Only add decimal if we have more than one digit
         if truncated_number.len() > 1 {
             truncated_number.insert(1, '.'); // Decimal point
@@ -167,7 +177,7 @@ impl Factorial {
                 "{}{} × 10^{}",
                 if add_roughly { "roughly " } else { "" },
                 truncated_number,
-                length - 1
+                length
             )
         } else {
             number.to_string()
@@ -181,54 +191,12 @@ impl Factorial {
         matches!(self.factorial, CalculatedFactorial::Approximate(_, _))
     }
     pub(crate) fn is_too_long(&self) -> bool {
-        match self.levels.as_slice() {
-            [1] => self.number > 3249,
-            [2] => self.number > 5982,
-            [3] => self.number > 8572,
-            [4] => self.number > 11077,
-            [5] => self.number > 13522,
-            [6] => self.number > 15920,
-            [7] => self.number > 18282,
-            [8] => self.number > 20613,
-            [9] => self.number > 22920,
-            [10] => self.number > 25208,
-            [11] => self.number > 27479,
-            [12] => self.number > 29735,
-            [13] => self.number > 31977,
-            [14] => self.number > 34207,
-            [15] => self.number > 36426,
-            [16] => self.number > 38635,
-            [17] => self.number > 40835,
-            [18] => self.number > 43027,
-            [19] => self.number > 45212,
-            [20] => self.number > 47390,
-            [21] => self.number > 49562,
-            [22] => self.number > 51728,
-            [23] => self.number > 53889,
-            [24] => self.number > 56045,
-            [25] => self.number > 58197,
-            [26] => self.number > 60345,
-            [27] => self.number > 62489,
-            [28] => self.number > 64630,
-            [29] => self.number > 66768,
-            [30] => self.number > 68903,
-            [31] => self.number > 71036,
-            [32] => self.number > 73167,
-            [33] => self.number > 75296,
-            [34] => self.number > 77423,
-            [35] => self.number > 79548,
-            [36] => self.number > 81672,
-            [37] => self.number > 83794,
-            [38] => self.number > 85915,
-            [39] => self.number > 88035,
-            [40] => self.number > 90154,
-            [41] => self.number > 92272,
-            [42] => self.number > 94389,
-            [43] => self.number > 96505,
-            [44] => self.number > 98620,
-            [45] => self.number > 100734,
-            _ => false,
-        }
+        let n = match &self.factorial {
+            CalculatedFactorial::Exact(n)
+            | CalculatedFactorial::ApproximateDigits(n)
+            | CalculatedFactorial::Approximate(_, n) => n,
+        };
+        n > &*TOO_BIG_NUMBER
     }
 
     pub(crate) fn get_factorial_level_string(level: i32) -> &'static str {

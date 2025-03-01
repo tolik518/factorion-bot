@@ -1,6 +1,6 @@
 use crate::factorial::{
-    CalculatedFactorial, Factorial, TOTAL_UPPER_CALULATION_LIMIT_EXPONENT,
-    UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT,
+    CalculatedFactorial, Factorial, UPPER_APPROXIMATION_LIMIT, UPPER_CALCULATION_LIMIT,
+    UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math::{self, FLOAT_PRECISION};
 use fancy_regex::Regex;
@@ -284,9 +284,7 @@ impl RedditComment {
                     })) => {
                         let res = match res {
                             CalculatedFactorial::Exact(res) => res.clone(),
-                            CalculatedFactorial::Approximate(base, exponent)
-                                if exponent < &TOTAL_UPPER_CALULATION_LIMIT_EXPONENT =>
-                            {
+                            CalculatedFactorial::Approximate(base, exponent) => {
                                 let res = base * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
                                 let Some(res) = res.to_integer() else {
                                     return factorials;
@@ -797,7 +795,7 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nSubfactorial of 5000 is roughly 1.555606884589543595233339289773 × 10^16325 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nSubfactorial of 5000 is roughly 1.555606884589543595233339289773 × 10^16325 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -995,14 +993,14 @@ mod tests {
     #[test]
     fn test_get_reply_factorial_chain_from_approximate() {
         let comment = RedditComment::new(
-            "This is a test with a factorial chain (1000001!)!",
+            "This is a test with a factorial chain (20000000!)!",
             "1234",
             "test_author",
             "test_subreddit",
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 1000001 has approximately 4.59947302780651482246984975023 × 10^5565721 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
