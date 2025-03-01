@@ -705,7 +705,7 @@ mod tests {
     #[test]
     fn test_command_shorten() {
         let comment = RedditComment::new(
-            "This comment would like the short version of this factorial 200! [short]",
+            "This comment would like the short version of this factorial 200! \\[short\\]",
             "123",
             "test_author",
             "test_subreddit",
@@ -717,7 +717,7 @@ mod tests {
     #[test]
     fn test_command_steps() {
         let comment = RedditComment::new(
-            "This comment would like to know all the steps to this factorial chain ((3!)!)! [all] [short]",
+            "This comment would like to know all the steps to this factorial chain ((3!)!)! \\[all\\] \\[short\\]",
             "123",
             "test_author",
             "test_subreddit",
