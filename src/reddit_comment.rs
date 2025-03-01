@@ -29,6 +29,17 @@ pub(crate) enum Status {
     FactorialsFound,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct PendingFactorial {
+    base: PendingFactorialBase,
+    level: i32,
+}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum PendingFactorialBase {
+    Number(Integer),
+    Factorial(Box<PendingFactorial>),
+}
+
 pub(crate) const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
@@ -46,10 +57,10 @@ impl RedditComment {
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
-                .expect("Invalid factorial regex")
+                .expect("Invalid factorial-chain regex")
         });
 
-        let mut factorial_list: Vec<Factorial> = Vec::new();
+        let mut factorial_list: Vec<PendingFactorial> = Vec::new();
         let mut status: Vec<Status> = vec![];
 
         // for every regex/factorial in the comment
@@ -65,7 +76,10 @@ impl RedditComment {
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
 
-            factorial_list.push(Self::calculate_appropriate_factorial(num, factorial_level));
+            factorial_list.push(PendingFactorial {
+                base: PendingFactorialBase::Number(num),
+                level: factorial_level,
+            });
         }
 
         for regex_capture in SUBFACTORIAL_REGEX.captures_iter(comment_text) {
@@ -75,28 +89,23 @@ impl RedditComment {
                 .parse::<Integer>()
                 .expect("Failed to parse number");
 
-            //TODO: Implement subfactorial further
-
-            if num > UPPER_SUBFACTORIAL_LIMIT {
-                status.push(Status::NumberTooBigToCalculate)
-            } else {
-                let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial = math::subfactorial(calc_num);
-                factorial_list.push(Factorial {
-                    number: num,
-                    level: -1,
-                    factorial: CalculatedFactorial::Exact(factorial),
-                });
-            }
+            factorial_list.push(PendingFactorial {
+                base: PendingFactorialBase::Number(num),
+                level: -1,
+            });
         }
+
         for regex_capture in FACTORIAL_CHAIN_REGEX.captures_iter(comment_text) {
-            eprintln!("Found a chain!");
             let regex_capture = regex_capture.expect("Failed to capture regex");
+
+            // Get outermost capture info (level and inner)
             let mut factorial_levels = vec![regex_capture[2]
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32")];
             let mut current_string = regex_capture[1].to_string();
+
+            // Recurse to the innermost chain capture
             while let Some(regex_capture) = FACTORIAL_CHAIN_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
@@ -109,12 +118,15 @@ impl RedditComment {
                 );
                 current_string = regex_capture[1].to_string();
             }
+
+            // Get the normal factorial at the core
             let Some(regex_capture) = FACTORIAL_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
             else {
                 continue;
             };
+
             let factorial_level = regex_capture[2]
                 .len()
                 .to_i32()
@@ -122,19 +134,34 @@ impl RedditComment {
             let num = regex_capture[1]
                 .parse::<Integer>()
                 .expect("Failed to parse number");
-            factorial_list.push(Self::calculate_appropriate_factorial(num, factorial_level));
+
+            // Package it all as a PendingFactorial
+            let mut factorial = PendingFactorial {
+                base: PendingFactorialBase::Number(num),
+                level: factorial_level,
+            };
             for factorial_level in factorial_levels.into_iter().rev() {
-                match &factorial_list.last().unwrap().factorial {
-                    CalculatedFactorial::Exact(factorial) => {
-                        factorial_list.push(Self::calculate_appropriate_factorial(
-                            factorial.clone(),
-                            factorial_level,
-                        ));
-                    }
-                    _ => break,
+                factorial = PendingFactorial {
+                    base: PendingFactorialBase::Factorial(Box::new(factorial)),
+                    level: factorial_level,
                 }
             }
+            factorial_list.push(factorial);
         }
+
+        factorial_list.sort();
+        factorial_list.dedup();
+
+        let mut factorial_list: Vec<Factorial> = factorial_list
+            .into_iter()
+            .flat_map(Self::calculate_pending)
+            .filter_map(|x| {
+                if x.is_none() {
+                    status.push(Status::NumberTooBigToCalculate);
+                };
+                x
+            })
+            .collect();
 
         factorial_list.sort();
         factorial_list.dedup();
@@ -154,33 +181,75 @@ impl RedditComment {
         }
     }
 
-    fn calculate_appropriate_factorial(num: Integer, level: i32) -> Factorial {
-        // Check if we can approximate the number of digits
-        if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
-            || (level > 1 && num > UPPER_CALCULATION_LIMIT)
-        {
-            let factorial = math::approximate_multifactorial_digits(num.clone(), level);
-            Factorial {
-                number: num,
-                level,
-                factorial: CalculatedFactorial::ApproximateDigits(factorial),
+    fn calculate_pending(
+        PendingFactorial { base, level }: PendingFactorial,
+    ) -> Vec<Option<Factorial>> {
+        match base {
+            PendingFactorialBase::Number(num) => {
+                vec![Self::calculate_appropriate_factorial(num, level)]
             }
-        // Check if the number is within a reasonable range to compute
-        } else if num > UPPER_CALCULATION_LIMIT {
-            let factorial = math::approximate_factorial(num.clone());
-            Factorial {
-                number: num,
-                level,
-                factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
+            PendingFactorialBase::Factorial(factorial) => {
+                let mut factorials = Self::calculate_pending(*factorial);
+                if let Some(Some(Factorial {
+                    factorial: CalculatedFactorial::Exact(factorial),
+                    ..
+                })) = factorials.last()
+                {
+                    factorials.push(Self::calculate_appropriate_factorial(
+                        factorial.clone(),
+                        level,
+                    ));
+                }
+                factorials
+            }
+        }
+    }
+    fn calculate_appropriate_factorial(num: Integer, level: i32) -> Option<Factorial> {
+        if level > 0 {
+            // Check if we can approximate the number of digits
+            Some(
+                if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
+                    || (level > 1 && num > UPPER_CALCULATION_LIMIT)
+                {
+                    let factorial = math::approximate_multifactorial_digits(num.clone(), level);
+                    Factorial {
+                        number: num,
+                        level,
+                        factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                    }
+                // Check if the number is within a reasonable range to compute
+                } else if num > UPPER_CALCULATION_LIMIT {
+                    let factorial = math::approximate_factorial(num.clone());
+                    Factorial {
+                        number: num,
+                        level,
+                        factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
+                    }
+                } else {
+                    let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
+                    let factorial = math::factorial(calc_num, level);
+                    Factorial {
+                        number: num,
+                        level,
+                        factorial: CalculatedFactorial::Exact(factorial),
+                    }
+                },
+            )
+        } else if level == -1 {
+            //TODO: Implement subfactorial further
+            if num > UPPER_SUBFACTORIAL_LIMIT {
+                None
+            } else {
+                let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
+                let factorial = math::subfactorial(calc_num);
+                Some(Factorial {
+                    number: num,
+                    level: -1,
+                    factorial: CalculatedFactorial::Exact(factorial),
+                })
             }
         } else {
-            let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-            let factorial = math::factorial(calc_num, level);
-            Factorial {
-                number: num,
-                level,
-                factorial: CalculatedFactorial::Exact(factorial),
-            }
+            None
         }
     }
 
