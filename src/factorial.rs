@@ -7,7 +7,10 @@ use std::fmt::Write;
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
 pub(crate) const UPPER_APPROXIMATION_LIMIT: &str = "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+// Limit for exact subfactorial calculation, set to limit calculation time
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
+// Limit for everything (applicable on approximate inputs), set to limit number formatting time (size before truncation)
+pub(crate) const TOTAL_UPPER_CALULATION_LIMIT_EXPONENT: u64 = 10_000_000;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CalculatedFactorial {
@@ -107,11 +110,16 @@ impl Factorial {
                 } else {
                     exponent.to_string()
                 };
+                let number = if force_shorten {
+                    Self::truncate(&self.number, false)
+                } else {
+                    self.number.to_string()
+                };
                 let base = base.to_f64();
                 write!(
                     acc,
                     "{}{}{} is approximately {} × 10^{} \n\n",
-                    factorial_level_string, PLACEHOLDER, self.number, base, exponent
+                    factorial_level_string, PLACEHOLDER, number, base, exponent
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
@@ -120,10 +128,15 @@ impl Factorial {
                 } else {
                     digits.to_string()
                 };
+                let number = if force_shorten {
+                    Self::truncate(&self.number, false)
+                } else {
+                    self.number.to_string()
+                };
                 write!(
                     acc,
                     "{}{}{} has approximately {} digits \n\n",
-                    factorial_level_string, PLACEHOLDER, self.number, digits
+                    factorial_level_string, PLACEHOLDER, number, digits
                 )
             }
         }
