@@ -124,15 +124,15 @@ impl RedditComment {
             include_steps: false,
         };
 
-        if comment_text.contains("[short]")
-            || comment_text.contains("[shorten]")
+        if comment_text.contains("\\[short\\]")
+            || comment_text.contains("\\[shorten\\]")
             || comment_text.contains("!short")
             || comment_text.contains("!shorten")
         {
             commands.shorten = true;
         }
-        if comment_text.contains("[steps]")
-            || comment_text.contains("[all]")
+        if comment_text.contains("\\[steps\\]")
+            || comment_text.contains("\\[all\\]")
             || comment_text.contains("!steps")
             || comment_text.contains("!all")
         {
