@@ -192,7 +192,7 @@ impl RedditComment {
             PendingFactorialBase::Number(num) => Self::calculate_appropriate_factorial(num, level),
             PendingFactorialBase::Factorial(factorial) => {
                 let factorial = Self::calculate_pending(*factorial);
-                let factorial = match &factorial {
+                match &factorial {
                     Some(Factorial {
                         factorial: res,
                         levels,
@@ -219,9 +219,8 @@ impl RedditComment {
                             res
                         })
                     }
-                    _ => return factorial,
-                };
-                factorial
+                    _ => factorial,
+                }
             }
         }
     }
