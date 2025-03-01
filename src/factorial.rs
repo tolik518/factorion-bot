@@ -22,7 +22,7 @@ pub(crate) enum CalculatedFactorial {
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
     pub(crate) number: Integer,
-    pub(crate) level: i32,
+    pub(crate) levels: Vec<i32>,
     pub(crate) factorial: CalculatedFactorial,
 }
 
@@ -88,7 +88,14 @@ impl Factorial {
         acc: &mut String,
         force_shorten: bool,
     ) -> Result<(), std::fmt::Error> {
-        let factorial_level_string = Factorial::get_factorial_level_string(self.level);
+        let factorial_string = self.levels.iter().fold(String::new(), |a, e| {
+            format!(
+                "{}{}{}",
+                a,
+                Self::get_factorial_level_string(*e),
+                PLACEHOLDER
+            )
+        });
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
                 let factorial = if self.is_too_long() || force_shorten {
@@ -98,8 +105,8 @@ impl Factorial {
                 };
                 write!(
                     acc,
-                    "{}{}{} is {} \n\n",
-                    factorial_level_string, PLACEHOLDER, self.number, factorial
+                    "{}{} is {} \n\n",
+                    factorial_string, self.number, factorial
                 )
             }
             CalculatedFactorial::Approximate(base, exponent) => {
@@ -118,8 +125,8 @@ impl Factorial {
                 let base = base.to_f64();
                 write!(
                     acc,
-                    "{}{}{} is approximately {} × 10^{} \n\n",
-                    factorial_level_string, PLACEHOLDER, number, base, exponent
+                    "{}{} is approximately {} × 10^{} \n\n",
+                    factorial_string, number, base, exponent
                 )
             }
             CalculatedFactorial::ApproximateDigits(digits) => {
@@ -135,8 +142,8 @@ impl Factorial {
                 };
                 write!(
                     acc,
-                    "{}{}{} has approximately {} digits \n\n",
-                    factorial_level_string, PLACEHOLDER, number, digits
+                    "{}{} has approximately {} digits \n\n",
+                    factorial_string, number, digits
                 )
             }
         }
@@ -174,52 +181,52 @@ impl Factorial {
         matches!(self.factorial, CalculatedFactorial::Approximate(_, _))
     }
     pub(crate) fn is_too_long(&self) -> bool {
-        match self.level {
-            1 => self.number > 3249,
-            2 => self.number > 5982,
-            3 => self.number > 8572,
-            4 => self.number > 11077,
-            5 => self.number > 13522,
-            6 => self.number > 15920,
-            7 => self.number > 18282,
-            8 => self.number > 20613,
-            9 => self.number > 22920,
-            10 => self.number > 25208,
-            11 => self.number > 27479,
-            12 => self.number > 29735,
-            13 => self.number > 31977,
-            14 => self.number > 34207,
-            15 => self.number > 36426,
-            16 => self.number > 38635,
-            17 => self.number > 40835,
-            18 => self.number > 43027,
-            19 => self.number > 45212,
-            20 => self.number > 47390,
-            21 => self.number > 49562,
-            22 => self.number > 51728,
-            23 => self.number > 53889,
-            24 => self.number > 56045,
-            25 => self.number > 58197,
-            26 => self.number > 60345,
-            27 => self.number > 62489,
-            28 => self.number > 64630,
-            29 => self.number > 66768,
-            30 => self.number > 68903,
-            31 => self.number > 71036,
-            32 => self.number > 73167,
-            33 => self.number > 75296,
-            34 => self.number > 77423,
-            35 => self.number > 79548,
-            36 => self.number > 81672,
-            37 => self.number > 83794,
-            38 => self.number > 85915,
-            39 => self.number > 88035,
-            40 => self.number > 90154,
-            41 => self.number > 92272,
-            42 => self.number > 94389,
-            43 => self.number > 96505,
-            44 => self.number > 98620,
-            45 => self.number > 100734,
+        match self.levels.as_slice() {
+            [1] => self.number > 3249,
+            [2] => self.number > 5982,
+            [3] => self.number > 8572,
+            [4] => self.number > 11077,
+            [5] => self.number > 13522,
+            [6] => self.number > 15920,
+            [7] => self.number > 18282,
+            [8] => self.number > 20613,
+            [9] => self.number > 22920,
+            [10] => self.number > 25208,
+            [11] => self.number > 27479,
+            [12] => self.number > 29735,
+            [13] => self.number > 31977,
+            [14] => self.number > 34207,
+            [15] => self.number > 36426,
+            [16] => self.number > 38635,
+            [17] => self.number > 40835,
+            [18] => self.number > 43027,
+            [19] => self.number > 45212,
+            [20] => self.number > 47390,
+            [21] => self.number > 49562,
+            [22] => self.number > 51728,
+            [23] => self.number > 53889,
+            [24] => self.number > 56045,
+            [25] => self.number > 58197,
+            [26] => self.number > 60345,
+            [27] => self.number > 62489,
+            [28] => self.number > 64630,
+            [29] => self.number > 66768,
+            [30] => self.number > 68903,
+            [31] => self.number > 71036,
+            [32] => self.number > 73167,
+            [33] => self.number > 75296,
+            [34] => self.number > 77423,
+            [35] => self.number > 79548,
+            [36] => self.number > 81672,
+            [37] => self.number > 83794,
+            [38] => self.number > 85915,
+            [39] => self.number > 88035,
+            [40] => self.number > 90154,
+            [41] => self.number > 92272,
+            [42] => self.number > 94389,
+            [43] => self.number > 96505,
+            [44] => self.number > 98620,
+            [45] => self.number > 100734,
             _ => false,
         }
     }
@@ -306,7 +313,7 @@ mod tests {
         let mut acc = String::new();
         let factorial = Factorial {
             number: 5.into(),
-            level: 1,
+            levels: vec![1],
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, false).unwrap();
@@ -315,7 +322,7 @@ mod tests {
         let mut acc = String::new();
         let factorial = Factorial {
             number: 5.into(),
-            level: -1,
+            levels: vec![-1],
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, false).unwrap();
@@ -324,7 +331,7 @@ mod tests {
         let mut acc = String::new();
         let factorial = Factorial {
             number: 5.into(),
-            level: 1,
+            levels: vec![1],
             factorial: CalculatedFactorial::Approximate(
                 Float::with_val(FLOAT_PRECISION, 120),
                 3.into(),
@@ -336,7 +343,7 @@ mod tests {
         let mut acc = String::new();
         let factorial = Factorial {
             number: 5.into(),
-            level: 1,
+            levels: vec![1],
             factorial: CalculatedFactorial::ApproximateDigits(3.into()),
         };
         factorial.format(&mut acc, false).unwrap();
@@ -345,7 +352,7 @@ mod tests {
         let mut acc = String::new();
         let factorial = Factorial {
             number: 5.into(),
-            level: 1,
+            levels: vec![1],
             factorial: CalculatedFactorial::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, true).unwrap();

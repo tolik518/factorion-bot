@@ -142,9 +142,13 @@ impl RedditComment {
                 level: factorial_level,
             };
             // Remove duplicate base (also captured by factorial regex)
-            // NOTE: This will remove all occurences of that factorial.
-            //       Change this if chains don't show every step!
-            factorial_list.retain(|fact| fact != &factorial);
+            if let Some((i, _)) = factorial_list
+                .iter()
+                .enumerate()
+                .find(|(_, fact)| *fact == &factorial)
+            {
+                factorial_list.remove(i);
+            }
             for factorial_level in factorial_levels.into_iter().rev() {
                 factorial = PendingFactorial {
                     base: PendingFactorialBase::Factorial(Box::new(factorial)),
@@ -159,7 +163,7 @@ impl RedditComment {
 
         let factorial_list: Vec<Factorial> = factorial_list
             .into_iter()
-            .flat_map(Self::calculate_pending)
+            .map(Self::calculate_pending)
             .filter_map(|x| {
                 if x.is_none() {
                     status.push(Status::NumberTooBigToCalculate);
@@ -183,38 +187,41 @@ impl RedditComment {
         }
     }
 
-    fn calculate_pending(
-        PendingFactorial { base, level }: PendingFactorial,
-    ) -> Vec<Option<Factorial>> {
+    fn calculate_pending(PendingFactorial { base, level }: PendingFactorial) -> Option<Factorial> {
         match base {
-            PendingFactorialBase::Number(num) => {
-                vec![Self::calculate_appropriate_factorial(num, level)]
-            }
+            PendingFactorialBase::Number(num) => Self::calculate_appropriate_factorial(num, level),
             PendingFactorialBase::Factorial(factorial) => {
-                let mut factorials = Self::calculate_pending(*factorial);
-                match factorials.last() {
-                    Some(Some(Factorial {
-                        factorial: CalculatedFactorial::Exact(factorial),
-                        ..
-                    })) => {
-                        factorials.push(Self::calculate_appropriate_factorial(
-                            factorial.clone(),
-                            level,
-                        ));
+                let factorial = Self::calculate_pending(*factorial);
+                let factorial = match &factorial {
+                    Some(Factorial {
+                        factorial: res,
+                        levels,
+                        number,
+                    }) => {
+                        let res = match res {
+                            CalculatedFactorial::Exact(res) => res.clone(),
+                            CalculatedFactorial::Approximate(base, exponent)
+                                if exponent < &TOTAL_UPPER_CALULATION_LIMIT_EXPONENT =>
+                            {
+                                let res = base * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
+                                let Some(res) = res.to_integer() else {
+                                    return factorial;
+                                };
+                                res
+                            }
+                            _ => return factorial,
+                        };
+                        Self::calculate_appropriate_factorial(res, level).map(|mut res| {
+                            let current_levels = res.levels;
+                            res.levels = levels.clone();
+                            res.levels.extend(current_levels);
+                            res.number = number.clone();
+                            res
+                        })
                     }
-                    Some(Some(Factorial {
-                        factorial: CalculatedFactorial::Approximate(base, exponent),
-                        ..
-                    })) if exponent < &TOTAL_UPPER_CALULATION_LIMIT_EXPONENT => {
-                        let factorial = base * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
-                        if let Some(factorial) = factorial.to_integer() {
-                            factorials
-                                .push(Self::calculate_appropriate_factorial(factorial, level));
-                        }
-                    }
-                    _ => {}
-                }
-                factorials
+                    _ => return factorial,
+                };
+                factorial
             }
         }
     }
@@ -228,7 +235,7 @@ impl RedditComment {
                     let factorial = math::approximate_multifactorial_digits(num.clone(), level);
                     Factorial {
                         number: num,
-                        level,
+                        levels: vec![level],
                         factorial: CalculatedFactorial::ApproximateDigits(factorial),
                     }
                 // Check if the number is within a reasonable range to compute
@@ -236,7 +243,7 @@ impl RedditComment {
                     let factorial = math::approximate_factorial(num.clone());
                     Factorial {
                         number: num,
-                        level,
+                        levels: vec![level],
                         factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
                     }
                 } else {
@@ -244,7 +251,7 @@ impl RedditComment {
                     let factorial = math::factorial(calc_num, level);
                     Factorial {
                         number: num,
-                        level,
+                        levels: vec![level],
                         factorial: CalculatedFactorial::Exact(factorial),
                     }
                 },
@@ -258,7 +265,7 @@ impl RedditComment {
                 let factorial = math::subfactorial(calc_num);
                 Some(Factorial {
                     number: num,
-                    level: -1,
+                    levels: vec![-1],
                     factorial: CalculatedFactorial::Exact(factorial),
                 })
             }
@@ -379,12 +386,12 @@ mod tests {
             vec![
                 Factorial {
                     number: 5.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 },
                 Factorial {
                     number: 6.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
             ],
@@ -404,7 +411,7 @@ mod tests {
             comment.factorial_list,
             vec![Factorial {
                 number: 6.into(),
-                level: 2,
+                levels: vec![2],
                 factorial: CalculatedFactorial::Exact(Integer::from(48)),
             }]
         );
@@ -423,7 +430,7 @@ mod tests {
             comment.factorial_list,
             vec![Factorial {
                 number: 6.into(),
-                level: 3,
+                levels: vec![3],
                 factorial: CalculatedFactorial::Exact(Integer::from(18)),
             }]
         );
@@ -467,7 +474,7 @@ mod tests {
             comment.factorial_list,
             vec![Factorial {
                 number: 5.into(),
-                level: -1,
+                levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
             }]
         );
@@ -535,7 +542,7 @@ mod tests {
             comment.factorial_list,
             vec![Factorial {
                 number: 6.into(),
-                level: 1,
+                levels: vec![1],
                 factorial: CalculatedFactorial::Exact(Integer::from(720))
             }]
         );
@@ -624,7 +631,7 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
                 number: 10.into(),
-                level: 3,
+                levels: vec![3],
                 factorial: CalculatedFactorial::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
@@ -642,7 +649,7 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
                 number: 5.into(),
-                level: -1,
+                levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
@@ -659,7 +666,7 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
                 number: 5000.into(),
-                level: -1,
+                levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
@@ -677,7 +684,7 @@ mod tests {
             id: "123".to_string(),
             factorial_list: vec![Factorial {
                 number: 10.into(),
-                level: 46,
+                levels: vec![46],
                 factorial: CalculatedFactorial::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
@@ -696,12 +703,12 @@ mod tests {
             factorial_list: vec![
                 Factorial {
                     number: 5.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 },
                 Factorial {
                     number: 6.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
             ],
@@ -721,17 +728,17 @@ mod tests {
             factorial_list: vec![
                 Factorial {
                     number: 5.into(),
-                    level: 2,
+                    levels: vec![2],
                     factorial: CalculatedFactorial::Exact(Integer::from(60)),
                 },
                 Factorial {
                     number: 6.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 },
                 Factorial {
                     number: 3249.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(math::factorial(3249, 1)),
                 },
             ],
@@ -851,14 +858,14 @@ mod tests {
     #[test]
     fn test_get_reply_factorial_chain() {
         let comment = RedditComment::new(
-            "This is a test with a factorial chain (((5!)!)!)!",
+            "This is a test with a factorial chain 5! (((5!)!)!)!",
             "1234",
             "test_author",
             "test_subreddit",
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\nThe factorial of 5 is 120 \n\nThe factorial of 120 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\nThe factorial of 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 is approximately 1.9172992008293117 × 10^1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969733 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of 5 is approximately 1.9172992008293117 × 10^1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969733 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
     #[test]
     fn test_get_reply_factorial_chain_from_approximate() {
@@ -870,7 +877,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 1000001 is approximately 8.263939952262929 × 10^(5565714) \n\nThe factorial of 8.263939952262928393616708479819 × 10^5565714 has approximately 4.59947302780651482246984975023 × 10^5565721 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 1000001 has approximately 4.59947302780651482246984975023 × 10^5565721 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -880,17 +887,17 @@ mod tests {
             factorial_list: vec![
                 Factorial {
                     number: 8.into(),
-                    level: 2,
+                    levels: vec![2],
                     factorial: CalculatedFactorial::Exact(Integer::from(384)),
                 },
                 Factorial {
                     number: 10000.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: CalculatedFactorial::Exact(math::factorial(10000, 1)),
                 },
                 Factorial {
                     number: 37923648.into(),
-                    level: 1,
+                    levels: vec![1],
                     factorial: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
                         CalculatedFactorial::Approximate(base, exponent)
@@ -898,7 +905,7 @@ mod tests {
                 },
                 Factorial {
                     number: 283462.into(),
-                    level: 2,
+                    levels: vec![2],
                     factorial: CalculatedFactorial::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
