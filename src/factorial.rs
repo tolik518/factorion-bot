@@ -121,7 +121,7 @@ impl Factorial {
                 } else {
                     exponent.to_string()
                 };
-                let number = if force_shorten {
+                let number = if self.number > *TOO_BIG_NUMBER || force_shorten {
                     Self::truncate(&self.number, false)
                 } else {
                     self.number.to_string()
@@ -139,7 +139,7 @@ impl Factorial {
                 } else {
                     digits.to_string()
                 };
-                let number = if force_shorten {
+                let number = if self.number > *TOO_BIG_NUMBER || force_shorten {
                     Self::truncate(&self.number, false)
                 } else {
                     self.number.to_string()

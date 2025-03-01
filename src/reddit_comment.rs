@@ -427,7 +427,10 @@ impl RedditComment {
             });
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() > MAX_COMMENT_LENGTH as usize && !self.commands.shorten {
+        if reply.len() > MAX_COMMENT_LENGTH as usize
+            && !self.commands.shorten
+            && !self.factorial_list.iter().all(|fact| fact.is_too_long())
+        {
             if note.is_empty() {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
             };
@@ -437,23 +440,35 @@ impl RedditComment {
             });
         }
 
-        // TODO(optimize): reuse formatting from previous tries (low priority as this should be very rare)
         // Remove factorials until we can fit them in a comment
-        let mut factorial_list = &self.factorial_list[..];
         let note = "If I posted all numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to remove some of them. \n\n";
-        while reply.len() > MAX_COMMENT_LENGTH as usize {
-            // remove last factorial (probably the biggest)
-            factorial_list = &factorial_list[..factorial_list.len() - 1];
-            if factorial_list.is_empty() {
-                reply = "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n".to_string();
-                break;
-            }
-            reply = factorial_list
+        if reply.len() > MAX_COMMENT_LENGTH as usize {
+            let mut factorial_list: Vec<String> = self
+                .factorial_list
                 .iter()
-                .fold(note.to_string(), |mut acc, factorial| {
-                    let _ = factorial.format(&mut acc, true);
-                    acc
-                });
+                .map(|fact| {
+                    let mut res = String::new();
+                    let _ = fact.format(&mut res, true);
+                    res
+                })
+                .collect();
+            'drop_last: {
+                while note.len() + factorial_list.iter().map(|s| s.len()).sum::<usize>()
+                    > MAX_COMMENT_LENGTH as usize
+                {
+                    // remove last factorial (probably the biggest)
+                    factorial_list.pop();
+                    if factorial_list.is_empty() {
+                        reply = "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n".to_string();
+                        break 'drop_last;
+                    }
+                }
+                reply = factorial_list
+                    .iter()
+                    .fold(note.to_string(), |acc, factorial| {
+                        format!("{acc}{factorial}")
+                    });
+            }
         }
 
         reply.push_str(FOOTER_TEXT);
