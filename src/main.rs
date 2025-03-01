@@ -2,7 +2,6 @@ use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
 use reddit_comment::Status;
-use std::collections::HashSet;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -77,30 +76,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let comment_author = comment.author.clone();
             let comment_subreddit = comment.subreddit.clone();
 
-            let status_set: HashSet<_> = comment.status.iter().cloned().collect();
-            let should_answer = status_set.contains(&Status::FactorialsFound)
-                && status_set.contains(&Status::NotReplied);
+            let status: Status = comment.status;
+            let should_answer = status.factorials_found && status.not_replied;
 
-            if status_set.contains(&Status::NoFactorial)
-                && !status_set.contains(&Status::NumberTooBigToCalculate)
-            {
+            if status.no_factorial && !status.number_too_big_to_calculate {
                 continue;
             }
 
             print!("Comment ID {} -> {:?}", comment.id, comment.status);
 
-            if status_set.contains(&Status::NumberTooBigToCalculate) {
+            if status.number_too_big_to_calculate {
                 println!(" -> number too big to calculate");
                 already_replied_or_rejected.push(comment_id.clone());
                 continue;
             }
 
-            if status_set.contains(&Status::AlreadyRepliedOrRejected) {
+            if status.already_replied_or_rejected {
                 println!(" -> already replied or rejected");
                 continue;
             }
 
-            if status_set.contains(&Status::FactorialsFound) {
+            if status.factorials_found {
                 println!(" -> {:?}", comment.factorial_list);
             }
             if should_answer {
