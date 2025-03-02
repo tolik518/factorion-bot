@@ -164,39 +164,39 @@ impl RedditComment {
         let mut factorial_list: Vec<PendingFactorial> = Vec::new();
         let mut status: Status = Default::default();
 
-        let extract_captures: fn(CaptureType<'_>) -> (Integer, i32) = |captures| match captures {
-            CaptureType::Norm(captures) => (
-                captures[1]
-                    .parse::<Integer>()
-                    .expect("Failed to parse number"),
-                captures[2]
+        let extract_captures: fn(CaptureType<'_>) -> PendingFactorial = |captures| match captures {
+            CaptureType::Norm(captures) => PendingFactorial {
+                base: PendingFactorialBase::Number(
+                    captures[1]
+                        .parse::<Integer>()
+                        .expect("Failed to parse number"),
+                ),
+                level: captures[2]
                     .len()
                     .to_i32()
                     .expect("Failed to convert exclamation count to i32"),
-            ),
-            CaptureType::Sub(captures) => (
-                captures[2]
-                    .parse::<Integer>()
-                    .expect("Failed to parse number"),
-                -1,
-            ),
+            },
+            CaptureType::Sub(captures) => PendingFactorial {
+                base: PendingFactorialBase::Number(
+                    captures[2]
+                        .parse::<Integer>()
+                        .expect("Failed to parse number"),
+                ),
+                level: -1,
+            },
         };
-        // for every regex/factorial in the comment
-        for (num, factorial_level) in FACTORIAL_REGEX
-            .captures_iter(comment_text)
-            .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
-            .chain(
-                SUBFACTORIAL_REGEX
-                    .captures_iter(comment_text)
-                    .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
-            )
-            .map(extract_captures)
-        {
-            factorial_list.push(PendingFactorial {
-                base: PendingFactorialBase::Number(num),
-                level: factorial_level,
-            });
-        }
+        // capture all (sub)factorials
+        factorial_list.extend(
+            FACTORIAL_REGEX
+                .captures_iter(comment_text)
+                .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
+                .chain(
+                    SUBFACTORIAL_REGEX
+                        .captures_iter(comment_text)
+                        .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
+                )
+                .map(extract_captures),
+        );
 
         let extract_captures_chain: fn(CaptureType<'_>) -> (String, i32) = |captures| match captures
         {
@@ -235,8 +235,8 @@ impl RedditComment {
                 current_string = string;
             }
 
-            // Get the normal factorial at the core
-            let Some((num, factorial_level)) = FACTORIAL_REGEX
+            // Capture the normal factorial at the core
+            let Some(mut factorial) = FACTORIAL_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
                 .map(CaptureType::Norm)
@@ -249,11 +249,6 @@ impl RedditComment {
                 continue;
             };
 
-            // Package it all as a PendingFactorial
-            let mut factorial = PendingFactorial {
-                base: PendingFactorialBase::Number(num),
-                level: factorial_level,
-            };
             // Remove duplicate base (also captured by factorial regex)
             if let Some((i, _)) = factorial_list
                 .iter()
