@@ -377,8 +377,7 @@ impl RedditComment {
                 },
             )
         } else if level == -1 {
-            //TODO: Implement subfactorial further
-            if num > *UPPER_APPROXIMATION_LIMIT || (level > 1 && num > UPPER_CALCULATION_LIMIT) {
+            if num > *UPPER_APPROXIMATION_LIMIT {
                 let factorial = math::approximate_multifactorial_digits(num.clone(), 1);
                 Some(Factorial {
                     number: num,
