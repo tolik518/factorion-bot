@@ -9,9 +9,11 @@ use std::sync::LazyLock;
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) const UPPER_APPROXIMATION_LIMIT: &str = "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
+    Integer::from_str("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()
+});
 // Limit for exact subfactorial calculation, set to limit calculation time
-pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 25_206;
+pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
 
 pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
@@ -87,7 +89,7 @@ impl Factorial {
         acc: &mut String,
         force_shorten: bool,
     ) -> Result<(), std::fmt::Error> {
-        let factorial_string = self.levels.iter().fold(String::new(), |a, e| {
+        let factorial_string = self.levels.iter().rev().fold(String::new(), |a, e| {
             format!(
                 "{}{}{}",
                 a,
@@ -149,8 +151,7 @@ impl Factorial {
     }
 
     fn truncate(number: &Integer, add_roughly: bool) -> String {
-        let length = Float::with_val(FLOAT_PRECISION, number)
-            .log10()
+        let length = (Float::with_val(FLOAT_PRECISION, number).ln() / &*math::LN10)
             .to_integer_round(rug::float::Round::Down)
             .unwrap()
             .0;

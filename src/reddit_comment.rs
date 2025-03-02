@@ -3,12 +3,11 @@ use crate::factorial::{
     UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math::{self, FLOAT_PRECISION};
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use num_traits::ToPrimitive;
 use rug::ops::Pow;
 use rug::{Float, Integer};
 use std::fmt::Write;
-use std::str::FromStr;
 use std::sync::LazyLock;
 
 #[derive(Debug)]
@@ -116,6 +115,25 @@ enum PendingFactorialBase {
     Number(Integer),
     Factorial(Box<PendingFactorial>),
 }
+impl PendingFactorial {
+    fn part_of(&self, mut other: &Self) -> bool {
+        if self == other {
+            return true;
+        }
+        while let PendingFactorialBase::Factorial(base) = &other.base {
+            other = base;
+            if self == other {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+enum CaptureType<'t> {
+    Norm(Captures<'t>),
+    Sub(Captures<'t>),
+}
 
 pub(crate) const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
@@ -136,89 +154,101 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
+        static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
+                .expect("Invalid subfactorial-chain regex")
+        });
 
         let commands: Commands = Commands::from_comment_text(comment_text);
 
         let mut factorial_list: Vec<PendingFactorial> = Vec::new();
         let mut status: Status = Default::default();
 
-        // for every regex/factorial in the comment
-        for regex_capture in FACTORIAL_REGEX.captures_iter(comment_text) {
-            let regex_capture = regex_capture.expect("Failed to capture regex");
-
-            let num = regex_capture[1]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-
-            let factorial_level = regex_capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-
-            factorial_list.push(PendingFactorial {
-                base: PendingFactorialBase::Number(num),
-                level: factorial_level,
-            });
-        }
-
-        for regex_capture in SUBFACTORIAL_REGEX.captures_iter(comment_text) {
-            let regex_capture = regex_capture.expect("Failed to capture regex");
-
-            let num = regex_capture[2]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-
-            factorial_list.push(PendingFactorial {
-                base: PendingFactorialBase::Number(num),
+        let extract_captures: fn(CaptureType<'_>) -> PendingFactorial = |captures| match captures {
+            CaptureType::Norm(captures) => PendingFactorial {
+                base: PendingFactorialBase::Number(
+                    captures[1]
+                        .parse::<Integer>()
+                        .expect("Failed to parse number"),
+                ),
+                level: captures[2]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32"),
+            },
+            CaptureType::Sub(captures) => PendingFactorial {
+                base: PendingFactorialBase::Number(
+                    captures[2]
+                        .parse::<Integer>()
+                        .expect("Failed to parse number"),
+                ),
                 level: -1,
-            });
-        }
+            },
+        };
+        // capture all (sub)factorials
+        factorial_list.extend(
+            FACTORIAL_REGEX
+                .captures_iter(comment_text)
+                .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
+                .chain(
+                    SUBFACTORIAL_REGEX
+                        .captures_iter(comment_text)
+                        .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
+                )
+                .map(extract_captures),
+        );
 
-        for regex_capture in FACTORIAL_CHAIN_REGEX.captures_iter(comment_text) {
-            let regex_capture = regex_capture.expect("Failed to capture regex");
-
-            // Get outermost capture info (level and inner)
-            let mut factorial_levels = vec![regex_capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32")];
-            let mut current_string = regex_capture[1].to_string();
-
+        let extract_captures_chain: fn(CaptureType<'_>) -> (String, i32) = |captures| match captures
+        {
+            CaptureType::Norm(captures) => (
+                captures[1].to_string(),
+                captures[2]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32"),
+            ),
+            CaptureType::Sub(captures) => (captures[2].to_string(), -1),
+        };
+        for (mut current_string, factorial_level) in FACTORIAL_CHAIN_REGEX
+            .captures_iter(comment_text)
+            .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
+            .chain(
+                SUBFACTORIAL_CHAIN_REGEX
+                    .captures_iter(comment_text)
+                    .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
+            )
+            .map(extract_captures_chain)
+        {
+            let mut factorial_levels = vec![factorial_level];
             // Recurse to the innermost chain capture
-            while let Some(regex_capture) = FACTORIAL_CHAIN_REGEX
+            while let Some((string, factorial_level)) = FACTORIAL_CHAIN_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
+                .map(CaptureType::Norm)
+                .or(SUBFACTORIAL_CHAIN_REGEX
+                    .captures(&current_string)
+                    .expect("Failed to capture regex")
+                    .map(CaptureType::Sub))
+                .map(extract_captures_chain)
             {
-                factorial_levels.push(
-                    regex_capture[2]
-                        .len()
-                        .to_i32()
-                        .expect("Failed to convert exclamation count to i32"),
-                );
-                current_string = regex_capture[1].to_string();
+                factorial_levels.push(factorial_level);
+                current_string = string;
             }
 
-            // Get the normal factorial at the core
-            let Some(regex_capture) = FACTORIAL_REGEX
+            // Capture the normal factorial at the core
+            let Some(mut factorial) = FACTORIAL_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
+                .map(CaptureType::Norm)
+                .or(SUBFACTORIAL_CHAIN_REGEX
+                    .captures(&current_string)
+                    .expect("Failed to capture regex")
+                    .map(CaptureType::Sub))
+                .map(extract_captures)
             else {
                 continue;
             };
 
-            let factorial_level = regex_capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            let num = regex_capture[1]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-
-            // Package it all as a PendingFactorial
-            let mut factorial = PendingFactorial {
-                base: PendingFactorialBase::Number(num),
-                level: factorial_level,
-            };
             // Remove duplicate base (also captured by factorial regex)
             if let Some((i, _)) = factorial_list
                 .iter()
@@ -233,7 +263,10 @@ impl RedditComment {
                     level: factorial_level,
                 }
             }
-            factorial_list.push(factorial);
+            // dedup inner
+            if !factorial_list.iter().any(|fact| factorial.part_of(fact)) {
+                factorial_list.push(factorial);
+            }
         }
 
         factorial_list.sort();
@@ -317,8 +350,7 @@ impl RedditComment {
         if level > 0 {
             // Check if we can approximate the number of digits
             Some(
-                if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
-                    || (level > 1 && num > UPPER_CALCULATION_LIMIT)
+                if num > *UPPER_APPROXIMATION_LIMIT || (level > 1 && num > UPPER_CALCULATION_LIMIT)
                 {
                     let factorial = math::approximate_multifactorial_digits(num.clone(), level);
                     Factorial {
@@ -345,9 +377,20 @@ impl RedditComment {
                 },
             )
         } else if level == -1 {
-            //TODO: Implement subfactorial further
-            if num > UPPER_SUBFACTORIAL_LIMIT {
-                None
+            if num > *UPPER_APPROXIMATION_LIMIT {
+                let factorial = math::approximate_multifactorial_digits(num.clone(), 1);
+                Some(Factorial {
+                    number: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                })
+            } else if num > UPPER_SUBFACTORIAL_LIMIT {
+                let factorial = math::approximate_subfactorial(num.clone());
+                Some(Factorial {
+                    number: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
+                })
             } else {
                 let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
                 let factorial = math::subfactorial(calc_num);
@@ -1005,6 +1048,20 @@ mod tests {
         let reply = comment.get_reply();
         assert_eq!(reply, "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of 5 is approximately 1.9172992008293117 × 10^1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969733 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
+
+    #[test]
+    fn test_get_reply_mixed_factorial_chain() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain ((!(5!!!))!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of Subfactorial of Triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
     #[test]
     fn test_get_reply_factorial_chain_from_approximate() {
         let comment = RedditComment::new(
