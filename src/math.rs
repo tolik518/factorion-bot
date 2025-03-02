@@ -1,20 +1,30 @@
-use malachite_base::num::arithmetic::traits::Subfactorial;
-use malachite_nz::natural::Natural;
 use rug::integer::IntegerExt64;
 use rug::ops::*;
 use rug::{Complete, Float, Integer};
+use std::sync::LazyLock;
 
 pub const FLOAT_PRECISION: u32 = 1024;
+
+pub static E: LazyLock<Float> = LazyLock::new(|| Float::with_val(FLOAT_PRECISION, 1).exp());
+pub static LN10: LazyLock<Float> = LazyLock::new(|| Float::with_val(FLOAT_PRECISION, 10).ln());
 
 pub fn factorial(n: u64, k: i32) -> Integer {
     Integer::factorial_m_64(n, k as u64).complete()
 }
 
 pub(crate) fn subfactorial(n: u64) -> Integer {
-    Integer::from_digits(
-        &Natural::subfactorial(n).into_limbs_asc(),
-        rug::integer::Order::Lsf,
-    )
+    let mut f = Integer::ONE.clone();
+    let mut b = true;
+    for i in 1..=n {
+        f *= Integer::from(i);
+        if b {
+            f -= Integer::ONE;
+        } else {
+            f += Integer::ONE;
+        }
+        b.not_assign();
+    }
+    f
 }
 
 /// Calculates Sterling's Approximation of large factorials.
@@ -26,8 +36,8 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
     let n = Float::with_val(FLOAT_PRECISION, n);
-    let base = n.clone() / Float::with_val(FLOAT_PRECISION, 1).exp();
-    let ten_in_base = Float::with_val(FLOAT_PRECISION, 10).ln() / base.clone().ln();
+    let base = n.clone() / &*E;
+    let ten_in_base = &*LN10 / base.clone().ln();
     let (extra, _) = (n.clone() / ten_in_base.clone())
         .to_integer_round(rug::float::Round::Down)
         .expect("Got non-finite number, n is likely 0");
@@ -88,6 +98,11 @@ pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
     (factorial, extra)
 }
 
+pub fn approximate_subfactorial(n: Integer) -> (Float, Integer) {
+    let (x, e) = approximate_factorial(n);
+    (x / &*E, e)
+}
+
 /// Calculates the approximate digits of a multifactorial.
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
@@ -98,8 +113,8 @@ pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
 pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
     let n = Float::with_val(FLOAT_PRECISION, n);
     let k = Float::with_val(FLOAT_PRECISION, k);
-    let ln10 = Float::with_val(FLOAT_PRECISION, 10).ln();
-    let base = n.clone().ln() / ln10.clone();
+    let ln10 = &*LN10;
+    let base = n.clone().ln() / ln10;
     ((Float::with_val(FLOAT_PRECISION, 0.5) + n.clone() / k.clone()) * base - n / k / ln10)
         .to_integer_round(rug::float::Round::Down)
         .expect("Got non-finite number, n or k is likely 0")
@@ -111,9 +126,7 @@ pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
 /// # Panic
 /// Will panic if `x` is not finite.
 pub fn adjust_approximate_factorial((x, e): (Float, Integer)) -> (Float, Integer) {
-    let (extra, _) = x
-        .clone()
-        .log10()
+    let (extra, _) = (x.clone().ln() / &*LN10)
         .to_integer_round(rug::float::Round::Down)
         .expect("Got non-finite number, x is likely not finite");
     let x = x / (Float::with_val(FLOAT_PRECISION, 10).pow(extra.clone()));
@@ -168,8 +181,7 @@ mod tests {
         if n == &0 {
             return Integer::ONE.clone();
         }
-        Float::with_val(FLOAT_PRECISION, n)
-            .log10()
+        (Float::with_val(FLOAT_PRECISION, n).ln() / &*LN10)
             .to_integer_round(rug::float::Round::Down)
             .unwrap()
             .0

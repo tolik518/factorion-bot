@@ -317,8 +317,7 @@ impl RedditComment {
         if level > 0 {
             // Check if we can approximate the number of digits
             Some(
-                if num > Integer::from_str(UPPER_APPROXIMATION_LIMIT).unwrap()
-                    || (level > 1 && num > UPPER_CALCULATION_LIMIT)
+                if num > *UPPER_APPROXIMATION_LIMIT || (level > 1 && num > UPPER_CALCULATION_LIMIT)
                 {
                     let factorial = math::approximate_multifactorial_digits(num.clone(), level);
                     Factorial {
@@ -346,8 +345,20 @@ impl RedditComment {
             )
         } else if level == -1 {
             //TODO: Implement subfactorial further
-            if num > UPPER_SUBFACTORIAL_LIMIT {
-                None
+            if num > *UPPER_APPROXIMATION_LIMIT || (level > 1 && num > UPPER_CALCULATION_LIMIT) {
+                let factorial = math::approximate_multifactorial_digits(num.clone(), 1);
+                Some(Factorial {
+                    number: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                })
+            } else if num > UPPER_SUBFACTORIAL_LIMIT {
+                let factorial = math::approximate_subfactorial(num.clone());
+                Some(Factorial {
+                    number: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
+                })
             } else {
                 let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
                 let factorial = math::subfactorial(calc_num);
