@@ -348,10 +348,15 @@ impl RedditComment {
                     .collect()
             }
             PendingCalculation::Gamma(gamma) => {
-                vec![Some(Calculation::Gamma(Gamma {
-                    number: gamma.number.clone(),
-                    gamma: math::fractional_factorial(gamma.number.into()).into(),
-                }))]
+                let res = math::fractional_factorial(gamma.number.as_float().clone());
+                if res.is_finite() {
+                    vec![Some(Calculation::Gamma(Gamma {
+                        number: gamma.number,
+                        gamma: res.into(),
+                    }))]
+                } else {
+                    vec![None]
+                }
             }
         }
     }
