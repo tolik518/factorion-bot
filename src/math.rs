@@ -27,6 +27,10 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
     f
 }
 
+pub(crate) fn gamma(x: Float) -> Float {
+    x.gamma()
+}
+
 /// Calculates Sterling's Approximation of large factorials.
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
 ///

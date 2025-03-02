@@ -33,8 +33,15 @@ pub(crate) struct Factorial {
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+pub(crate) struct Gamma {
+    pub(crate) number: rug::float::OrdFloat,
+    pub(crate) gamma: rug::float::OrdFloat,
+}
+
+#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum Calculation {
     Factorial(Factorial),
+    Gamma(Gamma),
 }
 
 impl Ord for CalculatedFactorial {
@@ -194,12 +201,6 @@ impl Factorial {
         }
     }
 
-    pub(crate) fn is_aproximate_digits(&self) -> bool {
-        matches!(self.factorial, CalculatedFactorial::ApproximateDigits(_))
-    }
-    pub(crate) fn is_approximate(&self) -> bool {
-        matches!(self.factorial, CalculatedFactorial::Approximate(_, _))
-    }
     pub(crate) fn is_too_long(&self) -> bool {
         let n = match &self.factorial {
             CalculatedFactorial::Exact(n)
@@ -268,6 +269,19 @@ impl Factorial {
     }
 }
 
+impl Gamma {
+    pub(crate) fn format(&self, acc: &mut String) -> Result<(), std::fmt::Error> {
+        write!(
+            acc,
+            "{}{}{} is approximately {} \n\n",
+            Factorial::get_factorial_level_string(1),
+            PLACEHOLDER,
+            self.number.as_float(),
+            self.gamma.as_float()
+        )
+    }
+}
+
 impl Calculation {
     pub(crate) fn format(
         &self,
@@ -276,6 +290,7 @@ impl Calculation {
     ) -> Result<(), std::fmt::Error> {
         match self {
             Self::Factorial(fact) => fact.format(acc, force_shorten),
+            Self::Gamma(gamma) => gamma.format(acc),
         }
     }
     pub(crate) fn is_aproximate_digits(&self) -> bool {
@@ -299,6 +314,7 @@ impl Calculation {
     pub(crate) fn is_too_long(&self) -> bool {
         match self {
             Self::Factorial(fact) => fact.is_too_long(),
+            Self::Gamma(_) => false,
         }
     }
 }

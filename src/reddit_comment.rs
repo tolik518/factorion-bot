@@ -1,5 +1,5 @@
 use crate::factorial::{
-    CalculatedFactorial, Calculation, Factorial, UPPER_APPROXIMATION_LIMIT,
+    CalculatedFactorial, Calculation, Factorial, Gamma, UPPER_APPROXIMATION_LIMIT,
     UPPER_CALCULATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math::{self, FLOAT_PRECISION};
@@ -130,13 +130,19 @@ impl PendingFactorial {
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct PendingGamma {
+    number: rug::float::OrdFloat,
+}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum PendingCalculation {
     Factorial(PendingFactorial),
+    Gamma(PendingGamma),
 }
 impl PendingCalculation {
     fn part_of(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Factorial(this), Self::Factorial(other)) => this.part_of(other),
+            _ => false,
         }
     }
 }
@@ -267,6 +273,7 @@ impl RedditComment {
                 .enumerate()
                 .find(|(_, calc)| match *calc {
                     PendingCalculation::Factorial(fact) => fact == &factorial,
+                    _ => false,
                 })
             {
                 factorial_list.remove(i);
@@ -324,6 +331,12 @@ impl RedditComment {
                     .into_iter()
                     .map(|x| x.map(Calculation::Factorial))
                     .collect()
+            }
+            PendingCalculation::Gamma(gamma) => {
+                vec![Some(Calculation::Gamma(Gamma {
+                    number: gamma.number.clone(),
+                    gamma: math::gamma(gamma.number.into()).into(),
+                }))]
             }
         }
     }
