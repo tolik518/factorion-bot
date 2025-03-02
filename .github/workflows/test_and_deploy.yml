@@ -47,8 +47,8 @@ jobs:
             git fetch origin master && \
             git reset --hard origin/master  && \
             docker build -t factorion-bot . && \
-            (docker kill factorion-bot || \
-            docker run --rm -d --network service-network --name factorion-bot --volume $SSH_PATH:/usr/factorion factorion-bot:latest ./run.sh)
+            docker kill factorion-bot || true && \
+            docker run --rm -d --network service-network --name factorion-bot --volume $SSH_PATH:/usr/factorion factorion-bot:latest ./run.sh
           EOF
 
           rm -f private_key.pem # Remove the private key file after use for security
