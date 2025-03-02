@@ -164,6 +164,15 @@ impl Factorial {
         if truncated_number.len() > NUMBER_DECIMALS_SCIENTIFIC {
             math::round(&mut truncated_number);
         }
+        if let Some(mut digit) = truncated_number.pop() {
+            while digit == '0' {
+                digit = match truncated_number.pop() {
+                    Some(x) => x,
+                    None => break,
+                }
+            }
+            truncated_number.push(digit);
+        }
         // Only add decimal if we have more than one digit
         if truncated_number.len() > 1 {
             truncated_number.insert(1, '.'); // Decimal point
