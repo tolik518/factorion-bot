@@ -32,6 +32,11 @@ pub(crate) struct Factorial {
     pub(crate) factorial: CalculatedFactorial,
 }
 
+#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+pub(crate) enum Calculation {
+    Factorial(Factorial),
+}
+
 impl Ord for CalculatedFactorial {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
@@ -260,6 +265,41 @@ impl Factorial {
         };
 
         prefix
+    }
+}
+
+impl Calculation {
+    pub(crate) fn format(
+        &self,
+        acc: &mut String,
+        force_shorten: bool,
+    ) -> Result<(), std::fmt::Error> {
+        match self {
+            Self::Factorial(fact) => fact.format(acc, force_shorten),
+        }
+    }
+    pub(crate) fn is_aproximate_digits(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::ApproximateDigits(_),
+                ..
+            })
+        )
+    }
+    pub(crate) fn is_approximate(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::Approximate(_, _),
+                ..
+            })
+        )
+    }
+    pub(crate) fn is_too_long(&self) -> bool {
+        match self {
+            Self::Factorial(fact) => fact.is_too_long(),
+        }
     }
 }
 
