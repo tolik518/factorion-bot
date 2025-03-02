@@ -30,11 +30,6 @@ pub(crate) struct Factorial {
     pub(crate) factorial: CalculatedFactorial,
 }
 
-pub(crate) struct FactorialTree {
-    pub(crate) factorial: Factorial,
-    pub(crate) children: Vec<FactorialTree>,
-}
-
 impl Ord for CalculatedFactorial {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {

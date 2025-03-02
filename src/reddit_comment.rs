@@ -88,6 +88,24 @@ pub(crate) struct Commands {
     include_steps: bool,
 }
 
+impl Commands {
+    fn contains_command_format(text: &str, command: &str) -> bool {
+        let pattern1 = format!("\\[{}\\]", command);
+        let pattern2 = format!("[{}]", command);
+        let pattern3 = format!("!{}", command);
+        text.contains(&pattern1) || text.contains(&pattern2) || text.contains(&pattern3)
+    }
+
+    pub(crate) fn from_comment_text(text: &str) -> Self {
+        Self {
+            shorten: Self::contains_command_format(text, "short")
+                || Self::contains_command_format(text, "shorten"),
+            include_steps: Self::contains_command_format(text, "steps")
+                || Self::contains_command_format(text, "all"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PendingFactorial {
     base: PendingFactorialBase,
@@ -119,25 +137,7 @@ impl RedditComment {
                 .expect("Invalid factorial-chain regex")
         });
 
-        let mut commands: Commands = Commands {
-            shorten: false,
-            include_steps: false,
-        };
-
-        if comment_text.contains("\\[short\\]")
-            || comment_text.contains("\\[shorten\\]")
-            || comment_text.contains("!short")
-            || comment_text.contains("!shorten")
-        {
-            commands.shorten = true;
-        }
-        if comment_text.contains("\\[steps\\]")
-            || comment_text.contains("\\[all\\]")
-            || comment_text.contains("!steps")
-            || comment_text.contains("!all")
-        {
-            commands.include_steps = true;
-        }
+        let commands: Commands = Commands::from_comment_text(comment_text);
 
         let mut factorial_list: Vec<PendingFactorial> = Vec::new();
         let mut status: Status = Default::default();
