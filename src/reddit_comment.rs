@@ -8,7 +8,6 @@ use num_traits::ToPrimitive;
 use rug::ops::Pow;
 use rug::{Float, Integer};
 use std::fmt::Write;
-use std::str::FromStr;
 use std::sync::LazyLock;
 
 #[derive(Debug)]
@@ -122,7 +121,7 @@ impl PendingFactorial {
             return true;
         }
         while let PendingFactorialBase::Factorial(base) = &other.base {
-            other = &*base;
+            other = base;
             if self == other {
                 return true;
             }
