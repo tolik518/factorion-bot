@@ -98,10 +98,10 @@ impl Commands {
 
     pub(crate) fn from_comment_text(text: &str) -> Self {
         Self {
-            shorten: Self::contains_command_format(text, "short") ||
-                     Self::contains_command_format(text, "shorten"),
-            include_steps: Self::contains_command_format(text, "steps") ||
-                           Self::contains_command_format(text, "all"),
+            shorten: Self::contains_command_format(text, "short")
+                || Self::contains_command_format(text, "shorten"),
+            include_steps: Self::contains_command_format(text, "steps")
+                || Self::contains_command_format(text, "all"),
         }
     }
 }
