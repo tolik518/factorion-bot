@@ -98,6 +98,20 @@ enum PendingFactorialBase {
     Number(Integer),
     Factorial(Box<PendingFactorial>),
 }
+impl PendingFactorial {
+    fn part_of(&self, mut other: &Self) -> bool {
+        if self == other {
+            return true;
+        }
+        while let PendingFactorialBase::Factorial(base) = &other.base {
+            other = &*base;
+            if self == other {
+                return true;
+            }
+        }
+        false
+    }
+}
 
 enum CaptureType<'t> {
     Norm(Captures<'t>),
@@ -255,7 +269,10 @@ impl RedditComment {
                     level: factorial_level,
                 }
             }
-            factorial_list.push(factorial);
+            // dedup inner
+            if !factorial_list.iter().any(|fact| factorial.part_of(fact)) {
+                factorial_list.push(factorial);
+            }
         }
 
         factorial_list.sort();
@@ -1038,6 +1055,20 @@ mod tests {
         let reply = comment.get_reply();
         assert_eq!(reply, "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of 5 is approximately 1.9172992008293117 × 10^1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969733 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
+
+    #[test]
+    fn test_get_reply_mixed_factorial_chain() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain ((!(5!!!))!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of Subfactorial of Triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
     #[test]
     fn test_get_reply_factorial_chain_from_approximate() {
         let comment = RedditComment::new(

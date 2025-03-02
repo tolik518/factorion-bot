@@ -94,7 +94,7 @@ impl Factorial {
         acc: &mut String,
         force_shorten: bool,
     ) -> Result<(), std::fmt::Error> {
-        let factorial_string = self.levels.iter().fold(String::new(), |a, e| {
+        let factorial_string = self.levels.iter().rev().fold(String::new(), |a, e| {
             format!(
                 "{}{}{}",
                 a,
