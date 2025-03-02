@@ -3,7 +3,7 @@ use crate::factorial::{
     UPPER_SUBFACTORIAL_LIMIT,
 };
 use crate::math::{self, FLOAT_PRECISION};
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use num_traits::ToPrimitive;
 use rug::ops::Pow;
 use rug::{Float, Integer};
@@ -99,6 +99,11 @@ enum PendingFactorialBase {
     Factorial(Box<PendingFactorial>),
 }
 
+enum CaptureType<'t> {
+    Norm(Captures<'t>),
+    Sub(Captures<'t>),
+}
+
 pub(crate) const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
@@ -117,6 +122,10 @@ impl RedditComment {
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
+        });
+        static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
+                .expect("Invalid subfactorial-chain regex")
         });
 
         let mut commands: Commands = Commands {
@@ -142,77 +151,90 @@ impl RedditComment {
         let mut factorial_list: Vec<PendingFactorial> = Vec::new();
         let mut status: Status = Default::default();
 
+        let extract_captures: fn(CaptureType<'_>) -> (Integer, i32) = |captures| match captures {
+            CaptureType::Norm(captures) => (
+                captures[1]
+                    .parse::<Integer>()
+                    .expect("Failed to parse number"),
+                captures[2]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32"),
+            ),
+            CaptureType::Sub(captures) => (
+                captures[2]
+                    .parse::<Integer>()
+                    .expect("Failed to parse number"),
+                -1,
+            ),
+        };
         // for every regex/factorial in the comment
-        for regex_capture in FACTORIAL_REGEX.captures_iter(comment_text) {
-            let regex_capture = regex_capture.expect("Failed to capture regex");
-
-            let num = regex_capture[1]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-
-            let factorial_level = regex_capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-
+        for (num, factorial_level) in FACTORIAL_REGEX
+            .captures_iter(comment_text)
+            .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
+            .chain(
+                SUBFACTORIAL_REGEX
+                    .captures_iter(comment_text)
+                    .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
+            )
+            .map(extract_captures)
+        {
             factorial_list.push(PendingFactorial {
                 base: PendingFactorialBase::Number(num),
                 level: factorial_level,
             });
         }
 
-        for regex_capture in SUBFACTORIAL_REGEX.captures_iter(comment_text) {
-            let regex_capture = regex_capture.expect("Failed to capture regex");
-
-            let num = regex_capture[2]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-
-            factorial_list.push(PendingFactorial {
-                base: PendingFactorialBase::Number(num),
-                level: -1,
-            });
-        }
-
-        for regex_capture in FACTORIAL_CHAIN_REGEX.captures_iter(comment_text) {
-            let regex_capture = regex_capture.expect("Failed to capture regex");
-
-            // Get outermost capture info (level and inner)
-            let mut factorial_levels = vec![regex_capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32")];
-            let mut current_string = regex_capture[1].to_string();
-
+        let extract_captures_chain: fn(CaptureType<'_>) -> (String, i32) = |captures| match captures
+        {
+            CaptureType::Norm(captures) => (
+                captures[1].to_string(),
+                captures[2]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32"),
+            ),
+            CaptureType::Sub(captures) => (captures[2].to_string(), -1),
+        };
+        for (mut current_string, factorial_level) in FACTORIAL_CHAIN_REGEX
+            .captures_iter(comment_text)
+            .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
+            .chain(
+                SUBFACTORIAL_CHAIN_REGEX
+                    .captures_iter(comment_text)
+                    .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
+            )
+            .map(extract_captures_chain)
+        {
+            let mut factorial_levels = vec![factorial_level];
             // Recurse to the innermost chain capture
-            while let Some(regex_capture) = FACTORIAL_CHAIN_REGEX
+            while let Some((string, factorial_level)) = FACTORIAL_CHAIN_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
+                .map(CaptureType::Norm)
+                .or(SUBFACTORIAL_CHAIN_REGEX
+                    .captures(&current_string)
+                    .expect("Failed to capture regex")
+                    .map(CaptureType::Sub))
+                .map(extract_captures_chain)
             {
-                factorial_levels.push(
-                    regex_capture[2]
-                        .len()
-                        .to_i32()
-                        .expect("Failed to convert exclamation count to i32"),
-                );
-                current_string = regex_capture[1].to_string();
+                factorial_levels.push(factorial_level);
+                current_string = string;
             }
 
             // Get the normal factorial at the core
-            let Some(regex_capture) = FACTORIAL_REGEX
+            let Some((num, factorial_level)) = FACTORIAL_REGEX
                 .captures(&current_string)
                 .expect("Failed to capture regex")
+                .map(CaptureType::Norm)
+                .or(SUBFACTORIAL_CHAIN_REGEX
+                    .captures(&current_string)
+                    .expect("Failed to capture regex")
+                    .map(CaptureType::Sub))
+                .map(extract_captures)
             else {
                 continue;
             };
-
-            let factorial_level = regex_capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            let num = regex_capture[1]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
 
             // Package it all as a PendingFactorial
             let mut factorial = PendingFactorial {
