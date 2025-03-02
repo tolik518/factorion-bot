@@ -167,6 +167,9 @@ impl RedditComment {
             Regex::new(r"(?<![,.!?\d])(!)\b(\d+)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial regex")
         });
+        static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
+        });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
@@ -178,7 +181,7 @@ impl RedditComment {
 
         let commands: Commands = Commands::from_comment_text(comment_text);
 
-        let mut factorial_list: Vec<PendingCalculation> = Vec::new();
+        let mut calculation_list: Vec<PendingCalculation> = Vec::new();
         let mut status: Status = Default::default();
 
         let extract_captures: fn(CaptureType<'_>) -> PendingFactorial = |captures| match captures {
@@ -203,7 +206,7 @@ impl RedditComment {
             },
         };
         // capture all (sub)factorials
-        factorial_list.extend(
+        calculation_list.extend(
             FACTORIAL_REGEX
                 .captures_iter(comment_text)
                 .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
@@ -215,6 +218,14 @@ impl RedditComment {
                 .map(extract_captures)
                 .map(PendingCalculation::Factorial),
         );
+        // capture all gammas
+        calculation_list.extend(GAMMA_REGEX.captures_iter(comment_text).map(|captures| {
+            let captures = captures.expect("Failed to capture regex");
+            let gamma = captures[1].parse::<f64>().expect("Failed to parse float");
+            PendingCalculation::Gamma(PendingGamma {
+                number: Float::with_val(FLOAT_PRECISION, gamma).into(),
+            })
+        }));
 
         let extract_captures_chain: fn(CaptureType<'_>) -> (String, i32) = |captures| match captures
         {
@@ -268,15 +279,16 @@ impl RedditComment {
             };
 
             // Remove duplicate base (also captured by factorial regex)
-            if let Some((i, _)) = factorial_list
-                .iter()
-                .enumerate()
-                .find(|(_, calc)| match *calc {
-                    PendingCalculation::Factorial(fact) => fact == &factorial,
-                    _ => false,
-                })
+            if let Some((i, _)) =
+                calculation_list
+                    .iter()
+                    .enumerate()
+                    .find(|(_, calc)| match *calc {
+                        PendingCalculation::Factorial(fact) => fact == &factorial,
+                        _ => false,
+                    })
             {
-                factorial_list.remove(i);
+                calculation_list.remove(i);
             }
             for factorial_level in factorial_levels.into_iter().rev() {
                 factorial = PendingFactorial {
@@ -286,15 +298,18 @@ impl RedditComment {
             }
             let calculation = PendingCalculation::Factorial(factorial);
             // dedup inner
-            if !factorial_list.iter().any(|calc| calculation.part_of(calc)) {
-                factorial_list.push(calculation);
+            if !calculation_list
+                .iter()
+                .any(|calc| calculation.part_of(calc))
+            {
+                calculation_list.push(calculation);
             }
         }
 
-        factorial_list.sort();
-        factorial_list.dedup();
+        calculation_list.sort();
+        calculation_list.dedup();
 
-        let factorial_list: Vec<Calculation> = factorial_list
+        let factorial_list: Vec<Calculation> = calculation_list
             .into_iter()
             .flat_map(|fact| Self::calculate_pending(fact, commands.include_steps))
             .filter_map(|x| {
@@ -335,7 +350,7 @@ impl RedditComment {
             PendingCalculation::Gamma(gamma) => {
                 vec![Some(Calculation::Gamma(Gamma {
                     number: gamma.number.clone(),
-                    gamma: math::gamma(gamma.number.into()).into(),
+                    gamma: math::fractional_factorial(gamma.number.into()).into(),
                 }))]
             }
         }
@@ -712,8 +727,19 @@ mod tests {
             "test_author",
             "test_subreddit",
         );
-        assert_eq!(comment.calculation_list, vec![]);
-        assert_eq!(comment.status, Status::NO_FACTORIAL);
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation::Factorial(_) => unreachable!("No normal factorial included"),
+                    Calculation::Gamma(Gamma { number, gamma }) =>
+                        (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                })
+                .collect::<Vec<_>>(),
+            vec![(0.5, 0.886226925452758)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
 
     #[test]
