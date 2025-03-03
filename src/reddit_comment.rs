@@ -1,7 +1,9 @@
 //! Parses comments and generates the reply.
-use crate::calculated::Calculation;
 use crate::math::FLOAT_PRECISION;
+
+use crate::calculated::Calculation;
 use crate::pending::{PendingCalculation, PendingFactorial, PendingFactorialBase, PendingGamma};
+
 use fancy_regex::{Captures, Regex};
 use num_traits::ToPrimitive;
 use rug::{Float, Integer};

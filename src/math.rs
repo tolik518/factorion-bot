@@ -100,12 +100,12 @@ pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
         .reduce(|a, e| a + e)
         .unwrap_or(Float::new(FLOAT_PRECISION));
     let factorial = factorial * series_sum;
-    (factorial, extra)
+    adjust_approximate_factorial((factorial, extra))
 }
 
 pub fn approximate_subfactorial(n: Integer) -> (Float, Integer) {
     let (x, e) = approximate_factorial(n);
-    (x / &*E, e)
+    adjust_approximate_factorial((x / &*E, e))
 }
 
 /// Calculates the approximate digits of a multifactorial.
@@ -130,49 +130,13 @@ pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
 ///
 /// # Panic
 /// Will panic if `x` is not finite.
-pub fn adjust_approximate_factorial((x, e): (Float, Integer)) -> (Float, Integer) {
+fn adjust_approximate_factorial((x, e): (Float, Integer)) -> (Float, Integer) {
     let (extra, _) = (x.clone().ln() / &*LN10)
         .to_integer_round(rug::float::Round::Down)
         .expect("Got non-finite number, x is likely not finite");
     let x = x / (Float::with_val(FLOAT_PRECISION, 10).pow(extra.clone()));
     let total_exponent = extra + e;
     (x, total_exponent)
-}
-
-/// Rounds a base 10 number string.
-/// Uses the last digit to decide the rounding direction.
-/// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
-/// If the input is all 9s, this will round to 10.
-///
-/// # Panic
-/// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
-pub(crate) fn round(number: &mut String) {
-    // Check additional digit if we need to round
-    if let Some(digit) = number
-        .pop()
-        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-    {
-        if digit >= 5 {
-            let mut last_digit = number
-                .pop()
-                .and_then(|n| n.to_digit(10))
-                .expect("Not a base 10 number");
-            // Carry over at 9s
-            while last_digit == 9 {
-                let Some(digit) = number
-                    .pop()
-                    .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-                else {
-                    // If we reached the end we get 10
-                    *number = "10".to_string();
-                    return;
-                };
-                last_digit = digit;
-            }
-            // Round up
-            number.push_str(&format!("{}", last_digit + 1));
-        }
-    }
 }
 
 #[cfg(test)]
@@ -354,27 +318,6 @@ mod tests {
     }
 
     #[test]
-    fn test_round_down() {
-        let mut number = String::from("1929472373");
-        round(&mut number);
-        assert_eq!(number, "192947237");
-    }
-
-    #[test]
-    fn test_round_up() {
-        let mut number = String::from("74836748625");
-        round(&mut number);
-        assert_eq!(number, "7483674863");
-    }
-
-    #[test]
-    fn test_round_carry() {
-        let mut number = String::from("24999999995");
-        round(&mut number);
-        assert_eq!(number, "25");
-    }
-
-    #[test]
     fn test_calculate_subfactorial() {
         assert_eq!(subfactorial(0), Integer::from(1));
         assert_eq!(subfactorial(1), Integer::from_str("0").unwrap());
@@ -459,7 +402,7 @@ mod tests {
     ///
     /// Moved here, because it only serves now as a better way to write tests (no need to write the full Float)
     fn format_approximate_factorial((x, e): (Float, Integer)) -> String {
-        let (x, e) = adjust_approximate_factorial((x, e));
+        let (x, e) = (x, e);
         let x = x.to_f64();
         format!("{x} × 10^{e}")
     }

@@ -1,7 +1,8 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
-use crate::math::{self, adjust_approximate_factorial, FLOAT_PRECISION};
+use crate::math::{FLOAT_PRECISION, LN10};
 use crate::pending::TOO_BIG_NUMBER;
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
+
 use rug::float::OrdFloat;
 use rug::ops::Pow;
 use rug::{Float, Integer};
@@ -98,8 +99,7 @@ impl Factorial {
                 )
             }
             CalculatedFactorial::Approximate(base, exponent) => {
-                let (base, exponent) =
-                    adjust_approximate_factorial((base.as_float().clone(), exponent.clone()));
+                let (base, exponent) = (base.as_float().clone(), exponent.clone());
                 let exponent = if self.is_too_long() || force_shorten {
                     format!("({})", Self::truncate(&exponent, false))
                 } else {
@@ -138,7 +138,7 @@ impl Factorial {
     }
 
     fn truncate(number: &Integer, add_roughly: bool) -> String {
-        let length = (Float::with_val(FLOAT_PRECISION, number).ln() / &*math::LN10)
+        let length = (Float::with_val(FLOAT_PRECISION, number).ln() / &*LN10)
             .to_integer_round(rug::float::Round::Down)
             .unwrap()
             .0;
@@ -149,7 +149,7 @@ impl Factorial {
                 .unwrap());
         let mut truncated_number = truncated_number.to_string();
         if truncated_number.len() > NUMBER_DECIMALS_SCIENTIFIC {
-            math::round(&mut truncated_number);
+            Self::round(&mut truncated_number);
         }
         if let Some(mut digit) = truncated_number.pop() {
             while digit == '0' {
@@ -173,6 +173,42 @@ impl Factorial {
             )
         } else {
             number.to_string()
+        }
+    }
+
+    /// Rounds a base 10 number string.
+    /// Uses the last digit to decide the rounding direction.
+    /// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
+    /// If the input is all 9s, this will round to 10.
+    ///
+    /// # Panic
+    /// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
+    fn round(number: &mut String) {
+        // Check additional digit if we need to round
+        if let Some(digit) = number
+            .pop()
+            .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+        {
+            if digit >= 5 {
+                let mut last_digit = number
+                    .pop()
+                    .and_then(|n| n.to_digit(10))
+                    .expect("Not a base 10 number");
+                // Carry over at 9s
+                while last_digit == 9 {
+                    let Some(digit) = number
+                        .pop()
+                        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+                    else {
+                        // If we reached the end we get 10
+                        *number = "10".to_string();
+                        return;
+                    };
+                    last_digit = digit;
+                }
+                // Round up
+                number.push_str(&format!("{}", last_digit + 1));
+            }
         }
     }
 
@@ -260,8 +296,29 @@ impl Gamma {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use math::FLOAT_PRECISION;
+    use crate::math::FLOAT_PRECISION;
     use rug::Integer;
+
+    #[test]
+    fn test_round_down() {
+        let mut number = String::from("1929472373");
+        Factorial::round(&mut number);
+        assert_eq!(number, "192947237");
+    }
+
+    #[test]
+    fn test_round_up() {
+        let mut number = String::from("74836748625");
+        Factorial::round(&mut number);
+        assert_eq!(number, "7483674863");
+    }
+
+    #[test]
+    fn test_round_carry() {
+        let mut number = String::from("24999999995");
+        Factorial::round(&mut number);
+        assert_eq!(number, "25");
+    }
 
     #[test]
     fn test_factorial_level_string() {
@@ -300,8 +357,8 @@ mod tests {
             number: 5.into(),
             levels: vec![1],
             factorial: CalculatedFactorial::Approximate(
-                Float::with_val(FLOAT_PRECISION, 120).into(),
-                3.into(),
+                Float::with_val(FLOAT_PRECISION, 1.2).into(),
+                5.into(),
             ),
         };
         factorial.format(&mut acc, false).unwrap();

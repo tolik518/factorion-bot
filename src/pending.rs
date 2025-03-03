@@ -1,8 +1,11 @@
 //! This module handles the calulation of pending calculations
+use crate::math::FLOAT_PRECISION;
+
 use crate::{
     calculated::{CalculatedFactorial, Calculation, Factorial, Gamma},
-    math::{self, FLOAT_PRECISION},
+    math,
 };
+
 use rug::{ops::Pow, Float, Integer};
 use std::{str::FromStr, sync::LazyLock};
 
