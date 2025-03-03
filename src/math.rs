@@ -177,8 +177,8 @@ pub(crate) fn round(number: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::factorial::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
+    use crate::pending::UPPER_CALCULATION_LIMIT;
     use std::str::FromStr;
 
     fn length(n: &Integer) -> Integer {

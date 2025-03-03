@@ -1,27 +1,16 @@
+//! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 use crate::math::{self, adjust_approximate_factorial, FLOAT_PRECISION};
+use crate::pending::TOO_BIG_NUMBER;
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
+use rug::float::OrdFloat;
 use rug::ops::Pow;
 use rug::{Float, Integer};
 use std::fmt::Write;
-use std::str::FromStr;
-use std::sync::LazyLock;
 
-// Limit for exact calculation, set to limit calculation time
-pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
-// Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
-    Integer::from_str("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()
-});
-// Limit for exact subfactorial calculation, set to limit calculation time
-pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
-
-pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
-    LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum CalculatedFactorial {
     Exact(Integer),
-    Approximate(Float, Integer),
+    Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
 }
 
@@ -34,8 +23,8 @@ pub(crate) struct Factorial {
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Gamma {
-    pub(crate) number: rug::float::OrdFloat,
-    pub(crate) gamma: rug::float::OrdFloat,
+    pub(crate) number: OrdFloat,
+    pub(crate) gamma: OrdFloat,
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
@@ -44,53 +33,39 @@ pub(crate) enum Calculation {
     Gamma(Gamma),
 }
 
-impl Ord for CalculatedFactorial {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self, other) {
-            (Self::Exact(this), Self::Exact(other)) => this.cmp(other),
-            (Self::Exact(_), _) => std::cmp::Ordering::Greater,
-            (Self::Approximate(this_base, this_exp), Self::Approximate(other_base, other_exp)) => {
-                let exp_ord = this_exp.cmp(other_exp);
-                let std::cmp::Ordering::Equal = exp_ord else {
-                    return exp_ord;
-                };
-                this_base.total_cmp(other_base)
-            }
-            (Self::Approximate(_, _), _) => std::cmp::Ordering::Greater,
-            (Self::ApproximateDigits(this), Self::ApproximateDigits(other)) => this.cmp(other),
-            (Self::ApproximateDigits(_), _) => std::cmp::Ordering::Less,
+impl Calculation {
+    pub(crate) fn format(
+        &self,
+        acc: &mut String,
+        force_shorten: bool,
+    ) -> Result<(), std::fmt::Error> {
+        match self {
+            Self::Factorial(fact) => fact.format(acc, force_shorten),
+            Self::Gamma(gamma) => gamma.format(acc),
         }
     }
-}
-
-impl PartialOrd for CalculatedFactorial {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    pub(crate) fn is_aproximate_digits(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::ApproximateDigits(_),
+                ..
+            })
+        )
     }
-}
-
-impl Eq for CalculatedFactorial {}
-
-impl std::hash::Hash for CalculatedFactorial {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    pub(crate) fn is_approximate(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::Approximate(_, _),
+                ..
+            })
+        )
+    }
+    pub(crate) fn is_too_long(&self) -> bool {
         match self {
-            Self::Exact(factorial) => {
-                state.write_u8(1);
-                factorial.hash(state);
-            }
-            Self::Approximate(base, exponent) => {
-                state.write_u8(2);
-                let raw_base = base.clone().into_raw();
-                raw_base.prec.hash(state);
-                raw_base.sign.hash(state);
-                raw_base.exp.hash(state);
-                raw_base.d.hash(state);
-                exponent.hash(state);
-            }
-            Self::ApproximateDigits(digits) => {
-                state.write_u8(3);
-                digits.hash(state);
-            }
+            Self::Factorial(fact) => fact.is_too_long(),
+            Self::Gamma(_) => false,
         }
     }
 }
@@ -124,7 +99,7 @@ impl Factorial {
             }
             CalculatedFactorial::Approximate(base, exponent) => {
                 let (base, exponent) =
-                    adjust_approximate_factorial((base.clone(), exponent.clone()));
+                    adjust_approximate_factorial((base.as_float().clone(), exponent.clone()));
                 let exponent = if self.is_too_long() || force_shorten {
                     format!("({})", Self::truncate(&exponent, false))
                 } else {
@@ -282,43 +257,6 @@ impl Gamma {
     }
 }
 
-impl Calculation {
-    pub(crate) fn format(
-        &self,
-        acc: &mut String,
-        force_shorten: bool,
-    ) -> Result<(), std::fmt::Error> {
-        match self {
-            Self::Factorial(fact) => fact.format(acc, force_shorten),
-            Self::Gamma(gamma) => gamma.format(acc),
-        }
-    }
-    pub(crate) fn is_aproximate_digits(&self) -> bool {
-        matches!(
-            self,
-            Calculation::Factorial(Factorial {
-                factorial: CalculatedFactorial::ApproximateDigits(_),
-                ..
-            })
-        )
-    }
-    pub(crate) fn is_approximate(&self) -> bool {
-        matches!(
-            self,
-            Calculation::Factorial(Factorial {
-                factorial: CalculatedFactorial::Approximate(_, _),
-                ..
-            })
-        )
-    }
-    pub(crate) fn is_too_long(&self) -> bool {
-        match self {
-            Self::Factorial(fact) => fact.is_too_long(),
-            Self::Gamma(_) => false,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,7 +300,7 @@ mod tests {
             number: 5.into(),
             levels: vec![1],
             factorial: CalculatedFactorial::Approximate(
-                Float::with_val(FLOAT_PRECISION, 120),
+                Float::with_val(FLOAT_PRECISION, 120).into(),
                 3.into(),
             ),
         };

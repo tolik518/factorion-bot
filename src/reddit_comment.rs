@@ -1,11 +1,8 @@
-use crate::factorial::{
-    CalculatedFactorial, Calculation, Factorial, Gamma, UPPER_APPROXIMATION_LIMIT,
-    UPPER_CALCULATION_LIMIT, UPPER_SUBFACTORIAL_LIMIT,
-};
-use crate::math::{self, FLOAT_PRECISION};
+use crate::calculated::Calculation;
+use crate::math::FLOAT_PRECISION;
+use crate::pending::{PendingCalculation, PendingFactorial, PendingFactorialBase, PendingGamma};
 use fancy_regex::{Captures, Regex};
 use num_traits::ToPrimitive;
-use rug::ops::Pow;
 use rug::{Float, Integer};
 use std::fmt::Write;
 use std::sync::LazyLock;
@@ -101,48 +98,6 @@ impl Commands {
                 || Self::contains_command_format(text, "shorten"),
             include_steps: Self::contains_command_format(text, "steps")
                 || Self::contains_command_format(text, "all"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct PendingFactorial {
-    base: PendingFactorialBase,
-    level: i32,
-}
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum PendingFactorialBase {
-    Number(Integer),
-    Factorial(Box<PendingFactorial>),
-}
-impl PendingFactorial {
-    fn part_of(&self, mut other: &Self) -> bool {
-        if self == other {
-            return true;
-        }
-        while let PendingFactorialBase::Factorial(base) = &other.base {
-            other = base;
-            if self == other {
-                return true;
-            }
-        }
-        false
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct PendingGamma {
-    number: rug::float::OrdFloat,
-}
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum PendingCalculation {
-    Factorial(PendingFactorial),
-    Gamma(PendingGamma),
-}
-impl PendingCalculation {
-    fn part_of(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Factorial(this), Self::Factorial(other)) => this.part_of(other),
-            _ => false,
         }
     }
 }
@@ -310,7 +265,7 @@ impl RedditComment {
 
         let factorial_list: Vec<Calculation> = calculation_list
             .into_iter()
-            .flat_map(|fact| Self::calculate_pending(fact, commands.include_steps))
+            .flat_map(|calc| calc.calculate(commands.include_steps))
             .filter_map(|x| {
                 if x.is_none() {
                     status.number_too_big_to_calculate = true;
@@ -332,137 +287,6 @@ impl RedditComment {
             calculation_list: factorial_list,
             status,
             commands,
-        }
-    }
-
-    fn calculate_pending(
-        calculation: PendingCalculation,
-        include_steps: bool,
-    ) -> Vec<Option<Calculation>> {
-        match calculation {
-            PendingCalculation::Factorial(fact) => {
-                Self::calculate_pending_factorial(fact, include_steps)
-                    .into_iter()
-                    .map(|x| x.map(Calculation::Factorial))
-                    .collect()
-            }
-            PendingCalculation::Gamma(gamma) => {
-                let res = math::fractional_factorial(gamma.number.as_float().clone());
-                if res.is_finite() {
-                    vec![Some(Calculation::Gamma(Gamma {
-                        number: gamma.number,
-                        gamma: res.into(),
-                    }))]
-                } else {
-                    vec![None]
-                }
-            }
-        }
-    }
-
-    fn calculate_pending_factorial(
-        PendingFactorial { base, level }: PendingFactorial,
-        include_steps: bool,
-    ) -> Vec<Option<Factorial>> {
-        match base {
-            PendingFactorialBase::Number(num) => {
-                vec![Self::calculate_appropriate_factorial(num, level)]
-            }
-            PendingFactorialBase::Factorial(factorial) => {
-                let mut factorials = Self::calculate_pending_factorial(*factorial, include_steps);
-                match factorials.last() {
-                    Some(Some(Factorial {
-                        factorial: res,
-                        levels,
-                        number,
-                    })) => {
-                        let res = match res {
-                            CalculatedFactorial::Exact(res) => res.clone(),
-                            CalculatedFactorial::Approximate(base, exponent) => {
-                                let res = base * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
-                                let Some(res) = res.to_integer() else {
-                                    return factorials;
-                                };
-                                res
-                            }
-                            _ => return factorials,
-                        };
-                        let factorial =
-                            Self::calculate_appropriate_factorial(res, level).map(|mut res| {
-                                let current_levels = res.levels;
-                                res.levels = levels.clone();
-                                res.levels.extend(current_levels);
-                                res.number = number.clone();
-                                res
-                            });
-                        if include_steps {
-                            factorials.push(factorial);
-                        } else {
-                            factorials = vec![factorial];
-                        }
-                    }
-                    _ => return factorials,
-                };
-                factorials
-            }
-        }
-    }
-    fn calculate_appropriate_factorial(num: Integer, level: i32) -> Option<Factorial> {
-        if level > 0 {
-            // Check if we can approximate the number of digits
-            Some(
-                if num > *UPPER_APPROXIMATION_LIMIT || (level > 1 && num > UPPER_CALCULATION_LIMIT)
-                {
-                    let factorial = math::approximate_multifactorial_digits(num.clone(), level);
-                    Factorial {
-                        number: num,
-                        levels: vec![level],
-                        factorial: CalculatedFactorial::ApproximateDigits(factorial),
-                    }
-                // Check if the number is within a reasonable range to compute
-                } else if num > UPPER_CALCULATION_LIMIT {
-                    let factorial = math::approximate_factorial(num.clone());
-                    Factorial {
-                        number: num,
-                        levels: vec![level],
-                        factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
-                    }
-                } else {
-                    let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-                    let factorial = math::factorial(calc_num, level);
-                    Factorial {
-                        number: num,
-                        levels: vec![level],
-                        factorial: CalculatedFactorial::Exact(factorial),
-                    }
-                },
-            )
-        } else if level == -1 {
-            if num > *UPPER_APPROXIMATION_LIMIT {
-                let factorial = math::approximate_multifactorial_digits(num.clone(), 1);
-                Some(Factorial {
-                    number: num,
-                    levels: vec![-1],
-                    factorial: CalculatedFactorial::ApproximateDigits(factorial),
-                })
-            } else if num > UPPER_SUBFACTORIAL_LIMIT {
-                let factorial = math::approximate_subfactorial(num.clone());
-                Some(Factorial {
-                    number: num,
-                    levels: vec![-1],
-                    factorial: CalculatedFactorial::Approximate(factorial.0, factorial.1),
-                })
-            } else {
-                let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial = math::subfactorial(calc_num);
-                Some(Factorial {
-                    number: num,
-                    levels: vec![-1],
-                    factorial: CalculatedFactorial::Exact(factorial),
-                })
-            }
-        } else {
-            None
         }
     }
 
@@ -589,6 +413,11 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        calculated::{CalculatedFactorial, Factorial, Gamma},
+        math,
+    };
+
     use super::*;
 
     #[test]
@@ -1197,7 +1026,7 @@ mod tests {
                     levels: vec![1],
                     factorial: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
-                        CalculatedFactorial::Approximate(base, exponent)
+                        CalculatedFactorial::Approximate(base.into(), exponent)
                     },
                 }),
                 Calculation::Factorial(Factorial {
