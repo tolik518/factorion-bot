@@ -105,11 +105,6 @@ impl Commands {
     }
 }
 
-enum CaptureType<'t> {
-    Norm(Captures<'t>),
-    Sub(Captures<'t>),
-}
-
 pub(crate) const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
@@ -119,149 +114,11 @@ pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 impl RedditComment {
     /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [pending](crate::pending).
     pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
-        static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
-        });
-        static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.\d]|&lt;)").expect("Invalid subfactorial regex")
-        });
-        static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
-        });
-        static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
-                .expect("Invalid factorial-chain regex")
-        });
-        static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
-                .expect("Invalid subfactorial-chain regex")
-        });
-
         let commands: Commands = Commands::from_comment_text(comment_text);
 
-        let mut pending_list: Vec<PendingCalculation> = Vec::new();
         let mut status: Status = Default::default();
 
-        let extract_captures: fn(CaptureType<'_>) -> PendingFactorial = |captures| match captures {
-            CaptureType::Norm(captures) => PendingFactorial {
-                base: PendingFactorialBase::Number(
-                    captures[1]
-                        .parse::<Integer>()
-                        .expect("Failed to parse number"),
-                ),
-                level: captures[2]
-                    .len()
-                    .to_i32()
-                    .expect("Failed to convert exclamation count to i32"),
-            },
-            CaptureType::Sub(captures) => PendingFactorial {
-                base: PendingFactorialBase::Number(
-                    captures[2]
-                        .parse::<Integer>()
-                        .expect("Failed to parse number"),
-                ),
-                level: -1,
-            },
-        };
-        // capture all (sub)factorials
-        pending_list.extend(
-            FACTORIAL_REGEX
-                .captures_iter(comment_text)
-                .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
-                .chain(
-                    SUBFACTORIAL_REGEX
-                        .captures_iter(comment_text)
-                        .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
-                )
-                .map(extract_captures)
-                .map(PendingCalculation::Factorial),
-        );
-        // capture all gammas
-        pending_list.extend(GAMMA_REGEX.captures_iter(comment_text).map(|captures| {
-            let captures = captures.expect("Failed to capture regex");
-            let gamma = captures[1].parse::<f64>().expect("Failed to parse float");
-            PendingCalculation::Gamma(PendingGamma {
-                number: Float::with_val(FLOAT_PRECISION, gamma).into(),
-            })
-        }));
-
-        let extract_captures_chain: fn(CaptureType<'_>) -> (String, i32) = |captures| match captures
-        {
-            CaptureType::Norm(captures) => (
-                captures[1].to_string(),
-                captures[2]
-                    .len()
-                    .to_i32()
-                    .expect("Failed to convert exclamation count to i32"),
-            ),
-            CaptureType::Sub(captures) => (captures[2].to_string(), -1),
-        };
-        for (mut current_string, factorial_level) in FACTORIAL_CHAIN_REGEX
-            .captures_iter(comment_text)
-            .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
-            .chain(
-                SUBFACTORIAL_CHAIN_REGEX
-                    .captures_iter(comment_text)
-                    .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
-            )
-            .map(extract_captures_chain)
-        {
-            let mut factorial_levels = vec![factorial_level];
-            // Recurse to the innermost chain capture
-            while let Some((string, factorial_level)) = FACTORIAL_CHAIN_REGEX
-                .captures(&current_string)
-                .expect("Failed to capture regex")
-                .map(CaptureType::Norm)
-                .or(SUBFACTORIAL_CHAIN_REGEX
-                    .captures(&current_string)
-                    .expect("Failed to capture regex")
-                    .map(CaptureType::Sub))
-                .map(extract_captures_chain)
-            {
-                factorial_levels.push(factorial_level);
-                current_string = string;
-            }
-
-            // Capture the normal factorial at the core
-            let Some(mut factorial) = FACTORIAL_REGEX
-                .captures(&current_string)
-                .expect("Failed to capture regex")
-                .map(CaptureType::Norm)
-                .or(SUBFACTORIAL_REGEX
-                    .captures(&current_string)
-                    .expect("Failed to capture regex")
-                    .map(CaptureType::Sub))
-                .map(extract_captures)
-            else {
-                continue;
-            };
-
-            // Remove duplicate base (also captured by factorial regex)
-            if let Some((i, _)) = pending_list
-                .iter()
-                .enumerate()
-                .find(|(_, calc)| match *calc {
-                    PendingCalculation::Factorial(fact) => fact == &factorial,
-                    _ => false,
-                })
-            {
-                pending_list.remove(i);
-            }
-            for factorial_level in factorial_levels.into_iter().rev() {
-                factorial = PendingFactorial {
-                    base: PendingFactorialBase::Factorial(Box::new(factorial)),
-                    level: factorial_level,
-                }
-            }
-            let calculation = PendingCalculation::Factorial(factorial);
-            // dedup inner
-            if !pending_list.iter().any(|calc| calculation.part_of(calc)) {
-                pending_list.push(calculation);
-            }
-        }
-
-        pending_list.sort();
-        pending_list.dedup();
+        let pending_list: Vec<PendingCalculation> = Self::extract_pending(comment_text);
 
         let calculation_list: Vec<Calculation> = pending_list
             .into_iter()
@@ -288,6 +145,143 @@ impl RedditComment {
             status,
             commands,
         }
+    }
+
+    fn extract_pending(text: &str) -> Vec<PendingCalculation> {
+        enum CaptureType<'t> {
+            Norm(Captures<'t>),
+            Sub(Captures<'t>),
+            NormChain(Captures<'t>),
+            SubChain(Captures<'t>),
+            Gamma(Captures<'t>),
+        }
+        static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+        });
+        static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.,\d]|&lt;)")
+                .expect("Invalid subfactorial regex")
+        });
+        static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
+        });
+        static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
+                .expect("Invalid factorial-chain regex")
+        });
+        static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
+                .expect("Invalid subfactorial-chain regex")
+        });
+        let mut list = SUBFACTORIAL_CHAIN_REGEX
+            .captures_iter(text)
+            .map(|c| CaptureType::SubChain(c.expect("Failed to capture regex")))
+            .chain(
+                FACTORIAL_CHAIN_REGEX
+                    .captures_iter(text)
+                    .map(|c| CaptureType::NormChain(c.expect("Failed to capture regex"))),
+            )
+            .chain(
+                SUBFACTORIAL_REGEX
+                    .captures_iter(text)
+                    .map(|c| CaptureType::Sub(c.expect("Failed to capture regex"))),
+            )
+            .chain(
+                FACTORIAL_REGEX
+                    .captures_iter(text)
+                    .map(|c| CaptureType::Norm(c.expect("Failed to capture regex"))),
+            )
+            .chain(
+                GAMMA_REGEX
+                    .captures_iter(text)
+                    .map(|c| CaptureType::Gamma(c.expect("Failed to capture regex"))),
+            )
+            .filter_map(|capture| match capture {
+                CaptureType::Norm(capture) => {
+                    Some(PendingCalculation::Factorial(PendingFactorial {
+                        base: PendingFactorialBase::Number(
+                            capture[1]
+                                .parse::<Integer>()
+                                .expect("Failed to parse number"),
+                        ),
+                        level: capture[2]
+                            .len()
+                            .to_i32()
+                            .expect("Failed to convert exclamation count to i32"),
+                    }))
+                }
+                CaptureType::Sub(capture) => {
+                    Some(PendingCalculation::Factorial(PendingFactorial {
+                        base: PendingFactorialBase::Number(
+                            capture[2]
+                                .parse::<Integer>()
+                                .expect("Failed to parse number"),
+                        ),
+                        level: -1,
+                    }))
+                }
+                CaptureType::NormChain(capture) => {
+                    let text = &capture[1];
+                    let level = capture[2]
+                        .len()
+                        .to_i32()
+                        .expect("Failed to convert exclamation count to i32");
+                    let mut inner = Self::extract_pending(text);
+                    if inner.is_empty() {
+                        return None;
+                    }
+                    inner.sort_by_key(|x| x.depth());
+                    inner.reverse();
+                    let inner = inner.remove(0);
+                    Some(PendingCalculation::Factorial(PendingFactorial {
+                        base: PendingFactorialBase::Calc(Box::new(inner)),
+                        level,
+                    }))
+                }
+                CaptureType::SubChain(capture) => {
+                    let text = &capture[2];
+                    let mut inner = Self::extract_pending(text);
+                    if inner.is_empty() {
+                        return None;
+                    }
+                    inner.sort_by_key(|x| x.depth());
+                    inner.reverse();
+                    let inner = inner.remove(0);
+                    Some(PendingCalculation::Factorial(PendingFactorial {
+                        base: PendingFactorialBase::Calc(Box::new(inner)),
+                        level: -1,
+                    }))
+                }
+                CaptureType::Gamma(capture) => {
+                    let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
+                    Some(PendingCalculation::Gamma(PendingGamma {
+                        number: Float::with_val(FLOAT_PRECISION, gamma).into(),
+                    }))
+                }
+            })
+            .collect::<Vec<_>>();
+        // dedup the list
+        // sort by depth (and other)
+        list.sort();
+        list.sort_unstable_by_key(|x| x.depth());
+        // remove all inner pendings
+        let mut i = 0;
+        while i < list.len() {
+            let pending = &list[i];
+            if list.iter().enumerate().any(|(j, pend)| {
+                // don't remove self
+                i != j
+                    // don't remove doubles (explicit request for inner)
+                    && list.get(i + 1) != Some(pending)
+                    && pending.part_of(pend)
+            }) {
+                list.remove(i);
+                continue;
+            }
+            i += 1;
+        }
+        list.dedup();
+        list
     }
 
     pub(crate) fn new_already_replied(id: &str, author: &str, subreddit: &str) -> Self {

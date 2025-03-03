@@ -34,7 +34,7 @@ pub struct PendingFactorial {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PendingFactorialBase {
     Number(Integer),
-    Factorial(Box<PendingFactorial>),
+    Calc(Box<PendingCalculation>),
 }
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PendingGamma {
@@ -43,18 +43,20 @@ pub struct PendingGamma {
 
 impl PendingCalculation {
     pub fn part_of(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Factorial(this), Self::Factorial(other)) => this.part_of(other),
-            _ => false,
-        }
+        self == other
+            || match other {
+                Self::Factorial(PendingFactorial {
+                    base: PendingFactorialBase::Calc(inner),
+                    level: _,
+                }) => self.part_of(inner),
+                _ => false,
+            }
     }
     pub fn calculate(self, include_steps: bool) -> Vec<Option<Calculation>> {
         match self {
-            PendingCalculation::Factorial(fact) => fact
-                .calculate(include_steps)
-                .into_iter()
-                .map(|x| x.map(Calculation::Factorial))
-                .collect(),
+            PendingCalculation::Factorial(fact) => {
+                fact.calculate(include_steps).into_iter().collect()
+            }
             PendingCalculation::Gamma(gamma) => {
                 let res = math::fractional_factorial(gamma.number.as_float().clone());
                 if res.is_finite() {
@@ -68,34 +70,28 @@ impl PendingCalculation {
             }
         }
     }
+    pub fn depth(&self) -> usize {
+        match self {
+            Self::Factorial(fact) => fact.depth(),
+            Self::Gamma(_) => 0,
+        }
+    }
 }
 impl PendingFactorial {
-    pub fn part_of(&self, mut other: &Self) -> bool {
-        if self == other {
-            return true;
-        }
-        while let PendingFactorialBase::Factorial(base) = &other.base {
-            other = base;
-            if self == other {
-                return true;
-            }
-        }
-        false
-    }
-    fn calculate(self, include_steps: bool) -> Vec<Option<Factorial>> {
+    fn calculate(self, include_steps: bool) -> Vec<Option<Calculation>> {
         let PendingFactorial { base, level } = self;
         match base {
             PendingFactorialBase::Number(num) => {
-                vec![Self::calculate_appropriate_factorial(num, level)]
+                vec![Self::calculate_appropriate_factorial(num, level).map(Calculation::Factorial)]
             }
-            PendingFactorialBase::Factorial(factorial) => {
+            PendingFactorialBase::Calc(factorial) => {
                 let mut factorials = factorial.calculate(include_steps);
                 match factorials.last() {
-                    Some(Some(Factorial {
+                    Some(Some(Calculation::Factorial(Factorial {
                         factorial: res,
                         levels,
                         number,
-                    })) => {
+                    }))) => {
                         let res = match res {
                             CalculatedFactorial::Exact(res) => res.clone(),
                             CalculatedFactorial::Approximate(base, exponent) => {
@@ -108,14 +104,15 @@ impl PendingFactorial {
                             }
                             _ => return factorials,
                         };
-                        let factorial =
-                            Self::calculate_appropriate_factorial(res, level).map(|mut res| {
+                        let factorial = Self::calculate_appropriate_factorial(res, level)
+                            .map(|mut res| {
                                 let current_levels = res.levels;
                                 res.levels = levels.clone();
                                 res.levels.extend(current_levels);
                                 res.number = number.clone();
                                 res
-                            });
+                            })
+                            .map(Calculation::Factorial);
                         if include_steps {
                             factorials.push(factorial);
                         } else {
@@ -187,6 +184,13 @@ impl PendingFactorial {
             }
         } else {
             None
+        }
+    }
+
+    pub fn depth(&self) -> usize {
+        match &self.base {
+            PendingFactorialBase::Number(_) => 0,
+            PendingFactorialBase::Calc(calc) => calc.depth() + 1,
         }
     }
 }
