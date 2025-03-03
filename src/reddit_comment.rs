@@ -164,8 +164,7 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d])(!)\b(\d+)(?![<\d]|&lt;)")
-                .expect("Invalid subfactorial regex")
+            Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.\d]|&lt;)").expect("Invalid subfactorial regex")
         });
         static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
@@ -269,7 +268,7 @@ impl RedditComment {
                 .captures(&current_string)
                 .expect("Failed to capture regex")
                 .map(CaptureType::Norm)
-                .or(SUBFACTORIAL_CHAIN_REGEX
+                .or(SUBFACTORIAL_REGEX
                     .captures(&current_string)
                     .expect("Failed to capture regex")
                     .map(CaptureType::Sub))
@@ -746,6 +745,17 @@ mod tests {
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
+    #[test]
+    fn test_comment_new_subfactorial_decimals() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number !1294.5",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+        assert_eq!(comment.calculation_list, vec![]);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
+    }
 
     #[test]
     fn test_comment_new_comma_decimals() {
@@ -1140,6 +1150,18 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of Subfactorial of Triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+    #[test]
+    fn test_get_reply_mixed_factorial_chain2() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain (!5)! (5!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "The factorial of Subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of The factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
