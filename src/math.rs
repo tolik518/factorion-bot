@@ -1,3 +1,4 @@
+//! The actual calculation, math formaulas.
 use rug::integer::IntegerExt64;
 use rug::ops::*;
 use rug::{Complete, Float, Integer};

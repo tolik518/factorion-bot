@@ -1,3 +1,4 @@
+//! Parses comments and generates the reply.
 use crate::calculated::Calculation;
 use crate::math::FLOAT_PRECISION;
 use crate::pending::{PendingCalculation, PendingFactorial, PendingFactorialBase, PendingGamma};
@@ -114,6 +115,7 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
+    /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [pending](crate::pending).
     pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
@@ -135,7 +137,7 @@ impl RedditComment {
 
         let commands: Commands = Commands::from_comment_text(comment_text);
 
-        let mut calculation_list: Vec<PendingCalculation> = Vec::new();
+        let mut pending_list: Vec<PendingCalculation> = Vec::new();
         let mut status: Status = Default::default();
 
         let extract_captures: fn(CaptureType<'_>) -> PendingFactorial = |captures| match captures {
@@ -160,7 +162,7 @@ impl RedditComment {
             },
         };
         // capture all (sub)factorials
-        calculation_list.extend(
+        pending_list.extend(
             FACTORIAL_REGEX
                 .captures_iter(comment_text)
                 .map(|c| CaptureType::Norm(c.expect("Failed to capture regex")))
@@ -173,7 +175,7 @@ impl RedditComment {
                 .map(PendingCalculation::Factorial),
         );
         // capture all gammas
-        calculation_list.extend(GAMMA_REGEX.captures_iter(comment_text).map(|captures| {
+        pending_list.extend(GAMMA_REGEX.captures_iter(comment_text).map(|captures| {
             let captures = captures.expect("Failed to capture regex");
             let gamma = captures[1].parse::<f64>().expect("Failed to parse float");
             PendingCalculation::Gamma(PendingGamma {
@@ -233,16 +235,15 @@ impl RedditComment {
             };
 
             // Remove duplicate base (also captured by factorial regex)
-            if let Some((i, _)) =
-                calculation_list
-                    .iter()
-                    .enumerate()
-                    .find(|(_, calc)| match *calc {
-                        PendingCalculation::Factorial(fact) => fact == &factorial,
-                        _ => false,
-                    })
+            if let Some((i, _)) = pending_list
+                .iter()
+                .enumerate()
+                .find(|(_, calc)| match *calc {
+                    PendingCalculation::Factorial(fact) => fact == &factorial,
+                    _ => false,
+                })
             {
-                calculation_list.remove(i);
+                pending_list.remove(i);
             }
             for factorial_level in factorial_levels.into_iter().rev() {
                 factorial = PendingFactorial {
@@ -252,18 +253,15 @@ impl RedditComment {
             }
             let calculation = PendingCalculation::Factorial(factorial);
             // dedup inner
-            if !calculation_list
-                .iter()
-                .any(|calc| calculation.part_of(calc))
-            {
-                calculation_list.push(calculation);
+            if !pending_list.iter().any(|calc| calculation.part_of(calc)) {
+                pending_list.push(calculation);
             }
         }
 
-        calculation_list.sort();
-        calculation_list.dedup();
+        pending_list.sort();
+        pending_list.dedup();
 
-        let factorial_list: Vec<Calculation> = calculation_list
+        let calculation_list: Vec<Calculation> = pending_list
             .into_iter()
             .flat_map(|calc| calc.calculate(commands.include_steps))
             .filter_map(|x| {
@@ -274,7 +272,7 @@ impl RedditComment {
             })
             .collect();
 
-        if factorial_list.is_empty() {
+        if calculation_list.is_empty() {
             status.no_factorial = true;
         } else {
             status.factorials_found = true;
@@ -284,7 +282,7 @@ impl RedditComment {
             id: id.to_string(),
             author: author.to_string(),
             subreddit: subreddit.to_string(),
-            calculation_list: factorial_list,
+            calculation_list,
             status,
             commands,
         }
@@ -311,7 +309,7 @@ impl RedditComment {
     pub(crate) fn add_status(&mut self, status: Status) {
         self.status = self.status | status;
     }
-
+    /// Does the formatting for the reply using [calculated](crate::calculated).
     pub(crate) fn get_reply(&self) -> String {
         let mut note = String::new();
 
