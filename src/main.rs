@@ -9,10 +9,10 @@ use std::time::SystemTime;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
-mod calculated;
+mod calculation_results;
+mod calculation_tasks;
 mod influxdb;
 mod math;
-mod pending;
 mod reddit_api;
 pub(crate) mod reddit_comment;
 

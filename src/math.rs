@@ -142,8 +142,8 @@ fn adjust_approximate_factorial((x, e): (Float, Integer)) -> (Float, Integer) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calculation_tasks::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
-    use crate::pending::UPPER_CALCULATION_LIMIT;
     use std::str::FromStr;
 
     fn length(n: &Integer) -> Integer {

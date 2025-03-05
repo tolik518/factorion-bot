@@ -1,8 +1,8 @@
 //! Parses comments and generates the reply.
 use crate::math::FLOAT_PRECISION;
 
-use crate::calculated::Calculation;
-use crate::pending::{PendingCalculation, PendingFactorial, PendingFactorialBase, PendingGamma};
+use crate::calculation_results::Calculation;
+use crate::calculation_tasks::{CalculationBase, CalculationJob, FactorialTask, GammaTask};
 
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
@@ -112,17 +112,17 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
-    /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [pending](crate::pending).
+    /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [calculation_tasks](crate::calculation_tasks).
     pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
         let commands: Commands = Commands::from_comment_text(comment_text);
 
         let mut status: Status = Default::default();
 
-        let pending_list: Vec<PendingCalculation> = Self::extract_pending(comment_text);
+        let pending_list: Vec<CalculationJob> = Self::extract_calculation_jobs(comment_text);
 
         let calculation_list: Vec<Calculation> = pending_list
             .into_iter()
-            .flat_map(|calc| calc.calculate(commands.include_steps))
+            .flat_map(|calc| calc.execute(commands.include_steps))
             .filter_map(|x| {
                 if x.is_none() {
                     status.number_too_big_to_calculate = true;
@@ -147,7 +147,7 @@ impl RedditComment {
         }
     }
 
-    fn extract_pending(text: &str) -> Vec<PendingCalculation> {
+    fn extract_calculation_jobs(text: &str) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
         });
@@ -166,20 +166,20 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
-        let mut list: Vec<PendingCalculation> = Vec::new();
+        let mut list: Vec<CalculationJob> = Vec::new();
 
         for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let text = &capture[2];
-            let mut inner = Self::extract_pending(text);
+            let mut inner = Self::extract_calculation_jobs(text);
             if inner.is_empty() {
                 continue;
             }
-            inner.sort_by_key(|x| x.depth());
+            inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(PendingCalculation::Factorial(PendingFactorial {
-                base: PendingFactorialBase::Calc(Box::new(inner)),
+            list.push(CalculationJob::Factorial(FactorialTask {
+                base: CalculationBase::Calc(Box::new(inner)),
                 level: -1,
             }))
         }
@@ -190,15 +190,15 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            let mut inner = Self::extract_pending(text);
+            let mut inner = Self::extract_calculation_jobs(text);
             if inner.is_empty() {
                 continue;
             }
-            inner.sort_by_key(|x| x.depth());
+            inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(PendingCalculation::Factorial(PendingFactorial {
-                base: PendingFactorialBase::Calc(Box::new(inner)),
+            list.push(CalculationJob::Factorial(FactorialTask {
+                base: CalculationBase::Calc(Box::new(inner)),
                 level,
             }))
         }
@@ -207,8 +207,8 @@ impl RedditComment {
             let number = capture[2]
                 .parse::<Integer>()
                 .expect("Failed to parse number");
-            list.push(PendingCalculation::Factorial(PendingFactorial {
-                base: PendingFactorialBase::Number(number),
+            list.push(CalculationJob::Factorial(FactorialTask {
+                base: CalculationBase::Number(number),
                 level: -1,
             }));
         }
@@ -221,32 +221,32 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            list.push(PendingCalculation::Factorial(PendingFactorial {
-                base: PendingFactorialBase::Number(number),
+            list.push(CalculationJob::Factorial(FactorialTask {
+                base: CalculationBase::Number(number),
                 level,
             }));
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push(PendingCalculation::Gamma(PendingGamma {
-                number: Float::with_val(FLOAT_PRECISION, gamma).into(),
+            list.push(CalculationJob::Gamma(GammaTask {
+                value: Float::with_val(FLOAT_PRECISION, gamma).into(),
             }))
         }
         // dedup the list
         // sort by depth (and other)
         list.sort();
-        list.sort_unstable_by_key(|x| x.depth());
+        list.sort_unstable_by_key(|x| x.get_depth());
         // remove all inner pendings
         let mut i = 0;
         while i < list.len() {
-            let pending = &list[i];
+            let calculation_job = &list[i];
             if list.iter().enumerate().any(|(j, pend)| {
                 // don't remove self
                 i != j
                     // don't remove doubles (explicit request for inner)
-                    && list.get(i + 1) != Some(pending)
-                    && pending.part_of(pend)
+                    && list.get(i + 1) != Some(calculation_job)
+                    && calculation_job.is_part_of(pend)
             }) {
                 list.remove(i);
                 continue;
@@ -381,7 +381,7 @@ impl RedditComment {
 #[cfg(test)]
 mod tests {
     use crate::{
-        calculated::{CalculatedFactorial, Factorial, Gamma},
+        calculation_results::{CalculatedFactorial, Factorial, Gamma},
         math,
     };
 
@@ -400,12 +400,12 @@ mod tests {
             comment.calculation_list,
             vec![
                 Calculation::Factorial(Factorial {
-                    number: 5.into(),
+                    value: 5.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 6.into(),
+                    value: 6.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 }),
@@ -425,7 +425,7 @@ mod tests {
         assert_eq!(
             comment.calculation_list,
             vec![Calculation::Factorial(Factorial {
-                number: 6.into(),
+                value: 6.into(),
                 levels: vec![2],
                 factorial: CalculatedFactorial::Exact(Integer::from(48)),
             })]
@@ -444,7 +444,7 @@ mod tests {
         assert_eq!(
             comment.calculation_list,
             vec![Calculation::Factorial(Factorial {
-                number: 6.into(),
+                value: 6.into(),
                 levels: vec![3],
                 factorial: CalculatedFactorial::Exact(Integer::from(18)),
             })]
@@ -488,7 +488,7 @@ mod tests {
         assert_eq!(
             comment.calculation_list,
             vec![Calculation::Factorial(Factorial {
-                number: 5.into(),
+                value: 5.into(),
                 levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
             })]
@@ -533,8 +533,10 @@ mod tests {
                 .into_iter()
                 .map(|calc| match calc {
                     Calculation::Factorial(_) => unreachable!("No normal factorial included"),
-                    Calculation::Gamma(Gamma { number, gamma }) =>
-                        (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    Calculation::Gamma(Gamma {
+                        value: number,
+                        gamma,
+                    }) => (number.as_float().to_f64(), gamma.as_float().to_f64()),
                 })
                 .collect::<Vec<_>>(),
             vec![(0.5, 0.886226925452758)]
@@ -578,7 +580,7 @@ mod tests {
         assert_eq!(
             comment.calculation_list,
             vec![Calculation::Factorial(Factorial {
-                number: 6.into(),
+                value: 6.into(),
                 levels: vec![1],
                 factorial: CalculatedFactorial::Exact(Integer::from(720))
             })]
@@ -691,7 +693,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![Calculation::Factorial(Factorial {
-                number: 10.into(),
+                value: 10.into(),
                 levels: vec![3],
                 factorial: CalculatedFactorial::Exact(Integer::from(280)),
             })],
@@ -710,7 +712,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![Calculation::Factorial(Factorial {
-                number: 5.into(),
+                value: 5.into(),
                 levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
             })],
@@ -728,7 +730,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![Calculation::Factorial(Factorial {
-                number: 5000.into(),
+                value: 5000.into(),
                 levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(math::subfactorial(5000)),
             })],
@@ -747,7 +749,7 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![Calculation::Factorial(Factorial {
-                number: 10.into(),
+                value: 10.into(),
                 levels: vec![46],
                 factorial: CalculatedFactorial::Exact(Integer::from(10)),
             })],
@@ -767,12 +769,12 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![
                 Calculation::Factorial(Factorial {
-                    number: 5.into(),
+                    value: 5.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 6.into(),
+                    value: 6.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 }),
@@ -793,17 +795,17 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![
                 Calculation::Factorial(Factorial {
-                    number: 5.into(),
+                    value: 5.into(),
                     levels: vec![2],
                     factorial: CalculatedFactorial::Exact(Integer::from(60)),
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 6.into(),
+                    value: 6.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 3249.into(),
+                    value: 3249.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(math::factorial(3249, 1)),
                 }),
@@ -979,17 +981,17 @@ mod tests {
             id: "1234".to_string(),
             calculation_list: vec![
                 Calculation::Factorial(Factorial {
-                    number: 8.into(),
+                    value: 8.into(),
                     levels: vec![2],
                     factorial: CalculatedFactorial::Exact(Integer::from(384)),
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 10000.into(),
+                    value: 10000.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(math::factorial(10000, 1)),
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 37923648.into(),
+                    value: 37923648.into(),
                     levels: vec![1],
                     factorial: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
@@ -997,7 +999,7 @@ mod tests {
                     },
                 }),
                 Calculation::Factorial(Factorial {
-                    number: 283462.into(),
+                    value: 283462.into(),
                     levels: vec![2],
                     factorial: CalculatedFactorial::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
