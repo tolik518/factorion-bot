@@ -120,7 +120,7 @@ impl RedditComment {
 
         let pending_list: Vec<CalculationJob> = Self::extract_calculation_jobs(comment_text);
 
-        let calculation_list: Vec<Calculation> = pending_list
+        let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
             .flat_map(|calc| calc.execute(commands.include_steps))
             .filter_map(|x| {
@@ -130,6 +130,9 @@ impl RedditComment {
                 x
             })
             .collect();
+
+        calculation_list.sort();
+        calculation_list.dedup();
 
         if calculation_list.is_empty() {
             status.no_factorial = true;
