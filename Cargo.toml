@@ -15,7 +15,7 @@ num-traits = { version = "0.2.19", default-features = false }
 base64 = { version = "0.22.1", default-features = false }
 dotenvy = "^0.15.7"
 time = "0.3.37"
-chrono = { version = "0.4.39", features = ["now"], default-features = false }
+chrono = { version = "0.4.40", features = ["now"], default-features = false }
 anyhow = { version = "1.0.96", default-features = false }
 http = { version = "1.2.0", default-features = false }
 influxdb = { version = "0.7.2", features = ["derive", "reqwest"], default-features = true }
