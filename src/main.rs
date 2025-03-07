@@ -9,7 +9,8 @@ use std::time::SystemTime;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
 
-mod factorial;
+mod calculation_results;
+mod calculation_tasks;
 mod influxdb;
 mod math;
 mod reddit_api;
@@ -97,7 +98,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
 
             if status.factorials_found {
-                println!(" -> {:?}", comment.factorial_list);
+                println!(" -> {:?}", comment.calculation_list);
             }
             if should_answer {
                 let reply: String = comment.get_reply();
