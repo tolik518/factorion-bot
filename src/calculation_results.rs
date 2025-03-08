@@ -13,6 +13,12 @@ pub(crate) enum CalculatedFactorial {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
+    ApproximateDigitsTower(Tower),
+}
+#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+pub(crate) struct Tower {
+    pub(crate) depth: u16,
+    pub(crate) base: Integer,
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
@@ -44,6 +50,15 @@ impl Calculation {
             Self::Factorial(fact) => fact.format(acc, force_shorten),
             Self::Gamma(gamma) => gamma.format(acc),
         }
+    }
+    pub(crate) fn is_digit_tower(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::ApproximateDigitsTower(_),
+                ..
+            })
+        )
     }
     pub(crate) fn is_aproximate_digits(&self) -> bool {
         matches!(
@@ -130,6 +145,26 @@ impl Factorial {
                     factorial_string, number, digits
                 )
             }
+            CalculatedFactorial::ApproximateDigitsTower(Tower { depth, base }) => {
+                let mut s = if self.is_too_long() || force_shorten {
+                    Self::truncate(&base, false)
+                } else {
+                    base.to_string()
+                };
+                let number = if self.value > *TOO_BIG_NUMBER || force_shorten {
+                    Self::truncate(&self.value, false)
+                } else {
+                    self.value.to_string()
+                };
+                for _ in 0..*depth {
+                    s = format!("10^({s})");
+                }
+                write!(
+                    acc,
+                    "{}{} has on the order of {} digits \n\n",
+                    factorial_string, number, s
+                )
+            }
         }
     }
 
@@ -212,7 +247,8 @@ impl Factorial {
         let n = match &self.factorial {
             CalculatedFactorial::Exact(n)
             | CalculatedFactorial::ApproximateDigits(n)
-            | CalculatedFactorial::Approximate(_, n) => n,
+            | CalculatedFactorial::Approximate(_, n)
+            | CalculatedFactorial::ApproximateDigitsTower(Tower { depth: _, base: n }) => n,
         };
         n > &*TOO_BIG_NUMBER
     }
@@ -485,6 +521,23 @@ mod test {
         );
     }
     #[test]
+    fn test_format_digits_tower() {
+        let fact = Calculation::Factorial(Factorial {
+            value: 0.into(),
+            levels: vec![1],
+            factorial: CalculatedFactorial::ApproximateDigitsTower(Tower {
+                depth: 9,
+                base: 10375.into(),
+            }),
+        });
+        let mut s = String::new();
+        fact.format(&mut s, false).unwrap();
+        assert_eq!(
+            s,
+            "The factorial of 0 has on the order of 10^(10^(10^(10^(10^(10^(10^(10^(10^(10375))))))))) digits \n\n"
+        );
+    }
+    #[test]
     fn test_format_gamma() {
         let fact = Calculation::Gamma(Gamma {
             value: Float::with_val(FLOAT_PRECISION, 9.2).into(),
@@ -525,6 +578,23 @@ mod test {
         assert_eq!(
             s,
             "The factorial of 2.313820948092579283573259490834 × 10^36 has approximately 9.842371208573508275237815084709 × 10^48 digits \n\n"
+        );
+    }
+    #[test]
+    fn test_format_digits_tower_shorten() {
+        let fact = Calculation::Factorial(Factorial {
+            value: Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
+            levels: vec![1],
+            factorial: CalculatedFactorial::ApproximateDigitsTower(Tower {
+                depth: 9,
+                base: Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
+            }),
+        });
+        let mut s = String::new();
+        fact.format(&mut s, true).unwrap();
+        assert_eq!(
+            s,
+            "The factorial of 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10^(10^(10^(10^(10^(10^(10^(10^(7.084327410873502875032857120359 × 10^45))))))))) digits \n\n"
         );
     }
     #[test]
