@@ -142,7 +142,7 @@ impl Factorial {
             }
             CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
                 let mut s = if self.is_too_long() || force_shorten {
-                    Self::truncate(&exponent, false)
+                    Self::truncate(exponent, false)
                 } else {
                     exponent.to_string()
                 };
