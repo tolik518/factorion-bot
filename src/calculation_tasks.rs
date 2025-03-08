@@ -1,5 +1,4 @@
 //! This module handles the calulation of pending calculation tasks
-use crate::calculation_results::Tower;
 use crate::math::FLOAT_PRECISION;
 
 use crate::{
@@ -104,10 +103,8 @@ impl FactorialTask {
                                         value: number.clone(),
                                         levels,
                                         factorial: CalculatedFactorial::ApproximateDigitsTower(
-                                            Tower {
-                                                depth: 1,
-                                                base: exponent.clone(),
-                                            },
+                                            1,
+                                            exponent.clone(),
                                         ),
                                     }))];
                                 };
@@ -120,23 +117,23 @@ impl FactorialTask {
                                 return vec![Some(Calculation::Factorial(Factorial {
                                     value: number.clone(),
                                     levels,
-                                    factorial: CalculatedFactorial::ApproximateDigitsTower(Tower {
-                                        depth: 1,
-                                        base: digits.clone(),
-                                    }),
+                                    factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                        1,
+                                        digits.clone(),
+                                    ),
                                 }))];
                             }
-                            CalculatedFactorial::ApproximateDigitsTower(Tower { depth, base }) => {
+                            CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
                                 let base_levels = levels;
                                 let mut levels = vec![level];
                                 levels.extend(base_levels);
                                 return vec![Some(Calculation::Factorial(Factorial {
                                     value: number.clone(),
                                     levels,
-                                    factorial: CalculatedFactorial::ApproximateDigitsTower(Tower {
-                                        depth: depth + 1,
-                                        base: base.clone(),
-                                    }),
+                                    factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                        depth + 1,
+                                        exponent.clone(),
+                                    ),
                                 }))];
                             }
                         };

@@ -13,12 +13,7 @@ pub(crate) enum CalculatedFactorial {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
-    ApproximateDigitsTower(Tower),
-}
-#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
-pub(crate) struct Tower {
-    pub(crate) depth: u16,
-    pub(crate) base: Integer,
+    ApproximateDigitsTower(u16, Integer),
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
@@ -55,7 +50,7 @@ impl Calculation {
         matches!(
             self,
             Calculation::Factorial(Factorial {
-                factorial: CalculatedFactorial::ApproximateDigitsTower(_),
+                factorial: CalculatedFactorial::ApproximateDigitsTower(_, _),
                 ..
             })
         )
@@ -145,11 +140,11 @@ impl Factorial {
                     factorial_string, number, digits
                 )
             }
-            CalculatedFactorial::ApproximateDigitsTower(Tower { depth, base }) => {
+            CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
                 let mut s = if self.is_too_long() || force_shorten {
-                    Self::truncate(&base, false)
+                    Self::truncate(&exponent, false)
                 } else {
-                    base.to_string()
+                    exponent.to_string()
                 };
                 let number = if self.value > *TOO_BIG_NUMBER || force_shorten {
                     Self::truncate(&self.value, false)
@@ -248,7 +243,7 @@ impl Factorial {
             CalculatedFactorial::Exact(n)
             | CalculatedFactorial::ApproximateDigits(n)
             | CalculatedFactorial::Approximate(_, n)
-            | CalculatedFactorial::ApproximateDigitsTower(Tower { depth: _, base: n }) => n,
+            | CalculatedFactorial::ApproximateDigitsTower(_, n) => n,
         };
         n > &*TOO_BIG_NUMBER
     }
@@ -525,10 +520,7 @@ mod test {
         let fact = Calculation::Factorial(Factorial {
             value: 0.into(),
             levels: vec![1],
-            factorial: CalculatedFactorial::ApproximateDigitsTower(Tower {
-                depth: 9,
-                base: 10375.into(),
-            }),
+            factorial: CalculatedFactorial::ApproximateDigitsTower(9, 10375.into()),
         });
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
@@ -585,10 +577,10 @@ mod test {
         let fact = Calculation::Factorial(Factorial {
             value: Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
             levels: vec![1],
-            factorial: CalculatedFactorial::ApproximateDigitsTower(Tower {
-                depth: 9,
-                base: Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
-            }),
+            factorial: CalculatedFactorial::ApproximateDigitsTower(
+                9,
+                Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
+            ),
         });
         let mut s = String::new();
         fact.format(&mut s, true).unwrap();
