@@ -947,7 +947,20 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969733) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_factorial_chain_huge() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain 5! (((((((((((((((((((((((((((((((((5!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992970138))))))))))))))))))))))))))))))) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

@@ -104,7 +104,7 @@ impl FactorialTask {
                                         levels,
                                         factorial: CalculatedFactorial::ApproximateDigitsTower(
                                             1,
-                                            exponent.clone(),
+                                            exponent.clone() + math::length(exponent),
                                         ),
                                     }))];
                                 };
@@ -119,7 +119,7 @@ impl FactorialTask {
                                     levels,
                                     factorial: CalculatedFactorial::ApproximateDigitsTower(
                                         1,
-                                        digits.clone(),
+                                        digits.clone() + math::length(digits),
                                     ),
                                 }))];
                             }
@@ -127,12 +127,27 @@ impl FactorialTask {
                                 let base_levels = levels;
                                 let mut levels = vec![level];
                                 levels.extend(base_levels);
+                                let mut extra = if depth < &5 {
+                                    Float::with_val(FLOAT_PRECISION, exponent)
+                                } else {
+                                    Float::new(FLOAT_PRECISION)
+                                };
+                                'calc_extra: for _ in 0..*depth {
+                                    if extra < 1 {
+                                        break 'calc_extra;
+                                    }
+                                    extra = extra.log10();
+                                }
                                 return vec![Some(Calculation::Factorial(Factorial {
                                     value: number.clone(),
                                     levels,
                                     factorial: CalculatedFactorial::ApproximateDigitsTower(
                                         depth + 1,
-                                        exponent.clone(),
+                                        exponent.clone()
+                                            + extra
+                                                .to_integer_round(rug::float::Round::Down)
+                                                .map(|(n, _)| n)
+                                                .unwrap_or(0.into()),
                                     ),
                                 }))];
                             }

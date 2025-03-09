@@ -139,23 +139,22 @@ fn adjust_approximate_factorial((x, e): (Float, Integer)) -> (Float, Integer) {
     (x, total_exponent)
 }
 
+pub(crate) fn length(n: &Integer) -> Integer {
+    if n == &0 {
+        return Integer::ONE.clone();
+    }
+    (Float::with_val(FLOAT_PRECISION, n).ln() / &*LN10)
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap()
+        .0
+        + 1
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::calculation_tasks::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
     use std::str::FromStr;
-
-    fn length(n: &Integer) -> Integer {
-        if n == &0 {
-            return Integer::ONE.clone();
-        }
-        (Float::with_val(FLOAT_PRECISION, n).ln() / &*LN10)
-            .to_integer_round(rug::float::Round::Down)
-            .unwrap()
-            .0
-            + 1
-    }
 
     #[test]
     fn test_calculate_multi_single_factorial() {
