@@ -96,11 +96,61 @@ impl FactorialTask {
                                 let res = base.as_float()
                                     * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
                                 let Some(res) = res.to_integer() else {
-                                    return factorials;
+                                    let base_levels = levels;
+                                    let mut levels = vec![level];
+                                    levels.extend(base_levels);
+                                    return vec![Some(Calculation::Factorial(Factorial {
+                                        value: number.clone(),
+                                        levels,
+                                        factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                            1,
+                                            exponent.clone() + math::length(exponent),
+                                        ),
+                                    }))];
                                 };
                                 res
                             }
-                            _ => return factorials,
+                            CalculatedFactorial::ApproximateDigits(digits) => {
+                                let base_levels = levels;
+                                let mut levels = vec![level];
+                                levels.extend(base_levels);
+                                return vec![Some(Calculation::Factorial(Factorial {
+                                    value: number.clone(),
+                                    levels,
+                                    factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                        1,
+                                        digits.clone() + math::length(digits),
+                                    ),
+                                }))];
+                            }
+                            CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
+                                let base_levels = levels;
+                                let mut levels = vec![level];
+                                levels.extend(base_levels);
+                                let mut extra = if depth < &5 {
+                                    Float::with_val(FLOAT_PRECISION, exponent)
+                                } else {
+                                    Float::new(FLOAT_PRECISION)
+                                };
+                                'calc_extra: for _ in 0..*depth {
+                                    if extra < 1 {
+                                        break 'calc_extra;
+                                    }
+                                    extra = extra.log10();
+                                }
+                                return vec![Some(Calculation::Factorial(Factorial {
+                                    value: number.clone(),
+                                    levels,
+                                    factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                        depth + 1,
+                                        exponent.clone()
+                                            + extra
+                                                .to_integer_round(rug::float::Round::Down)
+                                                .map(|(n, _)| n)
+                                                .unwrap_or(0.into()),
+                                    ),
+                                }))];
+                            }
                         };
                         let factorial = Self::calculate_appropriate_factorial(res, level)
                             .map(|mut res| {
