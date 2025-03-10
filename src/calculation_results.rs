@@ -116,10 +116,14 @@ impl Factorial {
                 } else {
                     self.value.to_string()
                 };
-                let base = base.to_f64();
+                let base = if !base.to_f64().is_finite() {
+                    format! {"{:.30}", base}
+                } else {
+                    base.to_f64().to_string()
+                };
                 write!(
                     acc,
-                    "{}{} is approximately {} × 10^{} \n\n",
+                    "{}{} is approximately {:.30} × 10^{} \n\n",
                     factorial_string, number, base, exponent
                 )
             }
@@ -309,13 +313,23 @@ impl Factorial {
 
 impl Gamma {
     fn format(&self, acc: &mut String) -> Result<(), std::fmt::Error> {
+        let value = if !self.value.as_float().to_f64().is_finite() {
+            format! {"{:.30}", self.value.as_float()}
+        } else {
+            self.value.as_float().to_f64().to_string()
+        };
+        let gamma = if !self.gamma.as_float().to_f64().is_finite() {
+            format! {"{:.30}", self.gamma.as_float()}
+        } else {
+            self.gamma.as_float().to_f64().to_string()
+        };
         write!(
             acc,
             "{}{}{} is approximately {} \n\n",
             Factorial::get_factorial_level_string(1),
             PLACEHOLDER,
-            self.value.as_float().to_f64(),
-            self.gamma.as_float().to_f64()
+            value,
+            gamma,
         )
     }
 }
