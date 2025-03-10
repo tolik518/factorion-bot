@@ -13,6 +13,7 @@ pub(crate) enum CalculatedFactorial {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
+    ApproximateDigitsTower(u16, Integer),
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
@@ -44,6 +45,15 @@ impl Calculation {
             Self::Factorial(fact) => fact.format(acc, force_shorten),
             Self::Gamma(gamma) => gamma.format(acc),
         }
+    }
+    pub(crate) fn is_digit_tower(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::ApproximateDigitsTower(_, _),
+                ..
+            })
+        )
     }
     pub(crate) fn is_aproximate_digits(&self) -> bool {
         matches!(
@@ -106,10 +116,14 @@ impl Factorial {
                 } else {
                     self.value.to_string()
                 };
-                let base = base.to_f64();
+                let base = if !base.to_f64().is_finite() {
+                    format! {"{:.30}", base}
+                } else {
+                    base.to_f64().to_string()
+                };
                 write!(
                     acc,
-                    "{}{} is approximately {} × 10^{} \n\n",
+                    "{}{} is approximately {:.30} × 10^{} \n\n",
                     factorial_string, number, base, exponent
                 )
             }
@@ -128,6 +142,32 @@ impl Factorial {
                     acc,
                     "{}{} has approximately {} digits \n\n",
                     factorial_string, number, digits
+                )
+            }
+            CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
+                let mut s = if self.is_too_long() || force_shorten {
+                    Self::truncate(exponent, false)
+                } else {
+                    exponent.to_string()
+                };
+                let number = if self.value > *TOO_BIG_NUMBER || force_shorten {
+                    Self::truncate(&self.value, false)
+                } else {
+                    self.value.to_string()
+                };
+                for i in 0..*depth {
+                    if i == depth.saturating_sub(1) {
+                        s = format!("10^({s})");
+                    } else if i == 0 {
+                        s = format!("10\\^({s}\\)");
+                    } else {
+                        s = format!("10\\^{s}");
+                    }
+                }
+                write!(
+                    acc,
+                    "{}{} has on the order of {} digits \n\n",
+                    factorial_string, number, s
                 )
             }
         }
@@ -212,7 +252,8 @@ impl Factorial {
         let n = match &self.factorial {
             CalculatedFactorial::Exact(n)
             | CalculatedFactorial::ApproximateDigits(n)
-            | CalculatedFactorial::Approximate(_, n) => n,
+            | CalculatedFactorial::Approximate(_, n)
+            | CalculatedFactorial::ApproximateDigitsTower(_, n) => n,
         };
         n > &*TOO_BIG_NUMBER
     }
@@ -278,13 +319,23 @@ impl Factorial {
 
 impl Gamma {
     fn format(&self, acc: &mut String) -> Result<(), std::fmt::Error> {
+        let value = if !self.value.as_float().to_f64().is_finite() {
+            format! {"{:.30}", self.value.as_float()}
+        } else {
+            self.value.as_float().to_f64().to_string()
+        };
+        let gamma = if !self.gamma.as_float().to_f64().is_finite() {
+            format! {"{:.30}", self.gamma.as_float()}
+        } else {
+            self.gamma.as_float().to_f64().to_string()
+        };
         write!(
             acc,
             "{}{}{} is approximately {} \n\n",
             Factorial::get_factorial_level_string(1),
             PLACEHOLDER,
-            self.value.as_float().to_f64(),
-            self.gamma.as_float().to_f64()
+            value,
+            gamma,
         )
     }
 }
@@ -485,6 +536,20 @@ mod test {
         );
     }
     #[test]
+    fn test_format_digits_tower() {
+        let fact = Calculation::Factorial(Factorial {
+            value: 0.into(),
+            levels: vec![1],
+            factorial: CalculatedFactorial::ApproximateDigitsTower(9, 10375.into()),
+        });
+        let mut s = String::new();
+        fact.format(&mut s, false).unwrap();
+        assert_eq!(
+            s,
+            "The factorial of 0 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
+        );
+    }
+    #[test]
     fn test_format_gamma() {
         let fact = Calculation::Gamma(Gamma {
             value: Float::with_val(FLOAT_PRECISION, 9.2).into(),
@@ -493,6 +558,20 @@ mod test {
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
         assert_eq!(s, "The factorial of 9.2 is approximately 893.83924421 \n\n");
+    }
+    #[test]
+    fn test_format_gamma_fallback() {
+        let fact = Calculation::Gamma(Gamma {
+            value: Float::with_val(FLOAT_PRECISION, 0).into(),
+            gamma: {
+                let mut m = Float::with_val(FLOAT_PRECISION, f64::MAX);
+                m.next_up();
+                m.into()
+            },
+        });
+        let mut s = String::new();
+        fact.format(&mut s, false).unwrap();
+        assert_eq!(s, "The factorial of 0 is approximately 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 \n\n");
     }
     #[test]
     fn test_format_approximate_factorial_shorten() {
@@ -525,6 +604,23 @@ mod test {
         assert_eq!(
             s,
             "The factorial of 2.313820948092579283573259490834 × 10^36 has approximately 9.842371208573508275237815084709 × 10^48 digits \n\n"
+        );
+    }
+    #[test]
+    fn test_format_digits_tower_shorten() {
+        let fact = Calculation::Factorial(Factorial {
+            value: Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
+            levels: vec![1],
+            factorial: CalculatedFactorial::ApproximateDigitsTower(
+                9,
+                Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
+            ),
+        });
+        let mut s = String::new();
+        fact.format(&mut s, true).unwrap();
+        assert_eq!(
+            s,
+            "The factorial of 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(7.084327410873502875032857120359 × 10^45\\)) digits \n\n"
         );
     }
     #[test]
