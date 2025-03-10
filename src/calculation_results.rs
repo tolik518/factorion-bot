@@ -554,6 +554,20 @@ mod test {
         assert_eq!(s, "The factorial of 9.2 is approximately 893.83924421 \n\n");
     }
     #[test]
+    fn test_format_gamma_fallback() {
+        let fact = Calculation::Gamma(Gamma {
+            value: Float::with_val(FLOAT_PRECISION, 0).into(),
+            gamma: {
+                let mut m = Float::with_val(FLOAT_PRECISION, f64::MAX);
+                m.next_up();
+                m.into()
+            },
+        });
+        let mut s = String::new();
+        fact.format(&mut s, false).unwrap();
+        assert_eq!(s, "The factorial of 0 is approximately 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 \n\n");
+    }
+    #[test]
     fn test_format_approximate_factorial_shorten() {
         let fact = Calculation::Factorial(Factorial {
             value: Integer::from_str("2018338437429423744923849374833232131").unwrap(),
