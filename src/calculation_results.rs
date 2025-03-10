@@ -155,8 +155,14 @@ impl Factorial {
                 } else {
                     self.value.to_string()
                 };
-                for _ in 0..*depth {
-                    s = format!("10^({s})");
+                for i in 0..*depth {
+                    if i == depth.saturating_sub(1) {
+                        s = format!("10^({s})");
+                    } else if i == 0 {
+                        s = format!("10\\^({s}\\)");
+                    } else {
+                        s = format!("10\\^{s}");
+                    }
                 }
                 write!(
                     acc,
@@ -540,7 +546,7 @@ mod test {
         fact.format(&mut s, false).unwrap();
         assert_eq!(
             s,
-            "The factorial of 0 has on the order of 10^(10^(10^(10^(10^(10^(10^(10^(10^(10375))))))))) digits \n\n"
+            "The factorial of 0 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
         );
     }
     #[test]
@@ -614,7 +620,7 @@ mod test {
         fact.format(&mut s, true).unwrap();
         assert_eq!(
             s,
-            "The factorial of 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10^(10^(10^(10^(10^(10^(10^(10^(7.084327410873502875032857120359 × 10^45))))))))) digits \n\n"
+            "The factorial of 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(7.084327410873502875032857120359 × 10^45\\)) digits \n\n"
         );
     }
     #[test]
