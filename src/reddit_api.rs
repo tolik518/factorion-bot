@@ -230,7 +230,7 @@ impl RedditClient {
             ("grant_type", "password"),
             ("username", username.as_str()),
             ("password", password.as_str()),
-            ("scope", "read submit"),
+            ("scope", "read submit privatemessages"),
         ];
 
         let response = Client::new()
