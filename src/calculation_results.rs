@@ -112,6 +112,22 @@ impl Factorial {
                 PLACEHOLDER
             )
         });
+        let number = match &self.value {
+            Number::Int(value) => {
+                if value > &*TOO_BIG_NUMBER || force_shorten {
+                    Self::truncate(value, false)
+                } else {
+                    value.to_string()
+                }
+            }
+            Number::Float(value) => {
+                if !value.as_float().to_f64().is_finite() {
+                    format! {"{:.30}", value.as_float()}
+                } else {
+                    value.as_float().to_f64().to_string()
+                }
+            }
+        };
         match &self.factorial {
             CalculatedFactorial::Exact(factorial) => {
                 let factorial = if self.is_too_long() || force_shorten {
@@ -119,10 +135,15 @@ impl Factorial {
                 } else {
                     factorial.to_string()
                 };
+                let approximate = if let Number::Float(_) = &self.value {
+                    " approximately"
+                } else {
+                    ""
+                };
                 write!(
                     acc,
-                    "{}{} is {} \n\n",
-                    factorial_string, self.value, factorial
+                    "{}{} is{} {} \n\n",
+                    factorial_string, number, approximate, factorial
                 )
             }
             CalculatedFactorial::Approximate(base, exponent) => {
@@ -131,22 +152,6 @@ impl Factorial {
                     format!("({})", Self::truncate(&exponent, false))
                 } else {
                     exponent.to_string()
-                };
-                let number = match &self.value {
-                    Number::Int(value) => {
-                        if value > &*TOO_BIG_NUMBER || force_shorten {
-                            Self::truncate(value, false)
-                        } else {
-                            value.to_string()
-                        }
-                    }
-                    Number::Float(value) => {
-                        if !value.as_float().to_f64().is_finite() {
-                            format! {"{:.30}", value.as_float()}
-                        } else {
-                            value.as_float().to_f64().to_string()
-                        }
-                    }
                 };
                 let base = if !base.to_f64().is_finite() {
                     format! {"{:.30}", base}
@@ -165,22 +170,6 @@ impl Factorial {
                 } else {
                     digits.to_string()
                 };
-                let number = match &self.value {
-                    Number::Int(value) => {
-                        if value > &*TOO_BIG_NUMBER || force_shorten {
-                            Self::truncate(value, false)
-                        } else {
-                            value.to_string()
-                        }
-                    }
-                    Number::Float(value) => {
-                        if !value.as_float().to_f64().is_finite() {
-                            format! {"{:.30}", value.as_float()}
-                        } else {
-                            value.as_float().to_f64().to_string()
-                        }
-                    }
-                };
                 write!(
                     acc,
                     "{}{} has approximately {} digits \n\n",
@@ -192,22 +181,6 @@ impl Factorial {
                     Self::truncate(exponent, false)
                 } else {
                     exponent.to_string()
-                };
-                let number = match &self.value {
-                    Number::Int(value) => {
-                        if value > &*TOO_BIG_NUMBER || force_shorten {
-                            Self::truncate(value, false)
-                        } else {
-                            value.to_string()
-                        }
-                    }
-                    Number::Float(value) => {
-                        if !value.as_float().to_f64().is_finite() {
-                            format! {"{:.30}", value.as_float()}
-                        } else {
-                            value.as_float().to_f64().to_string()
-                        }
-                    }
                 };
                 for i in 0..*depth {
                     if i == depth.saturating_sub(1) {
@@ -229,22 +202,6 @@ impl Factorial {
                     format! {"{:.30}", gamma.as_float()}
                 } else {
                     gamma.as_float().to_f64().to_string()
-                };
-                let number = match &self.value {
-                    Number::Int(value) => {
-                        if value > &*TOO_BIG_NUMBER || force_shorten {
-                            Self::truncate(value, false)
-                        } else {
-                            value.to_string()
-                        }
-                    }
-                    Number::Float(value) => {
-                        if !value.as_float().to_f64().is_finite() {
-                            format! {"{:.30}", value.as_float()}
-                        } else {
-                            value.as_float().to_f64().to_string()
-                        }
-                    }
                 };
                 write!(
                     acc,
@@ -509,6 +466,17 @@ mod test {
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
+    }
+    #[test]
+    fn test_format_factorial_exact_of_decimal() {
+        let fact = Calculation::Factorial(Factorial {
+            value: Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()),
+            levels: vec![3],
+            factorial: CalculatedFactorial::Exact(280.into()),
+        });
+        let mut s = String::new();
+        fact.format(&mut s, false).unwrap();
+        assert_eq!(s, "Triple-factorial of 0.5 is approximately 280 \n\n");
     }
     #[test]
     fn test_format_factorial_force_shorten_small() {

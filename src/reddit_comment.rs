@@ -162,11 +162,11 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)\.]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)\.]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
         let mut list: Vec<CalculationJob> = Vec::new();
@@ -1003,6 +1003,32 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_factorial_chain_gamma() {
+        let comment = RedditComment::new(
+            "This is a test with a decimal factorial chain (((0.5!)!)!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "The factorial of The factorial of The factorial of The factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_factorial_chain_gamma_diverge() {
+        let comment = RedditComment::new(
+            "This is a test with a decimal factorial chain (((3.141592!)!)!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of The factorial of The factorial of 3.141592 has approximately 4.944306506471065948183172034785 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

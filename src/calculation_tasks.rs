@@ -159,85 +159,81 @@ impl FactorialTask {
         }
     }
     fn calculate_appropriate_factorial(num: Number, level: i32) -> Option<Factorial> {
-        match num {
-            Number::Int(num) => {
-                if level > 0 {
-                    // Check if we can approximate the number of digits
-                    Some(
-                        if num > *UPPER_APPROXIMATION_LIMIT
-                            || (level > 1 && num > UPPER_CALCULATION_LIMIT)
-                        {
-                            let factorial =
-                                math::approximate_multifactorial_digits(num.clone(), level);
-                            Factorial {
-                                value: Number::Int(num),
-                                levels: vec![level],
-                                factorial: CalculatedFactorial::ApproximateDigits(factorial),
-                            }
-                        // Check if the number is within a reasonable range to compute
-                        } else if num > UPPER_CALCULATION_LIMIT {
-                            let factorial = math::approximate_factorial(num.clone());
-                            Factorial {
-                                value: Number::Int(num),
-                                levels: vec![level],
-                                factorial: CalculatedFactorial::Approximate(
-                                    factorial.0.into(),
-                                    factorial.1,
-                                ),
-                            }
-                        } else {
-                            let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-                            let factorial = math::factorial(calc_num, level);
-                            Factorial {
-                                value: Number::Int(num),
-                                levels: vec![level],
-                                factorial: CalculatedFactorial::Exact(factorial),
-                            }
-                        },
-                    )
-                } else if level == -1 {
-                    if num > *UPPER_APPROXIMATION_LIMIT {
-                        let factorial = math::approximate_multifactorial_digits(num.clone(), 1);
-                        Some(Factorial {
-                            value: Number::Int(num),
-                            levels: vec![-1],
-                            factorial: CalculatedFactorial::ApproximateDigits(factorial),
-                        })
-                    } else if num > UPPER_SUBFACTORIAL_LIMIT {
-                        let factorial = math::approximate_subfactorial(num.clone());
-                        Some(Factorial {
-                            value: Number::Int(num),
-                            levels: vec![-1],
-                            factorial: CalculatedFactorial::Approximate(
-                                factorial.0.into(),
-                                factorial.1,
-                            ),
-                        })
-                    } else {
-                        let calc_num = num.to_u64().expect("Failed to convert BigInt to u64");
-                        let factorial = math::subfactorial(calc_num);
-                        Some(Factorial {
-                            value: Number::Int(num),
-                            levels: vec![-1],
-                            factorial: CalculatedFactorial::Exact(factorial),
-                        })
-                    }
-                } else {
-                    None
-                }
-            }
+        let calc_num = match &num {
             Number::Float(num) => {
                 let res = math::fractional_factorial(num.as_float().clone());
                 if res.is_finite() {
-                    Some(Factorial {
-                        value: Number::Float(num),
+                    return Some(Factorial {
+                        value: Number::Float(num.clone()),
                         levels: vec![1],
                         factorial: CalculatedFactorial::Gamma(res.into()),
-                    })
+                    });
                 } else {
-                    None
+                    num.as_float().to_integer()?
                 }
             }
+            Number::Int(num) => num.clone(),
+        };
+        if level > 0 {
+            // Check if we can approximate the number of digits
+            Some(
+                if calc_num > *UPPER_APPROXIMATION_LIMIT
+                    || (level > 1 && calc_num > UPPER_CALCULATION_LIMIT)
+                {
+                    let factorial =
+                        math::approximate_multifactorial_digits(calc_num.clone(), level);
+                    Factorial {
+                        value: num,
+                        levels: vec![level],
+                        factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                    }
+                // Check if the number is within a reasonable range to compute
+                } else if calc_num > UPPER_CALCULATION_LIMIT {
+                    let factorial = math::approximate_factorial(calc_num.clone());
+                    Factorial {
+                        value: Number::Int(calc_num),
+                        levels: vec![level],
+                        factorial: CalculatedFactorial::Approximate(
+                            factorial.0.into(),
+                            factorial.1,
+                        ),
+                    }
+                } else {
+                    let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
+                    let factorial = math::factorial(calc_num, level);
+                    Factorial {
+                        value: num,
+                        levels: vec![level],
+                        factorial: CalculatedFactorial::Exact(factorial),
+                    }
+                },
+            )
+        } else if level == -1 {
+            if calc_num > *UPPER_APPROXIMATION_LIMIT {
+                let factorial = math::approximate_multifactorial_digits(calc_num.clone(), 1);
+                Some(Factorial {
+                    value: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                })
+            } else if calc_num > UPPER_SUBFACTORIAL_LIMIT {
+                let factorial = math::approximate_subfactorial(calc_num.clone());
+                Some(Factorial {
+                    value: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::Approximate(factorial.0.into(), factorial.1),
+                })
+            } else {
+                let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
+                let factorial = math::subfactorial(calc_num);
+                Some(Factorial {
+                    value: num,
+                    levels: vec![-1],
+                    factorial: CalculatedFactorial::Exact(factorial),
+                })
+            }
+        } else {
+            None
         }
     }
 
