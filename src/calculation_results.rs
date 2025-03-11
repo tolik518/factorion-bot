@@ -14,25 +14,48 @@ pub(crate) enum CalculatedFactorial {
     Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
     ApproximateDigitsTower(u16, Integer),
+    Gamma(OrdFloat),
+}
+
+#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+pub(crate) enum Number {
+    Float(OrdFloat),
+    Int(Integer),
+}
+impl From<Integer> for Number {
+    fn from(value: Integer) -> Self {
+        Number::Int(value)
+    }
+}
+impl From<i32> for Number {
+    fn from(value: i32) -> Self {
+        Number::Int(value.into())
+    }
+}
+impl From<Float> for Number {
+    fn from(value: Float) -> Self {
+        Number::Float(value.into())
+    }
+}
+impl std::fmt::Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Float(num) => num.as_float().fmt(f),
+            Self::Int(num) => num.fmt(f),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) struct Factorial {
-    pub(crate) value: Integer,
+    pub(crate) value: Number,
     pub(crate) levels: Vec<i32>,
     pub(crate) factorial: CalculatedFactorial,
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
-pub(crate) struct Gamma {
-    pub(crate) value: OrdFloat,
-    pub(crate) gamma: OrdFloat,
-}
-
-#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum Calculation {
     Factorial(Factorial),
-    Gamma(Gamma),
 }
 
 impl Calculation {
@@ -43,7 +66,6 @@ impl Calculation {
     ) -> Result<(), std::fmt::Error> {
         match self {
             Self::Factorial(fact) => fact.format(acc, force_shorten),
-            Self::Gamma(gamma) => gamma.format(acc),
         }
     }
     pub(crate) fn is_digit_tower(&self) -> bool {
@@ -76,7 +98,6 @@ impl Calculation {
     pub(crate) fn is_too_long(&self) -> bool {
         match self {
             Self::Factorial(fact) => fact.is_too_long(),
-            Self::Gamma(_) => false,
         }
     }
 }
@@ -111,10 +132,21 @@ impl Factorial {
                 } else {
                     exponent.to_string()
                 };
-                let number = if self.value > *TOO_BIG_NUMBER || force_shorten {
-                    Self::truncate(&self.value, false)
-                } else {
-                    self.value.to_string()
+                let number = match &self.value {
+                    Number::Int(value) => {
+                        if value > &*TOO_BIG_NUMBER || force_shorten {
+                            Self::truncate(value, false)
+                        } else {
+                            value.to_string()
+                        }
+                    }
+                    Number::Float(value) => {
+                        if !value.as_float().to_f64().is_finite() {
+                            format! {"{:.30}", value.as_float()}
+                        } else {
+                            value.as_float().to_f64().to_string()
+                        }
+                    }
                 };
                 let base = if !base.to_f64().is_finite() {
                     format! {"{:.30}", base}
@@ -133,10 +165,21 @@ impl Factorial {
                 } else {
                     digits.to_string()
                 };
-                let number = if self.value > *TOO_BIG_NUMBER || force_shorten {
-                    Self::truncate(&self.value, false)
-                } else {
-                    self.value.to_string()
+                let number = match &self.value {
+                    Number::Int(value) => {
+                        if value > &*TOO_BIG_NUMBER || force_shorten {
+                            Self::truncate(value, false)
+                        } else {
+                            value.to_string()
+                        }
+                    }
+                    Number::Float(value) => {
+                        if !value.as_float().to_f64().is_finite() {
+                            format! {"{:.30}", value.as_float()}
+                        } else {
+                            value.as_float().to_f64().to_string()
+                        }
+                    }
                 };
                 write!(
                     acc,
@@ -150,10 +193,21 @@ impl Factorial {
                 } else {
                     exponent.to_string()
                 };
-                let number = if self.value > *TOO_BIG_NUMBER || force_shorten {
-                    Self::truncate(&self.value, false)
-                } else {
-                    self.value.to_string()
+                let number = match &self.value {
+                    Number::Int(value) => {
+                        if value > &*TOO_BIG_NUMBER || force_shorten {
+                            Self::truncate(value, false)
+                        } else {
+                            value.to_string()
+                        }
+                    }
+                    Number::Float(value) => {
+                        if !value.as_float().to_f64().is_finite() {
+                            format! {"{:.30}", value.as_float()}
+                        } else {
+                            value.as_float().to_f64().to_string()
+                        }
+                    }
                 };
                 for i in 0..*depth {
                     if i == depth.saturating_sub(1) {
@@ -168,6 +222,34 @@ impl Factorial {
                     acc,
                     "{}{} has on the order of {} digits \n\n",
                     factorial_string, number, s
+                )
+            }
+            CalculatedFactorial::Gamma(gamma) => {
+                let gamma = if !gamma.as_float().to_f64().is_finite() {
+                    format! {"{:.30}", gamma.as_float()}
+                } else {
+                    gamma.as_float().to_f64().to_string()
+                };
+                let number = match &self.value {
+                    Number::Int(value) => {
+                        if value > &*TOO_BIG_NUMBER || force_shorten {
+                            Self::truncate(value, false)
+                        } else {
+                            value.to_string()
+                        }
+                    }
+                    Number::Float(value) => {
+                        if !value.as_float().to_f64().is_finite() {
+                            format! {"{:.30}", value.as_float()}
+                        } else {
+                            value.as_float().to_f64().to_string()
+                        }
+                    }
+                };
+                write!(
+                    acc,
+                    "{}{} is approximately {} \n\n",
+                    factorial_string, number, gamma,
                 )
             }
         }
@@ -254,6 +336,7 @@ impl Factorial {
             | CalculatedFactorial::ApproximateDigits(n)
             | CalculatedFactorial::Approximate(_, n)
             | CalculatedFactorial::ApproximateDigitsTower(_, n) => n,
+            CalculatedFactorial::Gamma(_) => return false,
         };
         n > &*TOO_BIG_NUMBER
     }
@@ -314,29 +397,6 @@ impl Factorial {
         };
 
         prefix
-    }
-}
-
-impl Gamma {
-    fn format(&self, acc: &mut String) -> Result<(), std::fmt::Error> {
-        let value = if !self.value.as_float().to_f64().is_finite() {
-            format! {"{:.30}", self.value.as_float()}
-        } else {
-            self.value.as_float().to_f64().to_string()
-        };
-        let gamma = if !self.gamma.as_float().to_f64().is_finite() {
-            format! {"{:.30}", self.gamma.as_float()}
-        } else {
-            self.gamma.as_float().to_f64().to_string()
-        };
-        write!(
-            acc,
-            "{}{}{} is approximately {} \n\n",
-            Factorial::get_factorial_level_string(1),
-            PLACEHOLDER,
-            value,
-            gamma,
-        )
     }
 }
 
@@ -551,9 +611,12 @@ mod test {
     }
     #[test]
     fn test_format_gamma() {
-        let fact = Calculation::Gamma(Gamma {
-            value: Float::with_val(FLOAT_PRECISION, 9.2).into(),
-            gamma: Float::with_val(FLOAT_PRECISION, 893.83924421).into(),
+        let fact = Calculation::Factorial(Factorial {
+            value: Number::Float(Float::with_val(FLOAT_PRECISION, 9.2).into()),
+            levels: vec![1],
+            factorial: CalculatedFactorial::Gamma(
+                Float::with_val(FLOAT_PRECISION, 893.83924421).into(),
+            ),
         });
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
@@ -561,12 +624,13 @@ mod test {
     }
     #[test]
     fn test_format_gamma_fallback() {
-        let fact = Calculation::Gamma(Gamma {
-            value: Float::with_val(FLOAT_PRECISION, 0).into(),
-            gamma: {
+        let fact = Calculation::Factorial(Factorial {
+            value: Number::Float(Float::with_val(FLOAT_PRECISION, 0).into()),
+            levels: vec![1],
+            factorial: {
                 let mut m = Float::with_val(FLOAT_PRECISION, f64::MAX);
                 m.next_up();
-                m.into()
+                CalculatedFactorial::Gamma(m.into())
             },
         });
         let mut s = String::new();
@@ -576,7 +640,7 @@ mod test {
     #[test]
     fn test_format_approximate_factorial_shorten() {
         let fact = Calculation::Factorial(Factorial {
-            value: Integer::from_str("2018338437429423744923849374833232131").unwrap(),
+            value: Number::Int(Integer::from_str("2018338437429423744923849374833232131").unwrap()),
             levels: vec![1],
             factorial: CalculatedFactorial::Approximate(
                 Float::with_val(FLOAT_PRECISION, 2.8394792834).into(),
@@ -593,7 +657,7 @@ mod test {
     #[test]
     fn test_format_approximate_digits_factorial_shorten() {
         let fact = Calculation::Factorial(Factorial {
-            value: Integer::from_str("2313820948092579283573259490834298719").unwrap(),
+            value: Number::Int(Integer::from_str("2313820948092579283573259490834298719").unwrap()),
             levels: vec![1],
             factorial: CalculatedFactorial::ApproximateDigits(
                 Integer::from_str("9842371208573508275237815084709374240128347012847").unwrap(),
@@ -609,7 +673,9 @@ mod test {
     #[test]
     fn test_format_digits_tower_shorten() {
         let fact = Calculation::Factorial(Factorial {
-            value: Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
+            value: Number::Int(
+                Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
+            ),
             levels: vec![1],
             factorial: CalculatedFactorial::ApproximateDigitsTower(
                 9,

@@ -1,8 +1,8 @@
 //! Parses comments and generates the reply.
 use crate::math::FLOAT_PRECISION;
 
-use crate::calculation_results::Calculation;
-use crate::calculation_tasks::{CalculationBase, CalculationJob, FactorialTask, GammaTask};
+use crate::calculation_results::{Calculation, Number};
+use crate::calculation_tasks::{CalculationBase, CalculationJob, FactorialTask};
 
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
@@ -211,7 +211,7 @@ impl RedditComment {
                 .parse::<Integer>()
                 .expect("Failed to parse number");
             list.push(CalculationJob::Factorial(FactorialTask {
-                base: CalculationBase::Number(number),
+                base: CalculationBase::Num(Number::Int(number)),
                 level: -1,
             }));
         }
@@ -225,15 +225,18 @@ impl RedditComment {
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
             list.push(CalculationJob::Factorial(FactorialTask {
-                base: CalculationBase::Number(number),
+                base: CalculationBase::Num(Number::Int(number)),
                 level,
             }));
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push(CalculationJob::Gamma(GammaTask {
-                value: Float::with_val(FLOAT_PRECISION, gamma).into(),
+            list.push(CalculationJob::Factorial(FactorialTask {
+                base: CalculationBase::Num(Number::Float(
+                    Float::with_val(FLOAT_PRECISION, gamma).into(),
+                )),
+                level: 1,
             }))
         }
         // dedup the list
@@ -394,7 +397,7 @@ impl RedditComment {
 #[cfg(test)]
 mod tests {
     use crate::{
-        calculation_results::{CalculatedFactorial, Factorial, Gamma},
+        calculation_results::{CalculatedFactorial, Factorial},
         math,
     };
 
@@ -545,11 +548,12 @@ mod tests {
                 .calculation_list
                 .into_iter()
                 .map(|calc| match calc {
-                    Calculation::Factorial(_) => unreachable!("No normal factorial included"),
-                    Calculation::Gamma(Gamma {
-                        value: number,
-                        gamma,
+                    Calculation::Factorial(Factorial {
+                        value: Number::Float(number),
+                        levels: _,
+                        factorial: CalculatedFactorial::Gamma(gamma),
                     }) => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    Calculation::Factorial(_) => unreachable!("No normal factorial included"),
                 })
                 .collect::<Vec<_>>(),
             vec![(0.5, 0.886226925452758)]
