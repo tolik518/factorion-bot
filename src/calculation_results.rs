@@ -95,6 +95,21 @@ impl Calculation {
             })
         )
     }
+    pub(crate) fn is_rounded(&self) -> bool {
+        matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                value: Number::Float(_),
+                ..
+            })
+        ) && !matches!(
+            self,
+            Calculation::Factorial(Factorial {
+                factorial: CalculatedFactorial::Gamma(_),
+                ..
+            })
+        )
+    }
     pub(crate) fn is_too_long(&self) -> bool {
         match self {
             Self::Factorial(fact) => fact.is_too_long(),
