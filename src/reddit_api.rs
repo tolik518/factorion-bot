@@ -21,8 +21,18 @@ struct Token {
     expiration_time: DateTime<Utc>,
 }
 
+#[cfg(not(test))]
+const REDDIT_OAUTH_URL: &str = "https://oauth.reddit.com";
+#[cfg(test)]
+const REDDIT_OAUTH_URL: &str = "http://127.0.0.1:9384";
+#[cfg(not(test))]
 const REDDIT_TOKEN_URL: &str = "https://ssl.reddit.com/api/v1/access_token";
+#[cfg(test)]
+const REDDIT_TOKEN_URL: &str = "http://127.0.0.1:9384";
+#[cfg(not(test))]
 const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
+#[cfg(test)]
+const REDDIT_COMMENT_URL: &str = "http://127.0.0.1:9384";
 
 pub(crate) struct RedditClient {
     client: Client,
@@ -54,6 +64,7 @@ impl RedditClient {
         limit: u32,
         already_replied_to_comments: &[String],
     ) -> Result<Vec<RedditComment>, ()> {
+        #[cfg(not(test))]
         if self.is_token_expired() {
             println!("Token expired, getting new token");
             self.token = RedditClient::get_reddit_token(
@@ -67,15 +78,15 @@ impl RedditClient {
         let (subs_response, mentions_response) = join!(
             self.client
                 .get(format!(
-                    "https://oauth.reddit.com/r/{}/comments/?limit={}",
-                    subreddit, limit
+                    "{}/r/{}/comments/?limit={}",
+                    REDDIT_OAUTH_URL, subreddit, limit
                 ))
                 .bearer_auth(&self.token.access_token)
                 .send(),
             self.client
                 .get(format!(
-                    "https://oauth.reddit.com/message/mentions/?limit={}",
-                    limit
+                    "{}/message/mentions/?limit={}",
+                    REDDIT_OAUTH_URL, limit
                 ))
                 .bearer_auth(&self.token.access_token)
                 .send()
@@ -95,7 +106,7 @@ impl RedditClient {
                 for path in paths {
                     let response = self
                         .client
-                        .get(format!("https://oauth.reddit.com{}", path))
+                        .get(format!("{}{}", REDDIT_OAUTH_URL, path))
                         .bearer_auth(&self.token.access_token)
                         .send()
                         .await
@@ -123,7 +134,7 @@ impl RedditClient {
             Err(_) => Err(()),
         }
     }
-
+    #[allow(unused)]
     fn is_token_expired(&self) -> bool {
         let now = Utc::now();
 
@@ -298,10 +309,7 @@ impl RedditClient {
             let mut context = comment["data"]["context"].as_str().map(|s| s.to_string())?;
             context.truncate(context.rfind("/").unwrap_or(context.len()));
             context.truncate(context.rfind("/").unwrap_or(context.len()) + 1);
-            let parent_id = comment["data"]["parent_id"]
-                .as_str()
-                .map(|s| &s[3..])
-                .unwrap_or("");
+            let parent_id = comment["data"]["parent_id"].as_str().map(|s| &s[3..])?;
             context.push_str(parent_id);
             context.push('/');
             Some(context)
@@ -353,7 +361,114 @@ impl RedditClient {
 
 #[cfg(test)]
 mod tests {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
     use super::*;
+
+    async fn dummy_server(reqeuest_response_pairs: &[(&str, &str)]) -> std::io::Result<()> {
+        let listen = TcpListener::bind("127.0.0.1:9384").await?;
+        for (expected_request, response) in reqeuest_response_pairs {
+            let mut sock = listen.accept().await?.0;
+            let mut request = vec![0; 10000];
+            let len = sock.read(&mut request).await?;
+            request.truncate(len);
+            let request = String::from_utf8(request).expect("Got invalid utf8");
+            if !(&request == expected_request) {
+                panic!(
+                    "Wrong request: {:?}\nExpected: {:?}",
+                    request, expected_request
+                );
+            }
+            sock.write_all(response.as_bytes()).await?;
+            sock.flush().await?;
+        }
+        Ok(())
+    }
+    pub static SEQUENTIAL_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    fn sequential<'a>() -> std::sync::MutexGuard<'a, ()> {
+        loop {
+            SEQUENTIAL_LOCK.clear_poison();
+            match SEQUENTIAL_LOCK.lock() {
+                Ok(lock) => return lock,
+                Err(_) => {}
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_client() {
+        let _lock = sequential();
+        // SAFETY: All envvar operations are tested Sequentially
+        unsafe {
+            std::env::set_var("APP_CLIENT_ID", "an id");
+            std::env::set_var("APP_SECRET", "a secret");
+            std::env::set_var("REDDIT_PASSWORD", "a password");
+            std::env::set_var("REDDIT_USERNAME", "a username");
+        }
+        let (status, client) = join!(
+            dummy_server(&[(
+                "POST / HTTP/1.1\r\nuser-agent: factorion-bot:v1.4.0 (by /u/tolik518)\r\ncontent-type: application/x-www-form-urlencoded\r\nauthorization: Basic YW4gaWQ6YSBzZWNyZXQ=\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 77\r\n\r\ngrant_type=password&username=a+username&password=a+password&scope=read+submit",
+                "HTTP/1.1 200 OK\n\n{\"access_token\": \"eyJhbGciOiJSUzI1NiIsImtpZCI6IlNIQTI1NjpzS3dsMnlsV0VtMjVmcXhwTU40cWY4MXE2OWFFdWFyMnpLMUdhVGxjdWNZIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2dyIiwiZXhwIjoxNzM1MTQ0NjI0LjQ2OTAyLCJpYXQiOjE3MzUwNTgyMjQuNDY5MDIsImp0aSI6IlpDM0Y2YzVXUGh1a09zVDRCcExaa0lmam1USjBSZyIsImNpZCI6IklJbTJha1RaRDFHWXd5Y1lXTlBKWVEiLCJsaWQiOiJ0dl96bnJ5dTJvM1QiLCJhaWQiOiJ0Ml96bnJ5dT1vMjQiLCJsY2EiOjE3MTQ4MjU0NzQ3MDIsInNjcCI6ImVKeUtWaXBLVFV4UjBsRXFMazNLelN4UmlnVUVBQUpfX3pGR0JaMCIsImZsbyI6OX0.o3X9CJAUED1iYsFs8h_02NvaDMmPVSIaZgz3aPjEGm3zF5cG2-G2tU7yIJUtqGICxT0W3-PAso0jwrrx3ScSGucvhEiUVXOiGcCZSzPfLnwuGxtRa_lNEkrsLAVlhN8iXBRGds8YkJ0MFWn4JRwhi8beV3EsFkEzN6IsESuA33WUQQgGs0Ij5oH0If3EMLoBoDVQvWdp2Yno0SV9xdODP6pMJSKZD5HVgWGzprFlN2VWmgb4HXs3mrxbE5bcuO_slah0xcqnhcXmlYCdRCSqeEUtlW8pS4Wtzzs7BL5E70A5LHmHJfGJWCh-loInwarxeq_tVPoxikzqBrTIEsLmPA\"}"
+            )]),
+            RedditClient::new()
+        );
+        status.unwrap();
+        client.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_reply_to_comment() {
+        let _lock = sequential();
+        let client = RedditClient {
+            client: Client::new(),
+            token: Token {
+                access_token: "token".to_string(),
+                expiration_time: Utc::now(),
+            },
+        };
+        let (status, reply_status) = join!(
+            dummy_server(&[(
+                "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 32\r\n\r\ntext=I+relpy&thing_id=t1_some_id",
+                "HTTP/1.1 200 OK\n\n{\"success\": true}"
+            )]),
+            client.reply_to_comment(RedditComment::new_already_replied("some_id", "author", "subressit"), "I relpy")
+        );
+        status.unwrap();
+        reply_status.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_comments() {
+        let _lock = sequential();
+        let mut client = RedditClient {
+            client: Client::new(),
+            token: Token {
+                access_token: "token".to_string(),
+                expiration_time: Utc::now(),
+            },
+        };
+        let (status, comments) = join!(
+            async {
+                dummy_server(&[(
+                    "GET /r/test_subreddit/comments/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
+                ),(
+                    "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"body\":\"u/factorion-bot\",\"parent_id\":\"t1_m38msum\",\"context\":\"/r/some_sub/8msu32a/some_post/m38msun/?context=3\"}}]}}"
+                ),(
+                    "GET /r/some_sub/8msu32a/some_post/m38msum/ HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\n\n[{}]"
+                )]).await
+            },
+            client.get_comments("test_subreddit", 100, &[])
+        );
+        status.unwrap();
+        let comments = comments.unwrap();
+        assert_eq!(comments.len(), 2);
+    }
 
     #[tokio::test]
     async fn test_extract_comments() {
