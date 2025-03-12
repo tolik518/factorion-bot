@@ -325,11 +325,7 @@ impl RedditComment {
             );
             }
         } else if self.calculation_list.iter().any(Calculation::is_rounded) {
-            if multiple {
-                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round it at some point.\n\n");
-            } else {
-                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round it at some point.\n\n");
-            }
+            let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round at some point.\n\n");
         } else if self.calculation_list.iter().any(Calculation::is_too_long) {
             if multiple {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
@@ -678,6 +674,18 @@ mod tests {
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of The factorial of 3 is 720 \n\nThe factorial of The factorial of The factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_command_steps_tower() {
+        let comment = RedditComment::new(
+            "This comment would like to know all the steps to this factorial chain (((9!)!)!)! \\[all\\] \\[short\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of The factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of The factorial of The factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of The factorial of The factorial of The factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
