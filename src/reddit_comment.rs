@@ -1,8 +1,8 @@
 //! Parses comments and generates the reply.
 use crate::math::FLOAT_PRECISION;
 
-use crate::calculation_results::Calculation;
-use crate::calculation_tasks::{CalculationBase, CalculationJob, FactorialTask, GammaTask};
+use crate::calculation_results::{Calculation, Number};
+use crate::calculation_tasks::{CalculationBase, CalculationJob, FactorialTask};
 
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
@@ -162,11 +162,11 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)]+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)\.]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)]+)\)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)\.]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
         let mut list: Vec<CalculationJob> = Vec::new();
@@ -211,7 +211,7 @@ impl RedditComment {
                 .parse::<Integer>()
                 .expect("Failed to parse number");
             list.push(CalculationJob::Factorial(FactorialTask {
-                base: CalculationBase::Number(number),
+                base: CalculationBase::Num(Number::Int(number)),
                 level: -1,
             }));
         }
@@ -225,15 +225,18 @@ impl RedditComment {
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
             list.push(CalculationJob::Factorial(FactorialTask {
-                base: CalculationBase::Number(number),
+                base: CalculationBase::Num(Number::Int(number)),
                 level,
             }));
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push(CalculationJob::Gamma(GammaTask {
-                value: Float::with_val(FLOAT_PRECISION, gamma).into(),
+            list.push(CalculationJob::Factorial(FactorialTask {
+                base: CalculationBase::Num(Number::Float(
+                    Float::with_val(FLOAT_PRECISION, gamma).into(),
+                )),
+                level: 1,
             }))
         }
         // dedup the list
@@ -321,6 +324,12 @@ impl RedditComment {
                 "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\n",
             );
             }
+        } else if self.calculation_list.iter().any(Calculation::is_rounded) {
+            if multiple {
+                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round it at some point.\n\n");
+            } else {
+                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round it at some point.\n\n");
+            }
         } else if self.calculation_list.iter().any(Calculation::is_too_long) {
             if multiple {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
@@ -394,7 +403,7 @@ impl RedditComment {
 #[cfg(test)]
 mod tests {
     use crate::{
-        calculation_results::{CalculatedFactorial, Factorial, Gamma},
+        calculation_results::{CalculatedFactorial, Factorial},
         math,
     };
 
@@ -545,11 +554,12 @@ mod tests {
                 .calculation_list
                 .into_iter()
                 .map(|calc| match calc {
-                    Calculation::Factorial(_) => unreachable!("No normal factorial included"),
-                    Calculation::Gamma(Gamma {
-                        value: number,
-                        gamma,
+                    Calculation::Factorial(Factorial {
+                        value: Number::Float(number),
+                        levels: _,
+                        factorial: CalculatedFactorial::Gamma(gamma),
                     }) => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    Calculation::Factorial(_) => unreachable!("No normal factorial included"),
                 })
                 .collect::<Vec<_>>(),
             vec![(0.5, 0.886226925452758)]
@@ -999,6 +1009,32 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_factorial_chain_gamma() {
+        let comment = RedditComment::new(
+            "This is a test with a decimal factorial chain (((0.5!)!)!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "The factorial of The factorial of The factorial of The factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_get_reply_factorial_chain_gamma_diverge() {
+        let comment = RedditComment::new(
+            "This is a test with a decimal factorial chain (((3.141592!)!)!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of The factorial of The factorial of 3.141592 has approximately 4.944306506471065948183172034785 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
