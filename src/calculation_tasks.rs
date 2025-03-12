@@ -83,14 +83,20 @@ impl FactorialTask {
                                     let base_levels = levels;
                                     let mut levels = vec![level];
                                     levels.extend(base_levels);
-                                    return vec![Some(Calculation::Factorial(Factorial {
+                                    let factorial = Some(Calculation::Factorial(Factorial {
                                         value: number.clone(),
                                         levels,
                                         factorial: CalculatedFactorial::ApproximateDigitsTower(
                                             1,
                                             exponent.clone() + math::length(exponent),
                                         ),
-                                    }))];
+                                    }));
+                                    if include_steps {
+                                        factorials.push(factorial);
+                                    } else {
+                                        factorials = vec![factorial];
+                                    }
+                                    return factorials;
                                 };
                                 Number::Int(res)
                             }
@@ -98,14 +104,20 @@ impl FactorialTask {
                                 let base_levels = levels;
                                 let mut levels = vec![level];
                                 levels.extend(base_levels);
-                                return vec![Some(Calculation::Factorial(Factorial {
+                                let factorial = Some(Calculation::Factorial(Factorial {
                                     value: number.clone(),
                                     levels,
                                     factorial: CalculatedFactorial::ApproximateDigitsTower(
                                         1,
                                         digits.clone() + math::length(digits),
                                     ),
-                                }))];
+                                }));
+                                if include_steps {
+                                    factorials.push(factorial);
+                                } else {
+                                    factorials = vec![factorial];
+                                }
+                                return factorials;
                             }
                             CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
                                 let base_levels = levels;
@@ -122,7 +134,7 @@ impl FactorialTask {
                                     }
                                     extra = extra.log10();
                                 }
-                                return vec![Some(Calculation::Factorial(Factorial {
+                                let factorial = Some(Calculation::Factorial(Factorial {
                                     value: number.clone(),
                                     levels,
                                     factorial: CalculatedFactorial::ApproximateDigitsTower(
@@ -133,7 +145,13 @@ impl FactorialTask {
                                                 .map(|(n, _)| n)
                                                 .unwrap_or(0.into()),
                                     ),
-                                }))];
+                                }));
+                                if include_steps {
+                                    factorials.push(factorial);
+                                } else {
+                                    factorials = vec![factorial];
+                                }
+                                return factorials;
                             }
                             CalculatedFactorial::Gamma(gamma) => Number::Float(gamma.clone()),
                         };
