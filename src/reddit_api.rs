@@ -62,7 +62,7 @@ impl RedditClient {
         &mut self,
         subreddit: &str,
         limit: u32,
-        already_replied_to_comments: &[String],
+        already_replied_to_comments: &mut Vec<String>,
     ) -> Result<Vec<RedditComment>, ()> {
         #[cfg(not(test))]
         if self.is_token_expired() {
@@ -129,8 +129,6 @@ impl RedditClient {
                         .expect("Failed to extract comments");
                 res.extend(mentions);
                 res.extend(parents);
-                res.sort();
-                res.dedup();
                 Ok(res)
             }
             Err(_) => Err(()),
@@ -321,7 +319,7 @@ impl RedditClient {
     }
     async fn extract_comments(
         response: Response,
-        already_replied_to_comments: &[String],
+        already_replied_to_comments: &mut Vec<String>,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
@@ -343,7 +341,10 @@ impl RedditClient {
 
         Ok((comments, parent_paths))
     }
-    fn extract_comment(comment: Value, already_replied_to_comments: &[String]) -> RedditComment {
+    fn extract_comment(
+        comment: Value,
+        already_replied_to_comments: &mut Vec<String>,
+    ) -> RedditComment {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
@@ -352,6 +353,7 @@ impl RedditClient {
         if already_replied_to_comments.contains(&comment_id.to_string()) {
             RedditComment::new_already_replied(comment_id, author, subreddit)
         } else {
+            already_replied_to_comments.push(comment_id.to_string());
             let mut comment = RedditComment::new(comment_text, comment_id, author, subreddit);
 
             comment.add_status(Status::NOT_REPLIED);
@@ -452,6 +454,7 @@ mod tests {
                 expiration_time: Utc::now(),
             },
         };
+        let mut already_replied = vec![];
         let (status, comments) = join!(
             async {
                 dummy_server(&[(
@@ -465,7 +468,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!\"}}]"
                 )]).await
             },
-            client.get_comments("test_subreddit", 100, &[])
+            client.get_comments("test_subreddit", 100, &mut already_replied)
         );
         status.unwrap();
         let comments = comments.unwrap();
@@ -514,7 +517,10 @@ mod tests {
                    ]
                }
            }"#).unwrap());
-        let comments = RedditClient::extract_comments(response, &[]).await.unwrap();
+        let mut already_replied = vec![];
+        let comments = RedditClient::extract_comments(response, &mut already_replied)
+            .await
+            .unwrap();
         assert_eq!(comments.0.len(), 3);
         assert_eq!(comments.1, ["/r/some_sub/8msu32a/some_post/m38msum/"]);
         println!("{:#?}", comments);
