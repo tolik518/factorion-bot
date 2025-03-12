@@ -325,11 +325,7 @@ impl RedditComment {
             );
             }
         } else if self.calculation_list.iter().any(Calculation::is_rounded) {
-            if multiple {
-                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round it at some point.\n\n");
-            } else {
-                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round it at some point.\n\n");
-            }
+            let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round at some point.\n\n");
         } else if self.calculation_list.iter().any(Calculation::is_too_long) {
             if multiple {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
