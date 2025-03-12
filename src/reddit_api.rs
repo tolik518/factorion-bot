@@ -129,6 +129,8 @@ impl RedditClient {
                         .expect("Failed to extract comments");
                 res.extend(mentions);
                 res.extend(parents);
+                res.sort();
+                res.dedup();
                 Ok(res)
             }
             Err(_) => Err(()),

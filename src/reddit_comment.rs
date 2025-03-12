@@ -10,7 +10,7 @@ use rug::{Float, Integer};
 use std::fmt::Write;
 use std::sync::LazyLock;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub(crate) struct RedditComment {
     pub(crate) id: String,
     pub(crate) calculation_list: Vec<Calculation>,
@@ -20,7 +20,7 @@ pub(crate) struct RedditComment {
     pub(crate) commands: Commands,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub(crate) struct Status {
     pub(crate) already_replied_or_rejected: bool,
     pub(crate) not_replied: bool,
@@ -81,7 +81,7 @@ impl Status {
     };
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub(crate) struct Commands {
     shorten: bool,
     include_steps: bool,
