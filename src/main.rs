@@ -64,7 +64,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         let comments = reddit_client
-            .get_comments(subreddits, API_COMMENT_COUNT, &already_replied_or_rejected)
+            .get_comments(
+                subreddits,
+                API_COMMENT_COUNT,
+                &mut already_replied_or_rejected,
+            )
             .await
             .unwrap_or_default();
         let end = SystemTime::now();
@@ -88,7 +92,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             if status.number_too_big_to_calculate {
                 println!(" -> number too big to calculate");
-                already_replied_or_rejected.push(comment_id.clone());
                 continue;
             }
 
@@ -104,7 +107,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let reply: String = comment.get_reply();
                 match reddit_client.reply_to_comment(comment, &reply).await {
                     Ok(_) => {
-                        already_replied_or_rejected.push(comment_id.clone());
                         influxdb::log_comment_reply(
                             influx_client,
                             &comment_id,
