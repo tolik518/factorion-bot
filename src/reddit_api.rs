@@ -462,7 +462,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"body\":\"u/factorion-bot\",\"parent_id\":\"t1_m38msum\",\"context\":\"/r/some_sub/8msu32a/some_post/m38msun/?context=3\"}}]}}"
                 ),(
                     "GET /r/some_sub/8msu32a/some_post/m38msum/ HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n[{}]"
+                    "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!\"}}]"
                 )]).await
             },
             client.get_comments("test_subreddit", 100, &[])
