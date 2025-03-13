@@ -327,7 +327,9 @@ impl RedditClient {
             .cloned()
             .unwrap_or_default();
 
+        already_replied_to_comments.reserve(comments_json.len());
         let mut comments = Vec::new();
+        comments.reserve(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
             comments.push(Self::extract_comment(&comment, already_replied_to_comments));
