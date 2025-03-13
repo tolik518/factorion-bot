@@ -28,8 +28,16 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
     f
 }
 
+pub(crate) fn terminal(n: Integer) -> Integer {
+    (n.clone() * (n + 1)) / 2
+}
+
 pub(crate) fn fractional_factorial(x: Float) -> Float {
     (x + 1.0f64).gamma()
+}
+
+pub(crate) fn fractional_terminal(x: Float) -> Float {
+    (((x.clone() + 1) as Float).gamma() / ((x - 1) as Float).gamma()) / 2
 }
 
 /// Calculates Sterling's Approximation of large factorials.
@@ -108,6 +116,18 @@ pub fn approximate_subfactorial(n: Integer) -> (Float, Integer) {
     adjust_approximate_factorial((x / &*E, e))
 }
 
+pub fn approximate_terminal(n: Integer) -> (Float, Integer) {
+    let n = Float::with_val(FLOAT_PRECISION, n);
+    let (e, _) = n
+        .clone()
+        .log10()
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap();
+    let n = n / e.clone();
+    let x = (n.clone().square() + n) / 2;
+    (x, e)
+}
+
 /// Calculates the approximate digits of a multifactorial.
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
@@ -125,6 +145,14 @@ pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
         .expect("Got non-finite number, n or k is likely 0")
         .0
         + Integer::ONE
+}
+
+pub fn approximate_terminal_digits(n: Integer) -> Integer {
+    let n = Float::with_val(FLOAT_PRECISION, n);
+    (n.log10() - Float::with_val(FLOAT_PRECISION, 2).log10())
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap()
+        .0
 }
 /// Adjusts the output of [`approximate_factorial`], by combining the 10 exponents of the number and the extra exponent.
 ///
