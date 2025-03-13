@@ -303,19 +303,13 @@ impl RedditClient {
     }
 
     fn extract_summon_parent_path(comment: &Value) -> Option<String> {
-        if comment["data"]["body"].as_str() == Some("u/factorion-bot")
-            && comment["kind"].as_str() == Some("t1")
-        {
-            let mut context = comment["data"]["context"].as_str().map(|s| s.to_string())?;
-            context.truncate(context.rfind("/").unwrap_or(context.len()));
-            context.truncate(context.rfind("/").unwrap_or(context.len()) + 1);
-            let parent_id = comment["data"]["parent_id"].as_str().map(|s| &s[3..])?;
-            context.push_str(parent_id);
-            context.push('/');
-            Some(context)
-        } else {
-            None
-        }
+        let mut context = comment["data"]["context"].as_str().map(|s| s.to_string())?;
+        context.truncate(context.rfind("/").unwrap_or(context.len()));
+        context.truncate(context.rfind("/").unwrap_or(context.len()) + 1);
+        let parent_id = comment["data"]["parent_id"].as_str().map(|s| &s[3..])?;
+        context.push_str(parent_id);
+        context.push('/');
+        Some(context)
     }
     async fn extract_comments(
         response: Response,
@@ -332,10 +326,19 @@ impl RedditClient {
         comments.reserve(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            comments.push(Self::extract_comment(&comment, already_replied_to_comments));
-            if let Some(path) = Self::extract_summon_parent_path(&comment) {
-                parent_paths.push(path);
+            let extracted_comment = Self::extract_comment(&comment, already_replied_to_comments);
+            if comment["data"]["body"]
+                .as_str()
+                .map(|s| s.contains("u/factorion-bot"))
+                .unwrap_or_default()
+                && extracted_comment.status.no_factorial
+                && extracted_comment.status.not_replied
+            {
+                if let Some(path) = Self::extract_summon_parent_path(&comment) {
+                    parent_paths.push(path);
+                }
             }
+            comments.push(extracted_comment);
         }
 
         Ok((comments, parent_paths))
