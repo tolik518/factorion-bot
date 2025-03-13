@@ -112,7 +112,7 @@ impl RedditClient {
                         .await
                         .expect("Failed to get comment");
                     let parent = RedditClient::extract_comment(
-                        response
+                        &response
                             .json::<Value>()
                             .await
                             .expect("Response isn't JSON")
@@ -302,7 +302,7 @@ impl RedditClient {
         Ok(())
     }
 
-    fn extract_summon_parent_path(comment: Value) -> Option<String> {
+    fn extract_summon_parent_path(comment: &Value) -> Option<String> {
         if comment["data"]["body"].as_str() == Some("u/factorion-bot")
             && comment["kind"].as_str() == Some("t1")
         {
@@ -330,11 +330,8 @@ impl RedditClient {
         let mut comments = Vec::new();
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            comments.push(Self::extract_comment(
-                comment.clone(),
-                already_replied_to_comments,
-            ));
-            if let Some(path) = Self::extract_summon_parent_path(comment) {
+            comments.push(Self::extract_comment(&comment, already_replied_to_comments));
+            if let Some(path) = Self::extract_summon_parent_path(&comment) {
                 parent_paths.push(path);
             }
         }
@@ -342,7 +339,7 @@ impl RedditClient {
         Ok((comments, parent_paths))
     }
     fn extract_comment(
-        comment: Value,
+        comment: &Value,
         already_replied_to_comments: &mut Vec<String>,
     ) -> RedditComment {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
