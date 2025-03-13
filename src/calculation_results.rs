@@ -101,12 +101,16 @@ impl Calculation {
 impl Calculation {
     pub fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
         let factorial_string = self.levels.iter().rev().fold(String::new(), |a, e| {
-            format!(
-                "{}{}{}",
-                a,
-                Self::get_factorial_level_string(*e),
-                PLACEHOLDER
-            )
+            if e == &0 {
+                format!("{}The terminal of ", a)
+            } else {
+                format!(
+                    "{}{}{}",
+                    a,
+                    Self::get_factorial_level_string(*e),
+                    PLACEHOLDER
+                )
+            }
         });
         let number = match &self.value {
             Number::Int(value) => {
