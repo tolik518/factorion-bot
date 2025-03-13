@@ -5,6 +5,7 @@ use reddit_comment::Status;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::sync::OnceLock;
 use std::time::SystemTime;
 use time::OffsetDateTime;
 use tokio::time::{sleep, Duration};
@@ -18,6 +19,8 @@ pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
+static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
+static SUBREDDITS: OnceLock<&str> = OnceLock::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -32,7 +35,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut reddit_client = RedditClient::new().await?;
     let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
-    let subreddits = subreddits.as_str();
+    let _ = SUBREDDITS.set(subreddits.leak());
+    let _ = COMMENT_COUNT.set(API_COMMENT_COUNT);
 
     let sleep_between_requests =
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
@@ -64,11 +68,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         let comments = reddit_client
-            .get_comments(
-                subreddits,
-                API_COMMENT_COUNT,
-                &mut already_replied_or_rejected,
-            )
+            .get_comments(&mut already_replied_or_rejected)
             .await
             .unwrap_or_default();
         let end = SystemTime::now();

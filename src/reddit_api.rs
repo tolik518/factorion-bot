@@ -1,12 +1,15 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
+use std::sync::LazyLock;
+
 use crate::reddit_comment::{RedditComment, Status};
+use crate::{COMMENT_COUNT, SUBREDDITS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
-use reqwest::{Client, Response};
+use reqwest::{Client, Response, Url};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
 use tokio::join;
@@ -60,10 +63,25 @@ impl RedditClient {
 
     pub(crate) async fn get_comments(
         &mut self,
-        subreddit: &str,
-        limit: u32,
         already_replied_to_comments: &mut Vec<String>,
     ) -> Result<Vec<RedditComment>, ()> {
+        static SUBREDDIT_URL: LazyLock<Url> = LazyLock::new(|| {
+            Url::parse(&format!(
+                "{}/r/{}/comments/?limit={}",
+                REDDIT_OAUTH_URL,
+                SUBREDDITS.get().expect("Subreddits uninitailized"),
+                COMMENT_COUNT.get().expect("Comment count uninitialzed")
+            ))
+            .expect("Failed to parse Url")
+        });
+        static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
+            Url::parse(&format!(
+                "{}/message/mentions/?limit={}",
+                REDDIT_OAUTH_URL,
+                COMMENT_COUNT.get().expect("Comment count uninitialzed")
+            ))
+            .expect("Failed to parse Url")
+        });
         #[cfg(not(test))]
         if self.is_token_expired() {
             println!("Token expired, getting new token");
@@ -77,17 +95,11 @@ impl RedditClient {
 
         let (subs_response, mentions_response) = join!(
             self.client
-                .get(format!(
-                    "{}/r/{}/comments/?limit={}",
-                    REDDIT_OAUTH_URL, subreddit, limit
-                ))
+                .get(SUBREDDIT_URL.clone())
                 .bearer_auth(&self.token.access_token)
                 .send(),
             self.client
-                .get(format!(
-                    "{}/message/mentions/?limit={}",
-                    REDDIT_OAUTH_URL, limit
-                ))
+                .get(MENTION_URL.clone())
                 .bearer_auth(&self.token.access_token)
                 .send()
         );
@@ -98,6 +110,10 @@ impl RedditClient {
             .and(RedditClient::check_response_status(&mentions_response))
         {
             Ok(_) => {
+                let (mut res, _) =
+                    RedditClient::extract_comments(subs_response, already_replied_to_comments)
+                        .await
+                        .expect("Failed to extract comments");
                 let (mentions, paths) =
                     RedditClient::extract_comments(mentions_response, already_replied_to_comments)
                         .await
@@ -123,10 +139,6 @@ impl RedditClient {
                     );
                     parents.push(parent);
                 }
-                let (mut res, _) =
-                    RedditClient::extract_comments(subs_response, already_replied_to_comments)
-                        .await
-                        .expect("Failed to extract comments");
                 res.extend(mentions);
                 res.extend(parents);
                 Ok(res)
@@ -332,7 +344,7 @@ impl RedditClient {
                 .map(|s| s.contains("u/factorion-bot"))
                 .unwrap_or_default()
                 && extracted_comment.status.no_factorial
-                && extracted_comment.status.not_replied
+                && !extracted_comment.status.already_replied_or_rejected
             {
                 if let Some(path) = Self::extract_summon_parent_path(comment) {
                     parent_paths.push(path);
@@ -456,6 +468,8 @@ mod tests {
                 expiration_time: Utc::now(),
             },
         };
+        let _ = SUBREDDITS.set("test_subreddit");
+        let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let (status, comments) = join!(
             async {
@@ -470,7 +484,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!\"}}]"
                 )]).await
             },
-            client.get_comments("test_subreddit", 100, &mut already_replied)
+            client.get_comments(&mut already_replied)
         );
         status.unwrap();
         let comments = comments.unwrap();
@@ -499,7 +513,7 @@ mod tests {
                                "author_fullname": "t2_b5n60qnt",
                                "body": "comment 2",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
-                               "id": "m38msun",
+                               "id": "m38msug",
                                "locked": false,
                               "unrepliable_reason": null
                            }
