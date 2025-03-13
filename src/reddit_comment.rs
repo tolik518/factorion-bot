@@ -2,7 +2,7 @@
 use crate::math::FLOAT_PRECISION;
 
 use crate::calculation_results::{Calculation, Number};
-use crate::calculation_tasks::{CalculationBase, CalculationJob, FactorialTask};
+use crate::calculation_tasks::{CalculationBase, CalculationJob};
 
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
@@ -181,10 +181,10 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(CalculationJob::Factorial(FactorialTask {
+            list.push(CalculationJob {
                 base: CalculationBase::Calc(Box::new(inner)),
                 level: -1,
-            }))
+            })
         }
         for capture in FACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -200,20 +200,20 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(CalculationJob::Factorial(FactorialTask {
+            list.push(CalculationJob {
                 base: CalculationBase::Calc(Box::new(inner)),
                 level,
-            }))
+            })
         }
         for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let number = capture[2]
                 .parse::<Integer>()
                 .expect("Failed to parse number");
-            list.push(CalculationJob::Factorial(FactorialTask {
+            list.push(CalculationJob {
                 base: CalculationBase::Num(Number::Int(number)),
                 level: -1,
-            }));
+            });
         }
         for capture in FACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -224,20 +224,20 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            list.push(CalculationJob::Factorial(FactorialTask {
+            list.push(CalculationJob {
                 base: CalculationBase::Num(Number::Int(number)),
                 level,
-            }));
+            });
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push(CalculationJob::Factorial(FactorialTask {
+            list.push(CalculationJob {
                 base: CalculationBase::Num(Number::Float(
                     Float::with_val(FLOAT_PRECISION, gamma).into(),
                 )),
                 level: 1,
-            }))
+            })
         }
         // dedup the list
         // sort by depth (and other)
@@ -402,7 +402,7 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
-    use crate::{calculation_results::CalculatedFactorial, math};
+    use crate::{calculation_results::CalculationResult, math};
 
     use super::*;
 
@@ -421,12 +421,12 @@ mod tests {
                 Calculation {
                     value: 5.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(Integer::from(120)),
+                    result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(Integer::from(720)),
+                    result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
         );
@@ -446,7 +446,7 @@ mod tests {
             vec![Calculation {
                 value: 6.into(),
                 levels: vec![2],
-                factorial: CalculatedFactorial::Exact(Integer::from(48)),
+                result: CalculationResult::Exact(Integer::from(48)),
             }]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
@@ -465,7 +465,7 @@ mod tests {
             vec![Calculation {
                 value: 6.into(),
                 levels: vec![3],
-                factorial: CalculatedFactorial::Exact(Integer::from(18)),
+                result: CalculationResult::Exact(Integer::from(18)),
             }]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
@@ -509,7 +509,7 @@ mod tests {
             vec![Calculation {
                 value: 5.into(),
                 levels: vec![-1],
-                factorial: CalculatedFactorial::Exact(Integer::from(44)),
+                result: CalculationResult::Exact(Integer::from(44)),
             }]
         );
     }
@@ -554,7 +554,7 @@ mod tests {
                     Calculation {
                         value: Number::Float(number),
                         levels: _,
-                        factorial: CalculatedFactorial::Gamma(gamma),
+                        result: CalculationResult::Float(gamma),
                     } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
                     _ => unreachable!("No normal factorial included"),
                 })
@@ -602,7 +602,7 @@ mod tests {
             vec![Calculation {
                 value: 6.into(),
                 levels: vec![1],
-                factorial: CalculatedFactorial::Exact(Integer::from(720))
+                result: CalculationResult::Exact(Integer::from(720))
             }]
         );
         assert_eq!(
@@ -715,7 +715,7 @@ mod tests {
             calculation_list: vec![Calculation {
                 value: 10.into(),
                 levels: vec![3],
-                factorial: CalculatedFactorial::Exact(Integer::from(280)),
+                result: CalculationResult::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -734,7 +734,7 @@ mod tests {
             calculation_list: vec![Calculation {
                 value: 5.into(),
                 levels: vec![-1],
-                factorial: CalculatedFactorial::Exact(Integer::from(44)),
+                result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -752,7 +752,7 @@ mod tests {
             calculation_list: vec![Calculation {
                 value: 5000.into(),
                 levels: vec![-1],
-                factorial: CalculatedFactorial::Exact(math::subfactorial(5000)),
+                result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -771,7 +771,7 @@ mod tests {
             calculation_list: vec![Calculation {
                 value: 10.into(),
                 levels: vec![46],
-                factorial: CalculatedFactorial::Exact(Integer::from(10)),
+                result: CalculationResult::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -791,12 +791,12 @@ mod tests {
                 Calculation {
                     value: 5.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(Integer::from(120)),
+                    result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(Integer::from(720)),
+                    result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
             author: "test_author".to_string(),
@@ -817,17 +817,17 @@ mod tests {
                 Calculation {
                     value: 5.into(),
                     levels: vec![2],
-                    factorial: CalculatedFactorial::Exact(Integer::from(60)),
+                    result: CalculationResult::Exact(Integer::from(60)),
                 },
                 Calculation {
                     value: 6.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(Integer::from(720)),
+                    result: CalculationResult::Exact(Integer::from(720)),
                 },
                 Calculation {
                     value: 3249.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(math::factorial(3249, 1)),
+                    result: CalculationResult::Exact(math::factorial(3249, 1)),
                 },
             ],
             author: "test_author".to_string(),
@@ -1042,25 +1042,25 @@ mod tests {
                 Calculation {
                     value: 8.into(),
                     levels: vec![2],
-                    factorial: CalculatedFactorial::Exact(Integer::from(384)),
+                    result: CalculationResult::Exact(Integer::from(384)),
                 },
                 Calculation {
                     value: 10000.into(),
                     levels: vec![1],
-                    factorial: CalculatedFactorial::Exact(math::factorial(10000, 1)),
+                    result: CalculationResult::Exact(math::factorial(10000, 1)),
                 },
                 Calculation {
                     value: 37923648.into(),
                     levels: vec![1],
-                    factorial: {
+                    result: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
-                        CalculatedFactorial::Approximate(base.into(), exponent)
+                        CalculationResult::Approximate(base.into(), exponent)
                     },
                 },
                 Calculation {
                     value: 283462.into(),
                     levels: vec![2],
-                    factorial: CalculatedFactorial::ApproximateDigits(
+                    result: CalculationResult::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
                 },
