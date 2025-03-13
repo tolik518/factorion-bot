@@ -169,6 +169,14 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)\.]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
+        static FACTORIAL_TERMINAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+\?)(!+)(?![<\d]|&lt;)")
+                .expect("Invalid factorial-chain regex")
+        });
+        static TERMINAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d])(\?)(?![<\d]|&lt;)")
+                .expect("Invalid factorial-chain regex")
+        });
         let mut list: Vec<CalculationJob> = Vec::new();
 
         for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
@@ -203,6 +211,40 @@ impl RedditComment {
             list.push(CalculationJob {
                 base: CalculationBase::Calc(Box::new(inner)),
                 level,
+            })
+        }
+        for capture in FACTORIAL_TERMINAL_CHAIN_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let text = &capture[1];
+            let level = capture[2]
+                .len()
+                .to_i32()
+                .expect("Failed to convert exclamation count to i32");
+            let mut inner = Self::extract_calculation_jobs(text);
+            if inner.is_empty() {
+                continue;
+            }
+            inner.sort_by_key(|x| x.get_depth());
+            inner.reverse();
+            let inner = inner.remove(0);
+            list.push(CalculationJob {
+                base: CalculationBase::Calc(Box::new(inner)),
+                level,
+            })
+        }
+        for capture in TERMINAL_CHAIN_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let text = &capture[1];
+            let mut inner = Self::extract_calculation_jobs(text);
+            if inner.is_empty() {
+                continue;
+            }
+            inner.sort_by_key(|x| x.get_depth());
+            inner.reverse();
+            let inner = inner.remove(0);
+            list.push(CalculationJob {
+                base: CalculationBase::Calc(Box::new(inner)),
+                level: 0,
             })
         }
         for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
