@@ -315,18 +315,18 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
+        let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
             .as_array()
-            .cloned()
-            .unwrap_or_default();
+            .unwrap_or(&empty_vec);
 
         already_replied_to_comments.reserve(comments_json.len());
         let mut comments = Vec::new();
         comments.reserve(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            let extracted_comment = Self::extract_comment(&comment, already_replied_to_comments);
+            let extracted_comment = Self::extract_comment(comment, already_replied_to_comments);
             if comment["data"]["body"]
                 .as_str()
                 .map(|s| s.contains("u/factorion-bot"))
@@ -334,7 +334,7 @@ impl RedditClient {
                 && extracted_comment.status.no_factorial
                 && extracted_comment.status.not_replied
             {
-                if let Some(path) = Self::extract_summon_parent_path(&comment) {
+                if let Some(path) = Self::extract_summon_parent_path(comment) {
                     parent_paths.push(path);
                 }
             }
