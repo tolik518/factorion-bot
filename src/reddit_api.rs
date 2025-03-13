@@ -379,9 +379,12 @@ impl RedditClient {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
+        time::timeout,
     };
 
     use super::*;
@@ -389,9 +392,9 @@ mod tests {
     async fn dummy_server(reqeuest_response_pairs: &[(&str, &str)]) -> std::io::Result<()> {
         let listen = TcpListener::bind("127.0.0.1:9384").await?;
         for (expected_request, response) in reqeuest_response_pairs {
-            let mut sock = listen.accept().await?.0;
+            let mut sock = timeout(Duration::from_secs(5), listen.accept()).await??.0;
             let mut request = vec![0; 10000];
-            let len = sock.read(&mut request).await?;
+            let len = timeout(Duration::from_millis(300), sock.read(&mut request)).await??;
             request.truncate(len);
             let request = String::from_utf8(request).expect("Got invalid utf8");
             if !(&request == expected_request) {
@@ -400,8 +403,12 @@ mod tests {
                     request, expected_request
                 );
             }
-            sock.write_all(response.as_bytes()).await?;
-            sock.flush().await?;
+            timeout(
+                Duration::from_millis(50),
+                sock.write_all(response.as_bytes()),
+            )
+            .await??;
+            timeout(Duration::from_millis(300), sock.flush()).await??;
         }
         Ok(())
     }
