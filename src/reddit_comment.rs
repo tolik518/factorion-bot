@@ -402,10 +402,7 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        calculation_results::{CalculatedFactorial, Factorial},
-        math,
-    };
+    use crate::{calculation_results::CalculatedFactorial, math};
 
     use super::*;
 
@@ -421,16 +418,16 @@ mod tests {
         assert_eq!(
             comment.calculation_list,
             vec![
-                Calculation::Factorial(Factorial {
+                Calculation {
                     value: 5.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 6.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
-                }),
+                },
             ],
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
@@ -446,11 +443,11 @@ mod tests {
         );
         assert_eq!(
             comment.calculation_list,
-            vec![Calculation::Factorial(Factorial {
+            vec![Calculation {
                 value: 6.into(),
                 levels: vec![2],
                 factorial: CalculatedFactorial::Exact(Integer::from(48)),
-            })]
+            }]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
@@ -465,11 +462,11 @@ mod tests {
         );
         assert_eq!(
             comment.calculation_list,
-            vec![Calculation::Factorial(Factorial {
+            vec![Calculation {
                 value: 6.into(),
                 levels: vec![3],
                 factorial: CalculatedFactorial::Exact(Integer::from(18)),
-            })]
+            }]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
@@ -509,11 +506,11 @@ mod tests {
 
         assert_eq!(
             comment.calculation_list,
-            vec![Calculation::Factorial(Factorial {
+            vec![Calculation {
                 value: 5.into(),
                 levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
-            })]
+            }]
         );
     }
 
@@ -554,12 +551,12 @@ mod tests {
                 .calculation_list
                 .into_iter()
                 .map(|calc| match calc {
-                    Calculation::Factorial(Factorial {
+                    Calculation {
                         value: Number::Float(number),
                         levels: _,
                         factorial: CalculatedFactorial::Gamma(gamma),
-                    }) => (number.as_float().to_f64(), gamma.as_float().to_f64()),
-                    Calculation::Factorial(_) => unreachable!("No normal factorial included"),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
                 })
                 .collect::<Vec<_>>(),
             vec![(0.5, 0.886226925452758)]
@@ -602,11 +599,11 @@ mod tests {
         assert_eq!(comment.id, "123");
         assert_eq!(
             comment.calculation_list,
-            vec![Calculation::Factorial(Factorial {
+            vec![Calculation {
                 value: 6.into(),
                 levels: vec![1],
                 factorial: CalculatedFactorial::Exact(Integer::from(720))
-            })]
+            }]
         );
         assert_eq!(
             comment.status,
@@ -715,11 +712,11 @@ mod tests {
     fn test_get_reply_for_multifactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
-            calculation_list: vec![Calculation::Factorial(Factorial {
+            calculation_list: vec![Calculation {
                 value: 10.into(),
                 levels: vec![3],
                 factorial: CalculatedFactorial::Exact(Integer::from(280)),
-            })],
+            }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
@@ -734,11 +731,11 @@ mod tests {
     fn test_get_reply_for_subfactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
-            calculation_list: vec![Calculation::Factorial(Factorial {
+            calculation_list: vec![Calculation {
                 value: 5.into(),
                 levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(Integer::from(44)),
-            })],
+            }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
@@ -752,11 +749,11 @@ mod tests {
     fn test_get_reply_for_big_subfactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
-            calculation_list: vec![Calculation::Factorial(Factorial {
+            calculation_list: vec![Calculation {
                 value: 5000.into(),
                 levels: vec![-1],
                 factorial: CalculatedFactorial::Exact(math::subfactorial(5000)),
-            })],
+            }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
@@ -771,11 +768,11 @@ mod tests {
     fn test_get_reply_for_high_multifactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
-            calculation_list: vec![Calculation::Factorial(Factorial {
+            calculation_list: vec![Calculation {
                 value: 10.into(),
                 levels: vec![46],
                 factorial: CalculatedFactorial::Exact(Integer::from(10)),
-            })],
+            }],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
@@ -791,16 +788,16 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![
-                Calculation::Factorial(Factorial {
+                Calculation {
                     value: 5.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(120)),
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 6.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
-                }),
+                },
             ],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -817,21 +814,21 @@ mod tests {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![
-                Calculation::Factorial(Factorial {
+                Calculation {
                     value: 5.into(),
                     levels: vec![2],
                     factorial: CalculatedFactorial::Exact(Integer::from(60)),
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 6.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(Integer::from(720)),
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 3249.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(math::factorial(3249, 1)),
-                }),
+                },
             ],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
@@ -1042,31 +1039,31 @@ mod tests {
         let comment = RedditComment {
             id: "1234".to_string(),
             calculation_list: vec![
-                Calculation::Factorial(Factorial {
+                Calculation {
                     value: 8.into(),
                     levels: vec![2],
                     factorial: CalculatedFactorial::Exact(Integer::from(384)),
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 10000.into(),
                     levels: vec![1],
                     factorial: CalculatedFactorial::Exact(math::factorial(10000, 1)),
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 37923648.into(),
                     levels: vec![1],
                     factorial: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
                         CalculatedFactorial::Approximate(base.into(), exponent)
                     },
-                }),
-                Calculation::Factorial(Factorial {
+                },
+                Calculation {
                     value: 283462.into(),
                     levels: vec![2],
                     factorial: CalculatedFactorial::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
-                }),
+                },
             ],
             author: "test_author".to_string(),
             subreddit: "test_subreddit".to_string(),
