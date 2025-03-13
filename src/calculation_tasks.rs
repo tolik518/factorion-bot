@@ -13,17 +13,13 @@ use std::{str::FromStr, sync::LazyLock};
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
-    Integer::from_str("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()
-});
-// Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_TERMINAL_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
-    Integer::from_str("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()
-});
+pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
+    LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
 // Limit for exact subfactorial calculation, set to limit calculation time
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
-// Limit for exact terminal calculation, set to limit calculation time
-pub(crate) const UPPER_TERMINAL_LIMIT: u64 = 1_000_000;
+// Limit for exact terminal calculation, set to limit calculation time (absurdly high)
+pub(crate) const UPPER_TERMINAL_LIMIT: LazyLock<Integer> =
+    LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
 
 pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
@@ -263,19 +259,12 @@ impl CalculationJob {
                 })
             }
         } else if level == 0 {
-            if calc_num > *UPPER_TERMINAL_APPROXIMATION_LIMIT {
+            if calc_num > *UPPER_TERMINAL_LIMIT {
                 let terminal = math::approximate_terminal_digits(calc_num);
                 Some(Calculation {
                     value: num,
                     levels: vec![0],
                     result: CalculationResult::ApproximateDigits(terminal),
-                })
-            } else if calc_num > UPPER_TERMINAL_LIMIT {
-                let terminal = math::approximate_terminal(calc_num.clone());
-                Some(Calculation {
-                    value: num,
-                    levels: vec![0],
-                    result: CalculationResult::Approximate(terminal.0.into(), terminal.1),
                 })
             } else {
                 let terminal = math::terminal(calc_num);
