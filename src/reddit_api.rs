@@ -1,12 +1,15 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
+use std::sync::LazyLock;
+
 use crate::reddit_comment::{RedditComment, Status};
+use crate::{COMMENT_COUNT, SUBREDDITS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
-use reqwest::{Client, Response};
+use reqwest::{Client, Response, Url};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
 use tokio::join;
@@ -60,10 +63,25 @@ impl RedditClient {
 
     pub(crate) async fn get_comments(
         &mut self,
-        subreddit: &str,
-        limit: u32,
         already_replied_to_comments: &mut Vec<String>,
     ) -> Result<Vec<RedditComment>, ()> {
+        static SUBREDDIT_URL: LazyLock<Url> = LazyLock::new(|| {
+            Url::parse(&format!(
+                "{}/r/{}/comments/?limit={}",
+                REDDIT_OAUTH_URL,
+                SUBREDDITS.get().expect("Subreddits uninitailized"),
+                COMMENT_COUNT.get().expect("Comment count uninitialzed")
+            ))
+            .expect("Failed to parse Url")
+        });
+        static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
+            Url::parse(&format!(
+                "{}/message/mentions/?limit={}",
+                REDDIT_OAUTH_URL,
+                COMMENT_COUNT.get().expect("Comment count uninitialzed")
+            ))
+            .expect("Failed to parse Url")
+        });
         #[cfg(not(test))]
         if self.is_token_expired() {
             println!("Token expired, getting new token");
@@ -77,17 +95,11 @@ impl RedditClient {
 
         let (subs_response, mentions_response) = join!(
             self.client
-                .get(format!(
-                    "{}/r/{}/comments/?limit={}",
-                    REDDIT_OAUTH_URL, subreddit, limit
-                ))
+                .get(SUBREDDIT_URL.clone())
                 .bearer_auth(&self.token.access_token)
                 .send(),
             self.client
-                .get(format!(
-                    "{}/message/mentions/?limit={}",
-                    REDDIT_OAUTH_URL, limit
-                ))
+                .get(MENTION_URL.clone())
                 .bearer_auth(&self.token.access_token)
                 .send()
         );
@@ -98,6 +110,10 @@ impl RedditClient {
             .and(RedditClient::check_response_status(&mentions_response))
         {
             Ok(_) => {
+                let (mut res, _) =
+                    RedditClient::extract_comments(subs_response, already_replied_to_comments)
+                        .await
+                        .expect("Failed to extract comments");
                 let (mentions, paths) =
                     RedditClient::extract_comments(mentions_response, already_replied_to_comments)
                         .await
@@ -112,7 +128,7 @@ impl RedditClient {
                         .await
                         .expect("Failed to get comment");
                     let parent = RedditClient::extract_comment(
-                        response
+                        &response
                             .json::<Value>()
                             .await
                             .expect("Response isn't JSON")
@@ -123,10 +139,6 @@ impl RedditClient {
                     );
                     parents.push(parent);
                 }
-                let (mut res, _) =
-                    RedditClient::extract_comments(subs_response, already_replied_to_comments)
-                        .await
-                        .expect("Failed to extract comments");
                 res.extend(mentions);
                 res.extend(parents);
                 Ok(res)
@@ -302,47 +314,49 @@ impl RedditClient {
         Ok(())
     }
 
-    fn extract_summon_parent_path(comment: Value) -> Option<String> {
-        if comment["data"]["body"].as_str() == Some("u/factorion-bot")
-            && comment["kind"].as_str() == Some("t1")
-        {
-            let mut context = comment["data"]["context"].as_str().map(|s| s.to_string())?;
-            context.truncate(context.rfind("/").unwrap_or(context.len()));
-            context.truncate(context.rfind("/").unwrap_or(context.len()) + 1);
-            let parent_id = comment["data"]["parent_id"].as_str().map(|s| &s[3..])?;
-            context.push_str(parent_id);
-            context.push('/');
-            Some(context)
-        } else {
-            None
-        }
+    fn extract_summon_parent_path(comment: &Value) -> Option<String> {
+        let mut context = comment["data"]["context"].as_str().map(|s| s.to_string())?;
+        context.truncate(context.rfind("/").unwrap_or(context.len()));
+        context.truncate(context.rfind("/").unwrap_or(context.len()) + 1);
+        let parent_id = comment["data"]["parent_id"].as_str().map(|s| &s[3..])?;
+        context.push_str(parent_id);
+        context.push('/');
+        Some(context)
     }
     async fn extract_comments(
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
+        let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
             .as_array()
-            .cloned()
-            .unwrap_or_default();
+            .unwrap_or(&empty_vec);
 
+        already_replied_to_comments.reserve(comments_json.len());
         let mut comments = Vec::new();
+        comments.reserve(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            comments.push(Self::extract_comment(
-                comment.clone(),
-                already_replied_to_comments,
-            ));
-            if let Some(path) = Self::extract_summon_parent_path(comment) {
-                parent_paths.push(path);
+            let extracted_comment = Self::extract_comment(comment, already_replied_to_comments);
+            if comment["data"]["body"]
+                .as_str()
+                .map(|s| s.contains("u/factorion-bot"))
+                .unwrap_or_default()
+                && extracted_comment.status.no_factorial
+                && !extracted_comment.status.already_replied_or_rejected
+            {
+                if let Some(path) = Self::extract_summon_parent_path(comment) {
+                    parent_paths.push(path);
+                }
             }
+            comments.push(extracted_comment);
         }
 
         Ok((comments, parent_paths))
     }
     fn extract_comment(
-        comment: Value,
+        comment: &Value,
         already_replied_to_comments: &mut Vec<String>,
     ) -> RedditComment {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
@@ -365,9 +379,12 @@ impl RedditClient {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
+        time::timeout,
     };
 
     use super::*;
@@ -375,9 +392,9 @@ mod tests {
     async fn dummy_server(reqeuest_response_pairs: &[(&str, &str)]) -> std::io::Result<()> {
         let listen = TcpListener::bind("127.0.0.1:9384").await?;
         for (expected_request, response) in reqeuest_response_pairs {
-            let mut sock = listen.accept().await?.0;
+            let mut sock = timeout(Duration::from_secs(5), listen.accept()).await??.0;
             let mut request = vec![0; 10000];
-            let len = sock.read(&mut request).await?;
+            let len = timeout(Duration::from_millis(300), sock.read(&mut request)).await??;
             request.truncate(len);
             let request = String::from_utf8(request).expect("Got invalid utf8");
             if !(&request == expected_request) {
@@ -386,8 +403,12 @@ mod tests {
                     request, expected_request
                 );
             }
-            sock.write_all(response.as_bytes()).await?;
-            sock.flush().await?;
+            timeout(
+                Duration::from_millis(50),
+                sock.write_all(response.as_bytes()),
+            )
+            .await??;
+            timeout(Duration::from_millis(300), sock.flush()).await??;
         }
         Ok(())
     }
@@ -454,6 +475,8 @@ mod tests {
                 expiration_time: Utc::now(),
             },
         };
+        let _ = SUBREDDITS.set("test_subreddit");
+        let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let (status, comments) = join!(
             async {
@@ -468,7 +491,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!\"}}]"
                 )]).await
             },
-            client.get_comments("test_subreddit", 100, &mut already_replied)
+            client.get_comments(&mut already_replied)
         );
         status.unwrap();
         let comments = comments.unwrap();
@@ -497,7 +520,7 @@ mod tests {
                                "author_fullname": "t2_b5n60qnt",
                                "body": "comment 2",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
-                               "id": "m38msun",
+                               "id": "m38msug",
                                "locked": false,
                               "unrepliable_reason": null
                            }
