@@ -121,6 +121,20 @@ pub fn approximate_subfactorial(n: Integer) -> (Float, Integer) {
     adjust_approximate((x / &*E, e))
 }
 
+pub fn approximate_terminal(n: Integer) -> (Float, Integer) {
+    let n = Float::with_val(FLOAT_PRECISION, n);
+    let len: Integer = n
+        .clone()
+        .log10()
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap()
+        .0;
+    let len_10 = Float::with_val(FLOAT_PRECISION, 10).pow(len.clone());
+    let a = n.clone() / len_10.clone();
+    let b = (n + 1) / len_10;
+    adjust_approximate(((a * b) / 2, 2 * len))
+}
+
 /// Calculates the approximate digits of a multifactorial.
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
@@ -700,6 +714,117 @@ mod tests {
                 Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap()
             )),
             "1.6950316815229372 × 10^299565705518096748172348871081083394917705602994196333433885546216834135350791129225270775050661568251681293893255233696266358320712841036093430778935337187734147872913431329670406629130341173311668836392261509485715565133323135341391486443851787651234656456564268274616437771860439695135334763390446212"
+        );
+    }
+    #[test]
+    fn test_approximate_terminal() {
+        // NOTE: the last digit may not be correct
+        assert_eq!(
+            format_approximate(approximate_terminal(100_001.into())),
+            "5.000150001 × 10^9"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(2_546_372_899u128.into())),
+            "3.2420074716540186 × 10^18"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(500_000_000_000u128.into())),
+            "1.2500000000025 × 10^23"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(712_460_928_486u128.into())),
+            "2.538002873099228 × 10^23"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(8_392_739_232_838_237_120u128.into())),
+            "3.521903591521108 × 10^37"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(
+                78_473_843_792_461_001_798_392_739_232_838_237_120u128.into()
+            )),
+            "3.079072079781785 × 10^75"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(u128::MAX.into())),
+            "5.789604461865809 × 10^76"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap()
+            )),
+            "5 × 10^395"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(
+                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap()
+            )),
+            "5 × 10^599"
+        );
+        let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
+        max.next_down();
+        assert_eq!(
+            format_approximate(approximate_terminal(max.to_integer().unwrap())),
+            "2.202016314604954 × 10^646456992"
+        );
+    }
+    #[test]
+    #[ignore = "future_improvement"]
+    fn test_approximate_terminal_perfect() {
+        // NOTE: all decimal are correct
+        assert_eq!(
+            format_approximate(approximate_terminal(100_001.into())),
+            "5.000150001 × 10^9"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(2_546_372_899u128.into())),
+            "3.2420074716540186 × 10^18"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(500_000_000_000u128.into())),
+            "1.2500000000025 × 10^23"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(712_460_928_486u128.into())),
+            "2.538002873099228 × 10^23"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(8_392_739_232_838_237_120u128.into())),
+            "3.521903591521108 × 10^37"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(
+                78_473_843_792_461_001_798_392_739_232_838_237_120u128.into()
+            )),
+            "3.079072079781785 × 10^75"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(u128::MAX.into())),
+            "5.78960446186581 × 10^76"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap()
+            )),
+            "5 × 10^395"
+        );
+        assert_eq!(
+            format_approximate(approximate_terminal(
+                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap()
+            )),
+            "5 × 10^599"
+        );
+        let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
+        max.next_down();
+        assert_eq!(
+            format_approximate(approximate_terminal(max.to_integer().unwrap())),
+            "2.202016314604954 × 10^646456992"
         );
     }
 

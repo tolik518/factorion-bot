@@ -20,6 +20,12 @@ pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
 // Limit for exact terminal calculation, set to limit calculation time (absurdly high)
 pub(crate) const UPPER_TERMINAL_LIMIT: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
+// Limit for approximation, set to ensure enough accuracy (5 decimals)
+pub(crate) const UPPER_TERMINAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock::new(|| {
+    let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
+    max.next_down();
+    max
+});
 
 pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
@@ -259,12 +265,19 @@ impl CalculationJob {
                 })
             }
         } else if level == 0 {
-            if calc_num > *UPPER_TERMINAL_LIMIT {
+            if calc_num > *UPPER_TERMINAL_APPROXIMATION_LIMIT {
                 let terminal = math::approximate_terminal_digits(calc_num);
                 Some(Calculation {
                     value: num,
                     levels: vec![0],
                     result: CalculationResult::ApproximateDigits(terminal),
+                })
+            } else if calc_num > *UPPER_TERMINAL_LIMIT {
+                let terminal = math::approximate_terminal(calc_num);
+                Some(Calculation {
+                    value: num,
+                    levels: vec![0],
+                    result: CalculationResult::Approximate(terminal.0.into(), terminal.1),
                 })
             } else {
                 let terminal = math::terminal(calc_num);
