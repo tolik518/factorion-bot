@@ -158,15 +158,22 @@ impl RedditComment {
             Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.,\d]|&lt;)")
                 .expect("Invalid subfactorial regex")
         });
+        static TERMINAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\b(\d+)(\?)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+        });
         static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
         });
+        static FRACTIONAL_TERMINAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(\?)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
+        });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\(([\d!\(\)\.]+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])\(([\d!?\(\)\.]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(!)\(([\d!\(\)\.]+)\)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(!)\(([\d!?\(\)\.]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
         static FACTORIAL_TERMINAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -174,10 +181,10 @@ impl RedditComment {
                 .expect("Invalid factorial-chain regex")
         });
         static TERMINAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d])(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
-        let mut list: Vec<CalculationJob> = Vec::new();
+        let mut list: Vec<(CalculationJob, String)> = Vec::new();
 
         for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -189,10 +196,13 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(CalculationJob {
-                base: CalculationBase::Calc(Box::new(inner)),
-                level: -1,
-            })
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(inner)),
+                    level: -1,
+                },
+                capture[0].to_string(),
+            ))
         }
         for capture in FACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -208,10 +218,13 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(CalculationJob {
-                base: CalculationBase::Calc(Box::new(inner)),
-                level,
-            })
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(inner)),
+                    level,
+                },
+                capture[0].to_string(),
+            ))
         }
         for capture in FACTORIAL_TERMINAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -227,10 +240,13 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(CalculationJob {
-                base: CalculationBase::Calc(Box::new(inner)),
-                level,
-            })
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(inner)),
+                    level,
+                },
+                capture[0].to_string(),
+            ))
         }
         for capture in TERMINAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -242,20 +258,26 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            list.push(CalculationJob {
-                base: CalculationBase::Calc(Box::new(inner)),
-                level: 0,
-            })
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(inner)),
+                    level: 0,
+                },
+                capture[0].to_string(),
+            ))
         }
         for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let number = capture[2]
                 .parse::<Integer>()
                 .expect("Failed to parse number");
-            list.push(CalculationJob {
-                base: CalculationBase::Num(Number::Int(number)),
-                level: -1,
-            });
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(number)),
+                    level: -1,
+                },
+                capture[0].to_string(),
+            ));
         }
         for capture in FACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -266,41 +288,72 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            list.push(CalculationJob {
-                base: CalculationBase::Num(Number::Int(number)),
-                level,
-            });
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(number)),
+                    level,
+                },
+                capture[0].to_string(),
+            ));
+        }
+        for capture in TERMINAL_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let number = capture[1]
+                .parse::<Integer>()
+                .expect("Failed to parse number");
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(number)),
+                    level: 0,
+                },
+                capture[0].to_string(),
+            ));
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push(CalculationJob {
-                base: CalculationBase::Num(Number::Float(
-                    Float::with_val(FLOAT_PRECISION, gamma).into(),
-                )),
-                level: 1,
-            })
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Float(
+                        Float::with_val(FLOAT_PRECISION, gamma).into(),
+                    )),
+                    level: 1,
+                },
+                capture[0].to_string(),
+            ))
         }
-        // dedup the list
-        // sort by depth (and other)
-        list.sort();
-        list.sort_unstable_by_key(|x| x.get_depth());
+        for capture in FRACTIONAL_TERMINAL_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Float(
+                        Float::with_val(FLOAT_PRECISION, gamma).into(),
+                    )),
+                    level: 0,
+                },
+                capture[0].to_string(),
+            ))
+        }
         // remove all inner pendings
         let mut i = 0;
         while i < list.len() {
-            let calculation_job = &list[i];
+            let text = &list[i].1;
             if list.iter().enumerate().any(|(j, pend)| {
                 // don't remove self
                 i != j
                     // don't remove doubles (explicit request for inner)
-                    && list.get(i + 1) != Some(calculation_job)
-                    && calculation_job.is_part_of(pend)
+                    && list.get(i + 1).map(|(_,s)|s) != Some(text)
+                    && pend.1.contains(text)
             }) {
                 list.remove(i);
                 continue;
             }
             i += 1;
         }
+        let mut list: Vec<CalculationJob> = list.into_iter().map(|(x, _)| x).collect();
+        list.sort();
+        list.sort_by_key(|x| x.get_depth());
         list.dedup();
         list
     }
@@ -555,6 +608,24 @@ mod tests {
             }]
         );
     }
+    #[test]
+    fn test_comment_new_terminal() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment 5?",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![Calculation {
+                value: 5.into(),
+                levels: vec![0],
+                result: CalculationResult::Exact(Integer::from(15)),
+            }]
+        );
+    }
 
     #[test]
     fn test_comment_new_exclamations_one() {
@@ -602,6 +673,31 @@ mod tests {
                 })
                 .collect::<Vec<_>>(),
             vec![(0.5, 0.886226925452758)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+    #[test]
+    fn test_comment_new_decimals_terminal() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 0.5?",
+            "123",
+            "test_author",
+            "test_subreddit",
+        );
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        levels: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(0.5, -0.125)]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
@@ -1035,6 +1131,18 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "The factorial of Subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of The factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+    #[test]
+    fn test_get_reply_mixed_factorial_chain3() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain !(((!5)???!!!!?!)!?)",
+            "1234",
+            "test_author",
+            "test_subreddit",
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nQuadruple-factorial of The terminal of The terminal of The terminal of Subfactorial of The terminal of The factorial of The factorial of The terminal of Subfactorial of 5 has on the order of 10^(10\\^10\\^(320225902809\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
