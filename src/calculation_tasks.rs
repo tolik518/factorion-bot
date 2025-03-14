@@ -42,16 +42,6 @@ pub enum CalculationBase {
 }
 
 impl CalculationJob {
-    pub fn is_part_of(&self, other: &Self) -> bool {
-        self == other
-            || match other {
-                CalculationJob {
-                    base: CalculationBase::Calc(inner),
-                    level: _,
-                } => self.is_part_of(inner),
-                _ => false,
-            }
-    }
     pub fn execute(self, include_steps: bool) -> Vec<Option<Calculation>> {
         let CalculationJob { base, level } = self;
         match base {
@@ -76,23 +66,35 @@ impl CalculationJob {
                                     let mut levels = vec![level];
                                     levels.extend(base_levels);
                                     if level == 0 {
-                                        return vec![Some(Calculation {
+                                        let calc = Some(Calculation {
                                             value: number.clone(),
                                             levels,
                                             result: CalculationResult::Approximate(
                                                 base.clone(),
                                                 exponent.clone(),
                                             ),
-                                        })];
+                                        });
+                                        if include_steps {
+                                            calcs.push(calc);
+                                        } else {
+                                            calcs = vec![calc];
+                                        }
+                                        return calcs;
                                     }
-                                    return vec![Some(Calculation {
+                                    let factorial = Some(Calculation {
                                         value: number.clone(),
                                         levels,
                                         result: CalculationResult::ApproximateDigitsTower(
                                             1,
                                             exponent.clone() + math::length(exponent),
                                         ),
-                                    })];
+                                    });
+                                    if include_steps {
+                                        calcs.push(factorial);
+                                    } else {
+                                        calcs = vec![factorial];
+                                    }
+                                    return calcs;
                                 };
                                 Number::Int(res)
                             }
@@ -101,36 +103,54 @@ impl CalculationJob {
                                 let mut levels = vec![level];
                                 levels.extend(base_levels);
                                 if level == 0 {
-                                    return vec![Some(Calculation {
+                                    let calc = Some(Calculation {
                                         value: number.clone(),
                                         levels,
                                         result: CalculationResult::ApproximateDigits(
                                             digits.clone(),
                                         ),
-                                    })];
+                                    });
+                                    if include_steps {
+                                        calcs.push(calc);
+                                    } else {
+                                        calcs = vec![calc];
+                                    }
+                                    return calcs;
                                 }
-                                return vec![Some(Calculation {
+                                let factorial = Some(Calculation {
                                     value: number.clone(),
                                     levels,
                                     result: CalculationResult::ApproximateDigitsTower(
                                         1,
                                         digits.clone() + math::length(digits),
                                     ),
-                                })];
+                                });
+                                if include_steps {
+                                    calcs.push(factorial);
+                                } else {
+                                    calcs = vec![factorial];
+                                }
+                                return calcs;
                             }
                             CalculationResult::ApproximateDigitsTower(depth, exponent) => {
                                 let base_levels = levels;
                                 let mut levels = vec![level];
                                 levels.extend(base_levels);
                                 if level == 0 {
-                                    return vec![Some(Calculation {
+                                    let calc = Some(Calculation {
                                         value: number.clone(),
                                         levels,
                                         result: CalculationResult::ApproximateDigitsTower(
                                             depth.clone(),
                                             exponent.clone(),
                                         ),
-                                    })];
+                                    });
+                                    if include_steps {
+                                        calcs.push(calc);
+                                    } else {
+                                        calcs = vec![calc];
+                                    }
+                                    return calcs;
                                 }
                                 let mut extra = if depth < &5 {
                                     Float::with_val(FLOAT_PRECISION, exponent)
@@ -143,7 +163,7 @@ impl CalculationJob {
                                     }
                                     extra = extra.log10();
                                 }
-                                return vec![Some(Calculation {
+                                let factorial = Some(Calculation {
                                     value: number.clone(),
                                     levels,
                                     result: CalculationResult::ApproximateDigitsTower(
@@ -154,7 +174,13 @@ impl CalculationJob {
                                                 .map(|(n, _)| n)
                                                 .unwrap_or(0.into()),
                                     ),
-                                })];
+                                });
+                                if include_steps {
+                                    calcs.push(factorial);
+                                } else {
+                                    calcs = vec![factorial];
+                                }
+                                return calcs;
                             }
                             CalculationResult::Float(gamma) => Number::Float(gamma.clone()),
                         };
