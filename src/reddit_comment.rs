@@ -143,6 +143,7 @@ impl RedditComment {
 
         calculation_list.sort();
         calculation_list.dedup();
+        calculation_list.sort_by_key(|x| x.levels.len());
 
         if calculation_list.is_empty() {
             status.no_factorial = true;
@@ -1166,7 +1167,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992970138\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1198,7 +1199,7 @@ mod tests {
     #[test]
     fn test_get_reply_mixed_factorial_chain3() {
         let comment = RedditComment::new(
-            "This is a test with a factorial chain !(((!5)???!!!!?!)!?)",
+            "This is a test with a factorial chain !(((!5)???!!?!)!?)",
             "1234",
             "test_author",
             "test_subreddit",
@@ -1206,7 +1207,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nQuadruple-factorial of The terminal of The terminal of The terminal of Subfactorial of The terminal of The factorial of The factorial of The terminal of Subfactorial of 5 has on the order of 10^(10\\^10\\^(320225902809\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of The terminal of The factorial of The factorial of The terminal of Double-factorial of The terminal of The terminal of The terminal of Subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

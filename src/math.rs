@@ -135,6 +135,12 @@ pub fn approximate_terminal(n: Integer) -> (Float, Integer) {
     adjust_approximate(((a * b) / 2, 2 * len))
 }
 
+pub fn approximate_approx_terminal((x, e): (Float, Integer)) -> (Float, Integer) {
+    let a = x.clone();
+    let b = x + 1;
+    adjust_approximate(((a * b) / 2, 2 * e))
+}
+
 /// Calculates the approximate digits of a multifactorial.
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///

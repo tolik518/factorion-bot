@@ -57,141 +57,72 @@ impl CalculationJob {
                         value: number,
                     })) => {
                         let res = match res {
-                            CalculationResult::Exact(res) => Number::Int(res.clone()),
+                            CalculationResult::Exact(res) => Ok(Number::Int(res.clone())),
                             CalculationResult::Approximate(base, exponent) => {
                                 let res = base.as_float()
                                     * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
-                                let Some(res) = res.to_integer() else {
-                                    let base_levels = levels;
-                                    let mut levels = vec![level];
-                                    levels.extend(base_levels);
-                                    if level == 0 {
-                                        let calc = Some(Calculation {
-                                            value: number.clone(),
-                                            levels,
-                                            result: CalculationResult::Approximate(
-                                                base.clone(),
-                                                exponent.clone(),
-                                            ),
-                                        });
-                                        if include_steps {
-                                            calcs.push(calc);
-                                        } else {
-                                            calcs = vec![calc];
-                                        }
-                                        return calcs;
-                                    }
-                                    let factorial = Some(Calculation {
-                                        value: number.clone(),
-                                        levels,
-                                        result: CalculationResult::ApproximateDigitsTower(
+                                match res.to_integer() {
+                                    None => Err(if level == 0 {
+                                        let terminal = math::approximate_approx_terminal((
+                                            base.as_float().clone(),
+                                            exponent.clone(),
+                                        ));
+                                        CalculationResult::Approximate(
+                                            terminal.0.into(),
+                                            terminal.1,
+                                        )
+                                    } else {
+                                        CalculationResult::ApproximateDigitsTower(
                                             1,
                                             exponent.clone() + math::length(exponent),
-                                        ),
-                                    });
-                                    if include_steps {
-                                        calcs.push(factorial);
-                                    } else {
-                                        calcs = vec![factorial];
-                                    }
-                                    return calcs;
-                                };
-                                Number::Int(res)
-                            }
-                            CalculationResult::ApproximateDigits(digits) => {
-                                let base_levels = levels;
-                                let mut levels = vec![level];
-                                levels.extend(base_levels);
-                                if level == 0 {
-                                    let calc = Some(Calculation {
-                                        value: number.clone(),
-                                        levels,
-                                        result: CalculationResult::ApproximateDigits(
-                                            digits.clone(),
-                                        ),
-                                    });
-                                    if include_steps {
-                                        calcs.push(calc);
-                                    } else {
-                                        calcs = vec![calc];
-                                    }
-                                    return calcs;
+                                        )
+                                    }),
+                                    Some(res) => Ok(Number::Int(res)),
                                 }
-                                let factorial = Some(Calculation {
-                                    value: number.clone(),
-                                    levels,
-                                    result: CalculationResult::ApproximateDigitsTower(
-                                        1,
-                                        digits.clone() + math::length(digits),
-                                    ),
-                                });
-                                if include_steps {
-                                    calcs.push(factorial);
-                                } else {
-                                    calcs = vec![factorial];
-                                }
-                                return calcs;
                             }
+                            CalculationResult::ApproximateDigits(digits) => Err(if level == 0 {
+                                CalculationResult::ApproximateDigits((digits.clone() - 1) * 2 + 1)
+                            } else {
+                                CalculationResult::ApproximateDigitsTower(
+                                    1,
+                                    digits.clone() + math::length(digits),
+                                )
+                            }),
                             CalculationResult::ApproximateDigitsTower(depth, exponent) => {
-                                let base_levels = levels;
-                                let mut levels = vec![level];
-                                levels.extend(base_levels);
-                                if level == 0 {
-                                    let calc = Some(Calculation {
-                                        value: number.clone(),
-                                        levels,
-                                        result: CalculationResult::ApproximateDigitsTower(
-                                            *depth,
-                                            exponent.clone(),
-                                        ),
-                                    });
-                                    if include_steps {
-                                        calcs.push(calc);
-                                    } else {
-                                        calcs = vec![calc];
-                                    }
-                                    return calcs;
-                                }
-                                let mut extra = if depth < &5 {
-                                    Float::with_val(FLOAT_PRECISION, exponent)
+                                Err(if level == 0 {
+                                    CalculationResult::ApproximateDigitsTower(
+                                        *depth,
+                                        exponent.clone(),
+                                    )
                                 } else {
-                                    Float::new(FLOAT_PRECISION)
-                                };
-                                'calc_extra: for _ in 0..*depth {
-                                    if extra < 1 {
-                                        break 'calc_extra;
-                                    }
-                                    extra = extra.log10();
-                                }
-                                let factorial = Some(Calculation {
+                                    CalculationResult::ApproximateDigitsTower(
+                                        depth + 1,
+                                        exponent.clone(),
+                                    )
+                                })
+                            }
+                            CalculationResult::Float(gamma) => Ok(Number::Float(gamma.clone())),
+                        };
+                        let factorial = match res {
+                            Ok(res) => {
+                                Self::calculate_appropriate_factorial(res, level).map(|mut res| {
+                                    let current_levels = res.levels;
+                                    res.levels = levels.clone();
+                                    res.levels.extend(current_levels);
+                                    res.value = number.clone();
+                                    res
+                                })
+                            }
+                            Err(result) => {
+                                let mut levels = levels.clone();
+                                levels.push(level);
+                                Some(Calculation {
                                     value: number.clone(),
                                     levels,
-                                    result: CalculationResult::ApproximateDigitsTower(
-                                        depth + 1,
-                                        exponent.clone()
-                                            + extra
-                                                .to_integer_round(rug::float::Round::Down)
-                                                .map(|(n, _)| n)
-                                                .unwrap_or(0.into()),
-                                    ),
-                                });
-                                if include_steps {
-                                    calcs.push(factorial);
-                                } else {
-                                    calcs = vec![factorial];
-                                }
-                                return calcs;
+                                    result,
+                                })
                             }
-                            CalculationResult::Float(gamma) => Number::Float(gamma.clone()),
                         };
-                        let factorial =
-                            Self::calculate_appropriate_factorial(res, level).map(|mut res| {
-                                let current_levels = res.levels;
-                                res.levels = levels.clone();
-                                res.levels.extend(current_levels);
-                                res.value = number.clone();
-                                res
-                            });
                         if include_steps {
                             calcs.push(factorial);
                         } else {
