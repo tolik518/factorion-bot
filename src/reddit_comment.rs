@@ -85,6 +85,7 @@ impl Status {
 pub(crate) struct Commands {
     shorten: bool,
     include_steps: bool,
+    terminal: bool,
 }
 
 impl Commands {
@@ -101,6 +102,8 @@ impl Commands {
                 || Self::contains_command_format(text, "shorten"),
             include_steps: Self::contains_command_format(text, "steps")
                 || Self::contains_command_format(text, "all"),
+            terminal: Self::contains_command_format(text, "terminal")
+                || Self::contains_command_format(text, "triangle"),
         }
     }
 }
@@ -113,12 +116,19 @@ pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditComment {
     /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [calculation_tasks](crate::calculation_tasks).
-    pub(crate) fn new(comment_text: &str, id: &str, author: &str, subreddit: &str) -> Self {
+    pub(crate) fn new(
+        comment_text: &str,
+        id: &str,
+        author: &str,
+        subreddit: &str,
+        do_terminal: bool,
+    ) -> Self {
         let commands: Commands = Commands::from_comment_text(comment_text);
 
         let mut status: Status = Default::default();
 
-        let pending_list: Vec<CalculationJob> = Self::extract_calculation_jobs(comment_text);
+        let pending_list: Vec<CalculationJob> =
+            Self::extract_calculation_jobs(comment_text, commands.terminal || do_terminal);
 
         let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
@@ -150,7 +160,7 @@ impl RedditComment {
         }
     }
 
-    fn extract_calculation_jobs(text: &str) -> Vec<CalculationJob> {
+    fn extract_calculation_jobs(text: &str, include_terminal: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
         });
@@ -189,7 +199,7 @@ impl RedditComment {
         for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let text = &capture[2];
-            let mut inner = Self::extract_calculation_jobs(text);
+            let mut inner = Self::extract_calculation_jobs(text, include_terminal);
             if inner.is_empty() {
                 continue;
             }
@@ -211,7 +221,7 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            let mut inner = Self::extract_calculation_jobs(text);
+            let mut inner = Self::extract_calculation_jobs(text, include_terminal);
             if inner.is_empty() {
                 continue;
             }
@@ -226,45 +236,47 @@ impl RedditComment {
                 capture[0].to_string(),
             ))
         }
-        for capture in FACTORIAL_TERMINAL_CHAIN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let text = &capture[1];
-            let level = capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            let mut inner = Self::extract_calculation_jobs(text);
-            if inner.is_empty() {
-                continue;
+        if include_terminal {
+            for capture in FACTORIAL_TERMINAL_CHAIN_REGEX.captures_iter(text) {
+                let capture = capture.expect("Failed to capture regex");
+                let text = &capture[1];
+                let level = capture[2]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32");
+                let mut inner = Self::extract_calculation_jobs(text, include_terminal);
+                if inner.is_empty() {
+                    continue;
+                }
+                inner.sort_by_key(|x| x.get_depth());
+                inner.reverse();
+                let inner = inner.remove(0);
+                list.push((
+                    CalculationJob {
+                        base: CalculationBase::Calc(Box::new(inner)),
+                        level,
+                    },
+                    capture[0].to_string(),
+                ))
             }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level,
-                },
-                capture[0].to_string(),
-            ))
-        }
-        for capture in TERMINAL_CHAIN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let text = &capture[1];
-            let mut inner = Self::extract_calculation_jobs(text);
-            if inner.is_empty() {
-                continue;
+            for capture in TERMINAL_CHAIN_REGEX.captures_iter(text) {
+                let capture = capture.expect("Failed to capture regex");
+                let text = &capture[1];
+                let mut inner = Self::extract_calculation_jobs(text, include_terminal);
+                if inner.is_empty() {
+                    continue;
+                }
+                inner.sort_by_key(|x| x.get_depth());
+                inner.reverse();
+                let inner = inner.remove(0);
+                list.push((
+                    CalculationJob {
+                        base: CalculationBase::Calc(Box::new(inner)),
+                        level: 0,
+                    },
+                    capture[0].to_string(),
+                ))
             }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level: 0,
-                },
-                capture[0].to_string(),
-            ))
         }
         for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -296,18 +308,20 @@ impl RedditComment {
                 capture[0].to_string(),
             ));
         }
-        for capture in TERMINAL_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let number = capture[1]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level: 0,
-                },
-                capture[0].to_string(),
-            ));
+        if include_terminal {
+            for capture in TERMINAL_REGEX.captures_iter(text) {
+                let capture = capture.expect("Failed to capture regex");
+                let number = capture[1]
+                    .parse::<Integer>()
+                    .expect("Failed to parse number");
+                list.push((
+                    CalculationJob {
+                        base: CalculationBase::Num(Number::Int(number)),
+                        level: 0,
+                    },
+                    capture[0].to_string(),
+                ));
+            }
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
@@ -322,18 +336,20 @@ impl RedditComment {
                 capture[0].to_string(),
             ))
         }
-        for capture in FRACTIONAL_TERMINAL_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Float(
-                        Float::with_val(FLOAT_PRECISION, gamma).into(),
-                    )),
-                    level: 0,
-                },
-                capture[0].to_string(),
-            ))
+        if include_terminal {
+            for capture in FRACTIONAL_TERMINAL_REGEX.captures_iter(text) {
+                let capture = capture.expect("Failed to capture regex");
+                let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
+                list.push((
+                    CalculationJob {
+                        base: CalculationBase::Num(Number::Float(
+                            Float::with_val(FLOAT_PRECISION, gamma).into(),
+                        )),
+                        level: 0,
+                    },
+                    capture[0].to_string(),
+                ))
+            }
         }
         // remove all inner pendings
         let mut i = 0;
@@ -504,6 +520,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -531,6 +548,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(
             comment.calculation_list,
@@ -550,6 +568,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(
             comment.calculation_list,
@@ -569,6 +588,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -581,6 +601,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -593,6 +614,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         assert_eq!(
@@ -611,6 +633,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            true,
         );
 
         assert_eq!(
@@ -630,6 +653,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -642,6 +666,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -654,6 +679,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(
             comment
@@ -679,6 +705,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            true,
         );
         assert_eq!(
             comment
@@ -704,6 +731,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -716,6 +744,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -729,6 +758,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -749,7 +779,13 @@ mod tests {
     #[ignore = "currently obsolete"]
     fn test_comment_new_very_big_number() {
         let very_big_number = "9".repeat(10_000) + "!";
-        let comment = RedditComment::new(&very_big_number, "123", "test_author", "test_subreddit");
+        let comment = RedditComment::new(
+            &very_big_number,
+            "123",
+            "test_author",
+            "test_subreddit",
+            false,
+        );
         assert_eq!(comment.id, "123");
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(
@@ -765,6 +801,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         comment.add_status(Status::NOT_REPLIED);
         assert_eq!(
@@ -780,6 +817,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         assert_eq!(
             comment.get_reply(),
@@ -794,6 +832,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false,
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "The factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -806,6 +845,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of The factorial of 3 is 720 \n\nThe factorial of The factorial of The factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -818,6 +858,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
+            false
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of The factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of The factorial of The factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of The factorial of The factorial of The factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -829,7 +870,8 @@ mod tests {
             "3500! 3501! 3502! 3503! 3504! 3505! 3506! 3507! 3508! 3509! 3510! 3511! 3512! 3513! 3514! 3515! 3516! 3517! 3518! 3519! 3520! 3521! 3522! 3523! 3524! 3525! 3526! 3527! 3528! 3529! 3530! 3531! 3532! 3533! 3534! 3535! 3536! 3537! 3538! 3539! 3540! 3541! 3542! 3543! 3544! 3545! 3546! 3547! 3548! 3549! 3550! 3551! 3552! 3553! 3554! 3555! 3556! 3557! 3558! 3559! 3560! 3561! 3562! 3563! 3564! 3565! 3566! 3567! 3568! 3569! 3570! 3571! 3572! 3573! 3574! 3575! 3576! 3577! 3578! 3579! 3580! 3581! 3582! 3583! 3584! 3585! 3586! 3587! 3588! 3589! 3590! 3591! 3592! 3593! 3594! 3595! 3596! 3597! 3598! 3599! 3600! 3600! 3601! 3602! 3603! 3604! 3605! 3606! 3607! 3608! 3609! 3610! 3611! 3612! 3613! 3614! 3615! 3616! 3617! 3618! 3619! 3620! 3621! 3622! 3623! 3624! 3625! 3626! 3627! 3628! 3629! 3630! 3631! 3632! 3633! 3634! 3636! 3636! 3637! 3638! 3639! 3640! 3641! 3642! 3643! 3644! 3645! 3646! 3647! 3648! 3649! 3650! 3651! 3652! 3653! 3654! 3655! 3656! 3657! 3658! 3659! 3660! 3661! 3662! 3663! 3664! 3665! 3666! 3667! 3668! 3669! 3670! 3671! 3672! 3673! 3674! 3675! 3676! 3677! 3678! 3679! 3680! 3681! 3682! 3683! 3684! 3685! 3686! 3687! 3688! 3689! 3690! 3691! 3692! 3693! 3694! 3695! 3696! 3697! 3698! 3699! 3600!",
             "123",
             "test_author",
-            "test_subreddit"
+            "test_subreddit",
+            false
         );
         let reply = comment.get_reply();
         assert_eq!(
@@ -846,6 +888,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
         let reply = comment.get_reply();
         assert_eq!(
@@ -993,6 +1036,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1006,6 +1050,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1019,6 +1064,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1032,6 +1078,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1045,6 +1092,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1058,6 +1106,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false
         );
 
         let reply = comment.get_reply();
@@ -1071,6 +1120,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1084,6 +1134,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false
         );
 
         let reply = comment.get_reply();
@@ -1097,6 +1148,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1110,6 +1162,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false
         );
 
         let reply = comment.get_reply();
@@ -1123,6 +1176,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1135,6 +1189,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1147,6 +1202,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            true,
         );
 
         let reply = comment.get_reply();
@@ -1160,6 +1216,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1173,6 +1230,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1186,6 +1244,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
+            false,
         );
 
         let reply = comment.get_reply();

@@ -3,7 +3,7 @@
 use std::sync::LazyLock;
 
 use crate::reddit_comment::{RedditComment, Status};
-use crate::{COMMENT_COUNT, SUBREDDITS};
+use crate::{COMMENT_COUNT, SUBREDDITS, TERMINAL_SUBREDDITS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -43,6 +43,9 @@ pub(crate) struct RedditClient {
 }
 
 impl RedditClient {
+    /// Creates a new client using the env variables APP_CLIENT_ID and APP_SECRET.
+    /// # Panic
+    /// Panics if the env vars are not set.
     pub(crate) async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let client_id = std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set.");
         let secret = std::env::var("APP_SECRET").expect("APP_SECRET must be set.");
@@ -61,6 +64,10 @@ impl RedditClient {
         Ok(Self { client, token })
     }
 
+    /// Fetches comments from the `SUBREDDITS` and mentions with the set limit of `COMMENT_COUNT`, and creates/calculates the factorials from the response.
+    /// And adds the comments to `already_replied_to_comments` to ignore them in the future.
+    /// # Panic
+    /// Panics if `SUBREDDITS` or `COMMENT_COUNT` is uninitialized, if the env vars APP_CLIENT_ID or APP_SECRET are unset, or if it recieves a malformed response from the api.
     pub(crate) async fn get_comments(
         &mut self,
         already_replied_to_comments: &mut Vec<String>,
@@ -110,14 +117,22 @@ impl RedditClient {
             .and(RedditClient::check_response_status(&mentions_response))
         {
             Ok(_) => {
-                let (mut res, _) =
-                    RedditClient::extract_comments(subs_response, already_replied_to_comments)
-                        .await
-                        .expect("Failed to extract comments");
-                let (mentions, paths) =
-                    RedditClient::extract_comments(mentions_response, already_replied_to_comments)
-                        .await
-                        .expect("Failed to extract comments");
+                let (mut res, _) = RedditClient::extract_comments(
+                    subs_response,
+                    already_replied_to_comments,
+                    false,
+                    TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                )
+                .await
+                .expect("Failed to extract comments");
+                let (mentions, paths) = RedditClient::extract_comments(
+                    mentions_response,
+                    already_replied_to_comments,
+                    true,
+                    TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                )
+                .await
+                .expect("Failed to extract comments");
                 let mut parents = Vec::new();
                 for path in paths {
                     let response = self
@@ -136,6 +151,8 @@ impl RedditClient {
                             .expect("Malformed JSON")
                             .remove(0),
                         already_replied_to_comments,
+                        true,
+                        TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
                     );
                     parents.push(parent);
                 }
@@ -153,6 +170,9 @@ impl RedditClient {
         now > self.token.expiration_time
     }
 
+    /// Replies to the given `comment` with the given `reply`.
+    /// # Panic
+    /// May panic on a malformed response is recieved from the api.
     pub(crate) async fn reply_to_comment(
         &self,
         comment: RedditComment,
@@ -326,6 +346,8 @@ impl RedditClient {
     async fn extract_comments(
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
+        is_mention: bool,
+        terminal_subreddits: &str,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
@@ -337,11 +359,13 @@ impl RedditClient {
         let mut comments = Vec::with_capacity(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            let extracted_comment = Self::extract_comment(comment, already_replied_to_comments);
-            if comment["data"]["body"]
-                .as_str()
-                .map(|s| s.contains("u/factorion-bot"))
-                .unwrap_or_default()
+            let extracted_comment = Self::extract_comment(
+                comment,
+                already_replied_to_comments,
+                is_mention,
+                terminal_subreddits,
+            );
+            if is_mention
                 && extracted_comment.status.no_factorial
                 && !extracted_comment.status.already_replied_or_rejected
             {
@@ -357,6 +381,8 @@ impl RedditClient {
     fn extract_comment(
         comment: &Value,
         already_replied_to_comments: &mut Vec<String>,
+        do_terminal: bool,
+        terminal_subreddits: &str,
     ) -> RedditComment {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -367,7 +393,13 @@ impl RedditClient {
             RedditComment::new_already_replied(comment_id, author, subreddit)
         } else {
             already_replied_to_comments.push(comment_id.to_string());
-            let mut comment = RedditComment::new(comment_text, comment_id, author, subreddit);
+            let mut comment = RedditComment::new(
+                comment_text,
+                comment_id,
+                author,
+                subreddit,
+                do_terminal || terminal_subreddits.contains(subreddit),
+            );
 
             comment.add_status(Status::NOT_REPLIED);
 
@@ -487,7 +519,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"body\":\"u/factorion-bot\",\"parent_id\":\"t1_m38msum\",\"context\":\"/r/some_sub/8msu32a/some_post/m38msun/?context=3\"}}]}}"
                 ),(
                     "GET /r/some_sub/8msu32a/some_post/m38msum/ HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!\"}}]"
+                    "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]"
                 )]).await
             },
             client.get_comments(&mut already_replied)
@@ -495,6 +527,7 @@ mod tests {
         status.unwrap();
         let comments = comments.unwrap();
         assert_eq!(comments.len(), 2);
+        assert_eq!(comments[1].calculation_list[0].levels, [1, 0]);
     }
 
     #[tokio::test]
@@ -540,7 +573,7 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments = RedditClient::extract_comments(response, &mut already_replied)
+        let comments = RedditClient::extract_comments(response, &mut already_replied, true, "")
             .await
             .unwrap();
         assert_eq!(comments.0.len(), 3);
