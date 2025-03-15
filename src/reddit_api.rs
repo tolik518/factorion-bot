@@ -117,18 +117,18 @@ impl RedditClient {
             .and(RedditClient::check_response_status(&mentions_response))
         {
             Ok(_) => {
-                let (mut res, _) = RedditClient::extract_comments(
-                    subs_response,
-                    already_replied_to_comments,
-                    false,
-                    TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
-                )
-                .await
-                .expect("Failed to extract comments");
                 let (mentions, paths) = RedditClient::extract_comments(
                     mentions_response,
                     already_replied_to_comments,
                     true,
+                    TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                )
+                .await
+                .expect("Failed to extract comments");
+                let (mut res, _) = RedditClient::extract_comments(
+                    subs_response,
+                    already_replied_to_comments,
+                    false,
                     TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
                 )
                 .await
