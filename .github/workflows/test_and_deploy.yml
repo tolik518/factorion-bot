@@ -11,6 +11,7 @@ env:
 
 jobs:
   test:
+    if: github.event_name != 'workflow_dispatch'
     name: Test
     runs-on: ubuntu-latest
 
@@ -43,9 +44,9 @@ jobs:
             git reset --hard origin/master  && \
             docker build -t factorion-bot . && \
             docker stop factorion-bot || true && \
-            sleep 3 && \  
-            docker rm factorion-bot || true && \      
-            sleep 1 && \  
+            sleep 3 && \
+            docker rm factorion-bot || true && \
+            sleep 1 && \
             docker run -d \
               --network service-network \
               --name factorion-bot \
@@ -56,7 +57,7 @@ jobs:
               echo "ERROR: Container failed to start. Showing logs:" && \
               docker logs factorion-bot && \
               exit 1
-            fi && \  
+            fi && \
             echo "Deployment successful - container is running"
           EOF
           
