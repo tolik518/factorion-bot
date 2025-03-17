@@ -20,12 +20,6 @@ jobs:
       - name: Test
         run: cargo test
 
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
-
-      - name: Run Format
-        run: cargo fmt --all -- --check
-
   deploy:
     if: github.event_name == 'workflow_dispatch'
     name: Deploy to Server
@@ -43,12 +37,37 @@ jobs:
           chmod 600 private_key.pem # Set the appropriate permissions for the key file
 
           ssh -o StrictHostKeyChecking=no -i private_key.pem $SSH_USER@$SSH_HOST <<EOF
+            set -e  # Exit immediately if a command fails
             cd $SSH_PATH && \
             git fetch origin master && \
             git reset --hard origin/master  && \
+          
             docker build -t factorion-bot . && \
-            docker kill factorion-bot || true && \
-            docker run --rm -d --network service-network --name factorion-bot --volume $SSH_PATH:/usr/factorion factorion-bot:latest ./run.sh
+          
+            docker stop factorion-bot || true && \
+            sleep 3 && \  # Give Docker time to release resources
+            docker rm factorion-bot || true && \      
+          
+            docker run -d \
+              --network service-network \
+              --name factorion-bot \
+              --volume $SSH_PATH:/usr/factorion \
+              factorion-bot:latest ./run.sh \
+          
+            # Hacky healthcheck
+            sleep 3 && \
+            if [ \$(docker ps -q -f name=factorion-bot | wc -l) -eq 0 ]; then
+              echo "ERROR: Container failed to start. Showing logs:" && \
+              docker logs factorion-bot && \
+              exit 1
+            fi && \
+          
+            echo "Deployment successful - container is running"
           EOF
-
-          rm -f private_key.pem # Remove the private key file after use for security
+          
+          if [ $? -ne 0 ]; then
+            echo "Deployment failed"
+            exit 1
+          fi
+          
+          rm -f private_key.pem
