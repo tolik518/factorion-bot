@@ -52,7 +52,7 @@ jobs:
               --network service-network \
               --name factorion-bot \
               --volume $SSH_PATH:/usr/factorion \
-              factorion-bot:latest ./run.sh \
+              factorion-bot:latest ./run.sh && \
           
             # Hacky healthcheck
             sleep 3 && \
