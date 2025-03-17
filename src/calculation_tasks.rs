@@ -3,7 +3,7 @@ use crate::calculation_results::Number;
 use crate::math::FLOAT_PRECISION;
 
 use crate::{
-    calculation_results::{CalculatedFactorial, Calculation, Factorial},
+    calculation_results::{Calculation, CalculationResult},
     math,
 };
 
@@ -13,21 +13,25 @@ use std::{str::FromStr, sync::LazyLock};
 // Limit for exact calculation, set to limit calculation time
 pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
-    Integer::from_str("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap()
-});
+pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
+    LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
 // Limit for exact subfactorial calculation, set to limit calculation time
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
+// Limit for exact termial calculation, set to limit calculation time (absurdly high)
+pub(crate) static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
+    LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
+// Limit for approximation, set to ensure enough accuracy (5 decimals)
+pub(crate) static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock::new(|| {
+    let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
+    max.next_down();
+    max
+});
 
 pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum CalculationJob {
-    Factorial(FactorialTask),
-}
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FactorialTask {
+pub struct CalculationJob {
     pub(crate) base: CalculationBase,
     pub(crate) level: i32,
 }
@@ -38,158 +42,125 @@ pub enum CalculationBase {
 }
 
 impl CalculationJob {
-    pub fn is_part_of(&self, other: &Self) -> bool {
-        self == other
-            || match other {
-                Self::Factorial(FactorialTask {
-                    base: CalculationBase::Calc(inner),
-                    level: _,
-                }) => self.is_part_of(inner),
-                _ => false,
-            }
-    }
     pub fn execute(self, include_steps: bool) -> Vec<Option<Calculation>> {
-        match self {
-            CalculationJob::Factorial(fact) => fact.execute(include_steps).into_iter().collect(),
-        }
-    }
-    pub fn get_depth(&self) -> usize {
-        match self {
-            Self::Factorial(fact) => fact.get_depth(),
-        }
-    }
-}
-impl FactorialTask {
-    fn execute(self, include_steps: bool) -> Vec<Option<Calculation>> {
-        let FactorialTask { base, level } = self;
+        let CalculationJob { base, level } = self;
         match base {
             CalculationBase::Num(num) => {
-                vec![Self::calculate_appropriate_factorial(num, level).map(Calculation::Factorial)]
+                vec![Self::calculate_appropriate_factorial(num, level)]
             }
-            CalculationBase::Calc(factorial) => {
-                let mut factorials = factorial.execute(include_steps);
-                match factorials.last() {
-                    Some(Some(Calculation::Factorial(Factorial {
-                        factorial: res,
+            CalculationBase::Calc(calc) => {
+                let mut calcs = calc.execute(include_steps);
+                match calcs.last() {
+                    Some(Some(Calculation {
+                        result: res,
                         levels,
                         value: number,
-                    }))) => {
+                    })) => {
                         let res = match res {
-                            CalculatedFactorial::Exact(res) => Number::Int(res.clone()),
-                            CalculatedFactorial::Approximate(base, exponent) => {
+                            CalculationResult::Exact(res) => Ok(Number::Int(res.clone())),
+                            CalculationResult::Approximate(base, exponent) => {
                                 let res = base.as_float()
                                     * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
-                                let Some(res) = res.to_integer() else {
-                                    let base_levels = levels;
-                                    let mut levels = vec![level];
-                                    levels.extend(base_levels);
-                                    let factorial = Some(Calculation::Factorial(Factorial {
-                                        value: number.clone(),
-                                        levels,
-                                        factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                match res.to_integer() {
+                                    None => Err(if level == 0 {
+                                        let termial = math::approximate_approx_termial((
+                                            base.as_float().clone(),
+                                            exponent.clone(),
+                                        ));
+                                        CalculationResult::Approximate(termial.0.into(), termial.1)
+                                    } else {
+                                        CalculationResult::ApproximateDigitsTower(
                                             1,
                                             exponent.clone() + math::length(exponent),
-                                        ),
-                                    }));
-                                    if include_steps {
-                                        factorials.push(factorial);
-                                    } else {
-                                        factorials = vec![factorial];
-                                    }
-                                    return factorials;
-                                };
-                                Number::Int(res)
-                            }
-                            CalculatedFactorial::ApproximateDigits(digits) => {
-                                let base_levels = levels;
-                                let mut levels = vec![level];
-                                levels.extend(base_levels);
-                                let factorial = Some(Calculation::Factorial(Factorial {
-                                    value: number.clone(),
-                                    levels,
-                                    factorial: CalculatedFactorial::ApproximateDigitsTower(
-                                        1,
-                                        digits.clone() + math::length(digits),
-                                    ),
-                                }));
-                                if include_steps {
-                                    factorials.push(factorial);
-                                } else {
-                                    factorials = vec![factorial];
+                                        )
+                                    }),
+                                    Some(res) => Ok(Number::Int(res)),
                                 }
-                                return factorials;
                             }
-                            CalculatedFactorial::ApproximateDigitsTower(depth, exponent) => {
-                                let base_levels = levels;
-                                let mut levels = vec![level];
-                                levels.extend(base_levels);
-                                let mut extra = if depth < &5 {
-                                    Float::with_val(FLOAT_PRECISION, exponent)
+                            CalculationResult::ApproximateDigits(digits) => Err(if level == 0 {
+                                CalculationResult::ApproximateDigits((digits.clone() - 1) * 2 + 1)
+                            } else {
+                                CalculationResult::ApproximateDigitsTower(
+                                    1,
+                                    digits.clone() + math::length(digits),
+                                )
+                            }),
+                            CalculationResult::ApproximateDigitsTower(depth, exponent) => {
+                                Err(if level == 0 {
+                                    CalculationResult::ApproximateDigitsTower(
+                                        *depth,
+                                        exponent.clone(),
+                                    )
                                 } else {
-                                    Float::new(FLOAT_PRECISION)
-                                };
-                                'calc_extra: for _ in 0..*depth {
-                                    if extra < 1 {
-                                        break 'calc_extra;
-                                    }
-                                    extra = extra.log10();
-                                }
-                                let factorial = Some(Calculation::Factorial(Factorial {
-                                    value: number.clone(),
-                                    levels,
-                                    factorial: CalculatedFactorial::ApproximateDigitsTower(
+                                    CalculationResult::ApproximateDigitsTower(
                                         depth + 1,
-                                        exponent.clone()
-                                            + extra
-                                                .to_integer_round(rug::float::Round::Down)
-                                                .map(|(n, _)| n)
-                                                .unwrap_or(0.into()),
-                                    ),
-                                }));
-                                if include_steps {
-                                    factorials.push(factorial);
-                                } else {
-                                    factorials = vec![factorial];
-                                }
-                                return factorials;
+                                        exponent.clone(),
+                                    )
+                                })
                             }
-                            CalculatedFactorial::Gamma(gamma) => Number::Float(gamma.clone()),
+                            CalculationResult::Float(gamma) => Ok(Number::Float(gamma.clone())),
                         };
-                        let factorial = Self::calculate_appropriate_factorial(res, level)
-                            .map(|mut res| {
-                                let current_levels = res.levels;
-                                res.levels = levels.clone();
-                                res.levels.extend(current_levels);
-                                res.value = number.clone();
-                                res
-                            })
-                            .map(Calculation::Factorial);
+                        let factorial = match res {
+                            Ok(res) => {
+                                Self::calculate_appropriate_factorial(res, level).map(|mut res| {
+                                    let current_levels = res.levels;
+                                    res.levels = levels.clone();
+                                    res.levels.extend(current_levels);
+                                    res.value = number.clone();
+                                    res
+                                })
+                            }
+                            Err(result) => {
+                                let mut levels = levels.clone();
+                                levels.push(level);
+                                Some(Calculation {
+                                    value: number.clone(),
+                                    levels,
+                                    result,
+                                })
+                            }
+                        };
                         if include_steps {
-                            factorials.push(factorial);
+                            calcs.push(factorial);
                         } else {
-                            factorials = vec![factorial];
+                            calcs = vec![factorial];
                         }
                     }
-                    _ => return factorials,
+                    _ => return calcs,
                 };
-                factorials
+                calcs
             }
         }
     }
-    fn calculate_appropriate_factorial(num: Number, level: i32) -> Option<Factorial> {
+    fn calculate_appropriate_factorial(num: Number, level: i32) -> Option<Calculation> {
         let calc_num = match &num {
-            Number::Float(num) => {
-                let res = math::fractional_factorial(num.as_float().clone());
-                if res.is_finite() {
-                    return Some(Factorial {
-                        value: Number::Float(num.clone()),
-                        levels: vec![1],
-                        factorial: CalculatedFactorial::Gamma(res.into()),
-                    });
-                } else {
-                    num.as_float().to_integer()?
+            Number::Float(num) => match level {
+                1 => {
+                    let res = math::fractional_factorial(num.as_float().clone());
+                    if res.is_finite() {
+                        return Some(Calculation {
+                            value: Number::Float(num.clone()),
+                            levels: vec![1],
+                            result: CalculationResult::Float(res.into()),
+                        });
+                    } else {
+                        num.as_float().to_integer()?
+                    }
                 }
-            }
+                0 => {
+                    let res = math::fractional_termial(num.as_float().clone());
+                    if res.is_finite() {
+                        return Some(Calculation {
+                            value: Number::Float(num.clone()),
+                            levels: vec![0],
+                            result: CalculationResult::Float(res.into()),
+                        });
+                    } else {
+                        num.as_float().to_integer()?
+                    }
+                }
+                _ => unimplemented!(),
+            },
             Number::Int(num) => num.clone(),
         };
         if level > 0 {
@@ -200,54 +171,74 @@ impl FactorialTask {
                 {
                     let factorial =
                         math::approximate_multifactorial_digits(calc_num.clone(), level);
-                    Factorial {
+                    Calculation {
                         value: num,
                         levels: vec![level],
-                        factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                        result: CalculationResult::ApproximateDigits(factorial),
                     }
                 // Check if the number is within a reasonable range to compute
                 } else if calc_num > UPPER_CALCULATION_LIMIT {
                     let factorial = math::approximate_factorial(calc_num.clone());
-                    Factorial {
+                    Calculation {
                         value: Number::Int(calc_num),
                         levels: vec![level],
-                        factorial: CalculatedFactorial::Approximate(
-                            factorial.0.into(),
-                            factorial.1,
-                        ),
+                        result: CalculationResult::Approximate(factorial.0.into(), factorial.1),
                     }
                 } else {
                     let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
                     let factorial = math::factorial(calc_num, level);
-                    Factorial {
+                    Calculation {
                         value: num,
                         levels: vec![level],
-                        factorial: CalculatedFactorial::Exact(factorial),
+                        result: CalculationResult::Exact(factorial),
                     }
                 },
             )
         } else if level == -1 {
             if calc_num > *UPPER_APPROXIMATION_LIMIT {
                 let factorial = math::approximate_multifactorial_digits(calc_num.clone(), 1);
-                Some(Factorial {
+                Some(Calculation {
                     value: num,
                     levels: vec![-1],
-                    factorial: CalculatedFactorial::ApproximateDigits(factorial),
+                    result: CalculationResult::ApproximateDigits(factorial),
                 })
             } else if calc_num > UPPER_SUBFACTORIAL_LIMIT {
                 let factorial = math::approximate_subfactorial(calc_num.clone());
-                Some(Factorial {
+                Some(Calculation {
                     value: num,
                     levels: vec![-1],
-                    factorial: CalculatedFactorial::Approximate(factorial.0.into(), factorial.1),
+                    result: CalculationResult::Approximate(factorial.0.into(), factorial.1),
                 })
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
                 let factorial = math::subfactorial(calc_num);
-                Some(Factorial {
+                Some(Calculation {
                     value: num,
                     levels: vec![-1],
-                    factorial: CalculatedFactorial::Exact(factorial),
+                    result: CalculationResult::Exact(factorial),
+                })
+            }
+        } else if level == 0 {
+            if calc_num > *UPPER_TERMIAL_APPROXIMATION_LIMIT {
+                let termial = math::approximate_termial_digits(calc_num);
+                Some(Calculation {
+                    value: num,
+                    levels: vec![0],
+                    result: CalculationResult::ApproximateDigits(termial),
+                })
+            } else if calc_num > *UPPER_TERMIAL_LIMIT {
+                let termial = math::approximate_termial(calc_num);
+                Some(Calculation {
+                    value: num,
+                    levels: vec![0],
+                    result: CalculationResult::Approximate(termial.0.into(), termial.1),
+                })
+            } else {
+                let termial = math::termial(calc_num);
+                Some(Calculation {
+                    value: num,
+                    levels: vec![0],
+                    result: CalculationResult::Exact(termial),
                 })
             }
         } else {
