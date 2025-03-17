@@ -85,7 +85,7 @@ impl Status {
 pub(crate) struct Commands {
     shorten: bool,
     include_steps: bool,
-    terminal: bool,
+    termial: bool,
 }
 
 impl Commands {
@@ -102,7 +102,7 @@ impl Commands {
                 || Self::contains_command_format(text, "shorten"),
             include_steps: Self::contains_command_format(text, "steps")
                 || Self::contains_command_format(text, "all"),
-            terminal: Self::contains_command_format(text, "terminal")
+            termial: Self::contains_command_format(text, "termial")
                 || Self::contains_command_format(text, "triangle"),
         }
     }
@@ -121,14 +121,14 @@ impl RedditComment {
         id: &str,
         author: &str,
         subreddit: &str,
-        do_terminal: bool,
+        do_termial: bool,
     ) -> Self {
         let commands: Commands = Commands::from_comment_text(comment_text);
 
         let mut status: Status = Default::default();
 
         let pending_list: Vec<CalculationJob> =
-            Self::extract_calculation_jobs(comment_text, commands.terminal || do_terminal);
+            Self::extract_calculation_jobs(comment_text, commands.termial || do_termial);
 
         let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
@@ -161,7 +161,7 @@ impl RedditComment {
         }
     }
 
-    fn extract_calculation_jobs(text: &str, include_terminal: bool) -> Vec<CalculationJob> {
+    fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
         });
@@ -169,13 +169,13 @@ impl RedditComment {
             Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.,\d]|&lt;)")
                 .expect("Invalid subfactorial regex")
         });
-        static TERMINAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+)(\?)(?![<\d]|&lt;)").expect("Invalid factorial regex")
         });
         static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
         });
-        static FRACTIONAL_TERMINAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        static FRACTIONAL_TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial regex")
         });
@@ -187,11 +187,11 @@ impl RedditComment {
             Regex::new(r"(?<![,.?!\d])(!)\(([\d!?\(\)\.]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
-        static FACTORIAL_TERMINAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+\?)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
-        static TERMINAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
@@ -200,7 +200,7 @@ impl RedditComment {
         for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
             let text = &capture[2];
-            let mut inner = Self::extract_calculation_jobs(text, include_terminal);
+            let mut inner = Self::extract_calculation_jobs(text, include_termial);
             if inner.is_empty() {
                 continue;
             }
@@ -222,7 +222,7 @@ impl RedditComment {
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
-            let mut inner = Self::extract_calculation_jobs(text, include_terminal);
+            let mut inner = Self::extract_calculation_jobs(text, include_termial);
             if inner.is_empty() {
                 continue;
             }
@@ -237,15 +237,15 @@ impl RedditComment {
                 capture[0].to_string(),
             ))
         }
-        if include_terminal {
-            for capture in FACTORIAL_TERMINAL_CHAIN_REGEX.captures_iter(text) {
+        if include_termial {
+            for capture in FACTORIAL_TERMIAL_CHAIN_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
                 let text = &capture[1];
                 let level = capture[2]
                     .len()
                     .to_i32()
                     .expect("Failed to convert exclamation count to i32");
-                let mut inner = Self::extract_calculation_jobs(text, include_terminal);
+                let mut inner = Self::extract_calculation_jobs(text, include_termial);
                 if inner.is_empty() {
                     continue;
                 }
@@ -260,10 +260,10 @@ impl RedditComment {
                     capture[0].to_string(),
                 ))
             }
-            for capture in TERMINAL_CHAIN_REGEX.captures_iter(text) {
+            for capture in TERMIAL_CHAIN_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
                 let text = &capture[1];
-                let mut inner = Self::extract_calculation_jobs(text, include_terminal);
+                let mut inner = Self::extract_calculation_jobs(text, include_termial);
                 if inner.is_empty() {
                     continue;
                 }
@@ -309,8 +309,8 @@ impl RedditComment {
                 capture[0].to_string(),
             ));
         }
-        if include_terminal {
-            for capture in TERMINAL_REGEX.captures_iter(text) {
+        if include_termial {
+            for capture in TERMIAL_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
                 let number = capture[1]
                     .parse::<Integer>()
@@ -337,8 +337,8 @@ impl RedditComment {
                 capture[0].to_string(),
             ))
         }
-        if include_terminal {
-            for capture in FRACTIONAL_TERMINAL_REGEX.captures_iter(text) {
+        if include_termial {
+            for capture in FRACTIONAL_TERMIAL_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
                 let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
                 list.push((
@@ -628,7 +628,7 @@ mod tests {
         );
     }
     #[test]
-    fn test_comment_new_terminal() {
+    fn test_comment_new_termial() {
         let comment = RedditComment::new(
             "This is a spoiler comment 5?",
             "123",
@@ -700,7 +700,7 @@ mod tests {
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
     #[test]
-    fn test_comment_new_decimals_terminal() {
+    fn test_comment_new_decimals_termial() {
         let comment = RedditComment::new(
             "This is a test comment with decimal number 0.5?",
             "123",
@@ -1207,7 +1207,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of The terminal of The factorial of The factorial of The terminal of Double-factorial of The terminal of The terminal of The terminal of Subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of The termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of Subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

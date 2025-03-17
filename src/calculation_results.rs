@@ -102,7 +102,7 @@ impl Calculation {
     pub fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
         let factorial_string = self.levels.iter().rev().fold(String::new(), |a, e| {
             if e == &0 {
-                format!("{}The terminal of ", a)
+                format!("{}The termial of ", a)
             } else {
                 format!(
                     "{}{}{}",

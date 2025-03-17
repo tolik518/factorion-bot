@@ -17,11 +17,11 @@ pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
 // Limit for exact subfactorial calculation, set to limit calculation time
 pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
-// Limit for exact terminal calculation, set to limit calculation time (absurdly high)
-pub(crate) static UPPER_TERMINAL_LIMIT: LazyLock<Integer> =
+// Limit for exact termial calculation, set to limit calculation time (absurdly high)
+pub(crate) static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_TERMINAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock::new(|| {
+pub(crate) static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock::new(|| {
     let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
     max.next_down();
     max
@@ -63,14 +63,11 @@ impl CalculationJob {
                                     * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
                                 match res.to_integer() {
                                     None => Err(if level == 0 {
-                                        let terminal = math::approximate_approx_terminal((
+                                        let termial = math::approximate_approx_termial((
                                             base.as_float().clone(),
                                             exponent.clone(),
                                         ));
-                                        CalculationResult::Approximate(
-                                            terminal.0.into(),
-                                            terminal.1,
-                                        )
+                                        CalculationResult::Approximate(termial.0.into(), termial.1)
                                     } else {
                                         CalculationResult::ApproximateDigitsTower(
                                             1,
@@ -151,7 +148,7 @@ impl CalculationJob {
                     }
                 }
                 0 => {
-                    let res = math::fractional_terminal(num.as_float().clone());
+                    let res = math::fractional_termial(num.as_float().clone());
                     if res.is_finite() {
                         return Some(Calculation {
                             value: Number::Float(num.clone()),
@@ -222,26 +219,26 @@ impl CalculationJob {
                 })
             }
         } else if level == 0 {
-            if calc_num > *UPPER_TERMINAL_APPROXIMATION_LIMIT {
-                let terminal = math::approximate_terminal_digits(calc_num);
+            if calc_num > *UPPER_TERMIAL_APPROXIMATION_LIMIT {
+                let termial = math::approximate_termial_digits(calc_num);
                 Some(Calculation {
                     value: num,
                     levels: vec![0],
-                    result: CalculationResult::ApproximateDigits(terminal),
+                    result: CalculationResult::ApproximateDigits(termial),
                 })
-            } else if calc_num > *UPPER_TERMINAL_LIMIT {
-                let terminal = math::approximate_terminal(calc_num);
+            } else if calc_num > *UPPER_TERMIAL_LIMIT {
+                let termial = math::approximate_termial(calc_num);
                 Some(Calculation {
                     value: num,
                     levels: vec![0],
-                    result: CalculationResult::Approximate(terminal.0.into(), terminal.1),
+                    result: CalculationResult::Approximate(termial.0.into(), termial.1),
                 })
             } else {
-                let terminal = math::terminal(calc_num);
+                let termial = math::termial(calc_num);
                 Some(Calculation {
                     value: num,
                     levels: vec![0],
-                    result: CalculationResult::Exact(terminal),
+                    result: CalculationResult::Exact(termial),
                 })
             }
         } else {

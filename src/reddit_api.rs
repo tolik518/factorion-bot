@@ -3,7 +3,7 @@
 use std::sync::LazyLock;
 
 use crate::reddit_comment::{RedditComment, Status};
-use crate::{COMMENT_COUNT, SUBREDDITS, TERMINAL_SUBREDDITS};
+use crate::{COMMENT_COUNT, SUBREDDITS, TERMIAL_SUBREDDITS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -121,7 +121,7 @@ impl RedditClient {
                     mentions_response,
                     already_replied_to_comments,
                     true,
-                    TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
                 )
                 .await
                 .expect("Failed to extract comments");
@@ -129,7 +129,7 @@ impl RedditClient {
                     subs_response,
                     already_replied_to_comments,
                     false,
-                    TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
                 )
                 .await
                 .expect("Failed to extract comments");
@@ -152,7 +152,7 @@ impl RedditClient {
                             .remove(0),
                         already_replied_to_comments,
                         true,
-                        TERMINAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                        TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
                     );
                     parents.push(parent);
                 }
@@ -347,7 +347,7 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
-        terminal_subreddits: &str,
+        termial_subreddits: &str,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
@@ -363,7 +363,7 @@ impl RedditClient {
                 comment,
                 already_replied_to_comments,
                 is_mention,
-                terminal_subreddits,
+                termial_subreddits,
             );
             if is_mention
                 && extracted_comment.status.no_factorial
@@ -381,8 +381,8 @@ impl RedditClient {
     fn extract_comment(
         comment: &Value,
         already_replied_to_comments: &mut Vec<String>,
-        do_terminal: bool,
-        terminal_subreddits: &str,
+        do_termial: bool,
+        termial_subreddits: &str,
     ) -> RedditComment {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -398,7 +398,7 @@ impl RedditClient {
                 comment_id,
                 author,
                 subreddit,
-                do_terminal || terminal_subreddits.contains(subreddit),
+                do_termial || termial_subreddits.contains(subreddit),
             );
 
             comment.add_status(Status::NOT_REPLIED);

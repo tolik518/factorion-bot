@@ -21,7 +21,7 @@ const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDITS: OnceLock<&str> = OnceLock::new();
-static TERMINAL_SUBREDDITS: OnceLock<&str> = OnceLock::new();
+static TERMIAL_SUBREDDITS: OnceLock<&str> = OnceLock::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -39,8 +39,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let _ = SUBREDDITS.set(subreddits.leak());
     let _ = COMMENT_COUNT.set(API_COMMENT_COUNT);
 
-    let terminal_subreddits = std::env::var("TERMINAL_SUBREDDITS").unwrap_or_default();
-    let _ = TERMINAL_SUBREDDITS.set(terminal_subreddits.leak());
+    let termial_subreddits = std::env::var("TERMIAL_SUBREDDITS").unwrap_or_default();
+    let _ = TERMIAL_SUBREDDITS.set(termial_subreddits.leak());
 
     let sleep_between_requests =
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
