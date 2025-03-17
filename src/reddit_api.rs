@@ -398,7 +398,7 @@ impl RedditClient {
                 comment_id,
                 author,
                 subreddit,
-                do_termial || termial_subreddits.contains(subreddit),
+                do_termial || termial_subreddits.split('+').any(|sub| sub == subreddit),
             );
 
             comment.add_status(Status::NOT_REPLIED);
