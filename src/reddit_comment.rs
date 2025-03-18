@@ -161,7 +161,7 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -169,19 +169,11 @@ impl RedditComment {
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+)(\?)(?![<\d]|&lt;)")
-                .expect("Invalid factorial regex")
-        });
-        static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+\.\d+)(!)(?![<\d]|&lt;)")
-                .expect("Invalid gamma regex")
-        });
-        static FRACTIONAL_TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+\.\d+)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d*\.?\d+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -189,15 +181,7 @@ impl RedditComment {
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+)\)(\?)(?![<\d]|&lt;)")
-                .expect("Invalid factorial regex")
-        });
-        static GAMMA_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+\.\d+)\)(!)(?![<\d]|&lt;)")
-                .expect("Invalid gamma regex")
-        });
-        static FRACTIONAL_TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+\.\d+)\)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d*\.?\d+)\)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -253,15 +237,6 @@ impl RedditComment {
         if include_termial {
             list.extend(Self::extract_base(&TERMIAL_REGEX, text, 2, Err(0)));
         }
-        list.extend(Self::extract_base(&GAMMA_REGEX, text, 2, Err(1)));
-        if include_termial {
-            list.extend(Self::extract_base(
-                &FRACTIONAL_TERMIAL_REGEX,
-                text,
-                2,
-                Err(0),
-            ));
-        }
         list.extend(Self::extract_base(
             &SUBFACTORIAL_PAREN_REGEX,
             text,
@@ -271,15 +246,6 @@ impl RedditComment {
         list.extend(Self::extract_base(&FACTORIAL_PAREN_REGEX, text, 2, Ok(3)));
         if include_termial {
             list.extend(Self::extract_base(&TERMIAL_PAREN_REGEX, text, 2, Err(0)));
-        }
-        list.extend(Self::extract_base(&GAMMA_PAREN_REGEX, text, 2, Err(1)));
-        if include_termial {
-            list.extend(Self::extract_base(
-                &FRACTIONAL_TERMIAL_PAREN_REGEX,
-                text,
-                2,
-                Err(0),
-            ));
         }
         // remove all inner pendings
         let mut i = 0;
