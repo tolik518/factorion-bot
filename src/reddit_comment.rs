@@ -737,7 +737,7 @@ mod tests {
                     _ => unreachable!("No normal factorial included"),
                 })
                 .collect::<Vec<_>>(),
-            vec![(0.5, -0.125)]
+            vec![(0.5, 0.375)]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }

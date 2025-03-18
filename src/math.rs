@@ -37,8 +37,8 @@ pub(crate) fn fractional_factorial(x: Float) -> Float {
 }
 
 pub(crate) fn fractional_termial(x: Float) -> Float {
-    let gamma_plus = ((x.clone() + 1) as Float).gamma();
-    let gamma_minus = ((x - 1) as Float).gamma();
+    let gamma_plus = ((x.clone() + 2) as Float).gamma();
+    let gamma_minus = ((x) as Float).gamma();
     if !gamma_minus.is_finite() && gamma_plus.is_finite() {
         return Float::new(FLOAT_PRECISION);
     }
@@ -469,43 +469,19 @@ mod tests {
         );
         assert_eq!(
             fractional_termial(Float::with_val(FLOAT_PRECISION, 0.000001)).to_f64(),
-            -4.999995e-7
+            5.000005e-7
         );
         assert_eq!(
             fractional_termial(Float::with_val(FLOAT_PRECISION, 0.1)).to_f64(),
-            -0.045000000000000005
+            0.055
         );
         assert_eq!(
             fractional_termial(Float::with_val(FLOAT_PRECISION, 15.389)).to_f64(),
-            110.71616049999999 // +.00000000000001
+            126.1051605
         );
         assert_eq!(
             fractional_termial(Float::with_val(FLOAT_PRECISION, 170.624376)).to_f64(),
-            14471.02665469469 // rounding
-        );
-    }
-    #[test]
-    #[ignore = "future improvement"]
-    fn test_fractional_termial_perfect() {
-        assert_eq!(
-            fractional_termial(Float::with_val(FLOAT_PRECISION, 0.0)).to_f64(),
-            0.0
-        );
-        assert_eq!(
-            fractional_termial(Float::with_val(FLOAT_PRECISION, 0.000001)).to_f64(),
-            -4.999995e-7
-        );
-        assert_eq!(
-            fractional_termial(Float::with_val(FLOAT_PRECISION, 0.1)).to_f64(),
-            -0.045
-        );
-        assert_eq!(
-            fractional_termial(Float::with_val(FLOAT_PRECISION, 15.389)).to_f64(),
-            110.7161605
-        );
-        assert_eq!(
-            fractional_termial(Float::with_val(FLOAT_PRECISION, 170.624376)).to_f64(),
-            14471.026654694688
+            14641.65103069469
         );
     }
 
