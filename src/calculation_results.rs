@@ -7,6 +7,7 @@ use rug::float::OrdFloat;
 use rug::ops::Pow;
 use rug::{Float, Integer};
 use std::fmt::Write;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum CalculationResult {
@@ -22,6 +23,17 @@ pub(crate) enum CalculationResult {
 pub(crate) enum Number {
     Float(OrdFloat),
     Int(Integer),
+}
+impl FromStr for Number {
+    type Err = rug::float::ParseFloatError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let Ok(num) = s.parse::<Integer>() else {
+            let num = Float::parse(s)?;
+            let num = Float::with_val(FLOAT_PRECISION, num);
+            return Ok(Self::Float(num.into()));
+        };
+        Ok(Number::Int(num))
+    }
 }
 impl From<Integer> for Number {
     fn from(value: Integer) -> Self {

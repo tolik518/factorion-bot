@@ -1,12 +1,10 @@
 //! Parses comments and generates the reply.
-use crate::math::FLOAT_PRECISION;
 
 use crate::calculation_results::{Calculation, Number};
 use crate::calculation_tasks::{CalculationBase, CalculationJob};
 
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
-use rug::{Float, Integer};
 use std::fmt::Write;
 use std::sync::LazyLock;
 
@@ -220,261 +218,68 @@ impl RedditComment {
         });
         let mut list: Vec<(CalculationJob, String)> = Vec::new();
 
-        for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let text = &capture[3];
-            let mut inner = Self::extract_calculation_jobs(text, include_termial);
-            if inner.is_empty() {
-                continue;
-            }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level: -1,
-                    negative,
-                },
-                capture[0].to_string(),
-            ))
-        }
-        for capture in FACTORIAL_CHAIN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let text = &capture[2];
-            let level = capture[3]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            let mut inner = Self::extract_calculation_jobs(text, include_termial);
-            if inner.is_empty() {
-                continue;
-            }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level,
-                    negative,
-                },
-                capture[0].to_string(),
-            ))
-        }
+        list.extend(Self::extract_chain(
+            &SUBFACTORIAL_CHAIN_REGEX,
+            text,
+            include_termial,
+            3,
+            Err(-1),
+        ));
+        list.extend(Self::extract_chain(
+            &FACTORIAL_CHAIN_REGEX,
+            text,
+            include_termial,
+            2,
+            Ok(3),
+        ));
         if include_termial {
-            for capture in FACTORIAL_TERMIAL_CHAIN_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let negative = !capture[1].is_empty();
-                let text = &capture[2];
-                let level = capture[3]
-                    .len()
-                    .to_i32()
-                    .expect("Failed to convert exclamation count to i32");
-                let mut inner = Self::extract_calculation_jobs(text, include_termial);
-                if inner.is_empty() {
-                    continue;
-                }
-                inner.sort_by_key(|x| x.get_depth());
-                inner.reverse();
-                let inner = inner.remove(0);
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Calc(Box::new(inner)),
-                        level,
-                        negative,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
-            for capture in TERMIAL_CHAIN_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let negative = !capture[1].is_empty();
-                let text = &capture[2];
-                let mut inner = Self::extract_calculation_jobs(text, include_termial);
-                if inner.is_empty() {
-                    continue;
-                }
-                inner.sort_by_key(|x| x.get_depth());
-                inner.reverse();
-                let inner = inner.remove(0);
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Calc(Box::new(inner)),
-                        level: 0,
-                        negative,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
-        }
-        for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let number = capture[3]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level: -1,
-                    negative,
-                },
-                capture[0].to_string(),
+            list.extend(Self::extract_chain(
+                &FACTORIAL_TERMIAL_CHAIN_REGEX,
+                text,
+                include_termial,
+                2,
+                Ok(3),
+            ));
+            list.extend(Self::extract_chain(
+                &TERMIAL_CHAIN_REGEX,
+                text,
+                include_termial,
+                2,
+                Err(0),
             ));
         }
-        for capture in FACTORIAL_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let number = capture[2]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            let level = capture[3]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level,
-                    negative,
-                },
-                capture[0].to_string(),
+        list.extend(Self::extract_base(&SUBFACTORIAL_REGEX, text, 3, Err(-1)));
+        list.extend(Self::extract_base(&FACTORIAL_REGEX, text, 2, Ok(3)));
+        if include_termial {
+            list.extend(Self::extract_base(&TERMIAL_REGEX, text, 2, Err(0)));
+        }
+        list.extend(Self::extract_base(&GAMMA_REGEX, text, 2, Err(1)));
+        if include_termial {
+            list.extend(Self::extract_base(
+                &FRACTIONAL_TERMIAL_REGEX,
+                text,
+                2,
+                Err(0),
             ));
         }
+        list.extend(Self::extract_base(
+            &SUBFACTORIAL_PAREN_REGEX,
+            text,
+            3,
+            Err(-1),
+        ));
+        list.extend(Self::extract_base(&FACTORIAL_PAREN_REGEX, text, 2, Ok(3)));
         if include_termial {
-            for capture in TERMIAL_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let negative = !capture[1].is_empty();
-                let number = capture[2]
-                    .parse::<Integer>()
-                    .expect("Failed to parse number");
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Num(Number::Int(number)),
-                        level: 0,
-                        negative,
-                    },
-                    capture[0].to_string(),
-                ));
-            }
+            list.extend(Self::extract_base(&TERMIAL_PAREN_REGEX, text, 2, Err(0)));
         }
-        for capture in GAMMA_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Float(
-                        Float::with_val(FLOAT_PRECISION, gamma).into(),
-                    )),
-                    level: 1,
-                    negative,
-                },
-                capture[0].to_string(),
-            ))
-        }
+        list.extend(Self::extract_base(&GAMMA_PAREN_REGEX, text, 2, Err(1)));
         if include_termial {
-            for capture in FRACTIONAL_TERMIAL_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let negative = !capture[1].is_empty();
-                let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Num(Number::Float(
-                            Float::with_val(FLOAT_PRECISION, gamma).into(),
-                        )),
-                        level: 0,
-                        negative,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
-        }
-        for capture in SUBFACTORIAL_PAREN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let number = capture[3]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level: -1,
-                    negative,
-                },
-                capture[0].to_string(),
+            list.extend(Self::extract_base(
+                &FRACTIONAL_TERMIAL_PAREN_REGEX,
+                text,
+                2,
+                Err(0),
             ));
-        }
-        for capture in FACTORIAL_PAREN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let number = capture[2]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            let level = capture[3]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level,
-                    negative,
-                },
-                capture[0].to_string(),
-            ));
-        }
-        if include_termial {
-            for capture in TERMIAL_PAREN_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let negative = !capture[1].is_empty();
-                let number = capture[2]
-                    .parse::<Integer>()
-                    .expect("Failed to parse number");
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Num(Number::Int(number)),
-                        level: 0,
-                        negative,
-                    },
-                    capture[0].to_string(),
-                ));
-            }
-        }
-        for capture in GAMMA_PAREN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
-            let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Float(
-                        Float::with_val(FLOAT_PRECISION, gamma).into(),
-                    )),
-                    level: 1,
-                    negative,
-                },
-                capture[0].to_string(),
-            ))
-        }
-        if include_termial {
-            for capture in FRACTIONAL_TERMIAL_PAREN_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let negative = !capture[1].is_empty();
-                let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Num(Number::Float(
-                            Float::with_val(FLOAT_PRECISION, gamma).into(),
-                        )),
-                        level: 0,
-                        negative,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
         }
         // remove all inner pendings
         let mut i = 0;
@@ -515,6 +320,70 @@ impl RedditComment {
             status,
             commands,
         }
+    }
+    fn extract_base<'r, 't>(
+        regex: &'r Regex,
+        text: &'t str,
+        base_index: usize,
+        levels_index: Result<usize, i32>,
+    ) -> impl Iterator<Item = (CalculationJob, String)> + use<'r, 't> {
+        regex.captures_iter(text).map(move |capture| {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = !capture[1].is_empty();
+            let base = capture[base_index]
+                .parse::<Number>()
+                .expect("Failed to parse number");
+            let level = match levels_index {
+                Ok(i) => capture[i]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert factorial count to i32"),
+                Err(l) => l,
+            };
+            (
+                CalculationJob {
+                    base: CalculationBase::Num(base),
+                    level,
+                    negative,
+                },
+                capture[0].to_string(),
+            )
+        })
+    }
+    fn extract_chain<'r, 't>(
+        regex: &'r Regex,
+        text: &'t str,
+        include_termial: bool,
+        inner_index: usize,
+        levels_index: Result<usize, i32>,
+    ) -> impl Iterator<Item = (CalculationJob, String)> + use<'r, 't> {
+        regex.captures_iter(text).filter_map(move |capture| {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = !capture[1].is_empty();
+            let text = &capture[inner_index];
+            let level = match levels_index {
+                Ok(i) => capture[i]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32"),
+                Err(l) => l,
+            };
+            let mut inner = Self::extract_calculation_jobs(text, include_termial);
+            if inner.is_empty() {
+                return None;
+            }
+            inner.sort_by_key(|x| x.get_depth());
+            inner.reverse();
+            let inner = inner.remove(0);
+            Some((
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(inner)),
+                    level,
+                    negative,
+                },
+                capture[0].to_string(),
+            ))
+        })
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {
@@ -634,6 +503,8 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
+    use rug::Integer;
+
     use crate::{calculation_results::CalculationResult, math};
 
     use super::*;
@@ -1441,7 +1312,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of The factorial of The factorial of 3.141592 has approximately 4.944306506471065948183172034785 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of The factorial of The factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
