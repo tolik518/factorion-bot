@@ -39,7 +39,7 @@ pub(crate) fn fractional_factorial(x: Float) -> Float {
 pub(crate) fn fractional_termial(x: Float) -> Float {
     let gamma_plus = ((x.clone() + 1) as Float).gamma();
     let gamma_minus = ((x - 1) as Float).gamma();
-    if gamma_minus.is_nan() {
+    if !gamma_minus.is_finite() && gamma_plus.is_finite() {
         return Float::new(FLOAT_PRECISION);
     }
     (gamma_plus / gamma_minus) / 2
