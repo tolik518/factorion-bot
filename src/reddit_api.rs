@@ -527,7 +527,10 @@ mod tests {
         status.unwrap();
         let comments = comments.unwrap();
         assert_eq!(comments.len(), 2);
-        assert_eq!(comments[1].calculation_list[0].levels, [1, 0]);
+        assert_eq!(
+            comments[1].calculation_list[0].steps,
+            [(1, false), (0, false)]
+        );
     }
 
     #[tokio::test]

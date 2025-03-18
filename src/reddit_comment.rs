@@ -143,7 +143,7 @@ impl RedditComment {
 
         calculation_list.sort();
         calculation_list.dedup();
-        calculation_list.sort_by_key(|x| x.levels.len());
+        calculation_list.sort_by_key(|x| x.steps.len());
 
         if calculation_list.is_empty() {
             status.no_factorial = true;
@@ -163,43 +163,67 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+)(!+)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.,\d]|&lt;)")
+            Regex::new(r"(?<![,.!?\d])(-?)(!)(\d+)(?![<.,\d]|&lt;)")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+)(\?)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+)(\?)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
         });
         static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+\.\d+)(!)(?![<\d]|&lt;)")
+                .expect("Invalid gamma regex")
         });
         static FRACTIONAL_TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d+\.\d+)(\?)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
+        });
+        static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+)\)(!+)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
+        });
+        static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.!?\d])(-?)(!)\((-?\d+)\)(?![<.,\d]|&lt;)")
+                .expect("Invalid subfactorial regex")
+        });
+        static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+)\)(\?)(?![<\d]|&lt;)")
+                .expect("Invalid factorial regex")
+        });
+        static GAMMA_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+\.\d+)\)(!)(?![<\d]|&lt;)")
+                .expect("Invalid gamma regex")
+        });
+        static FRACTIONAL_TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d+\.\d+)\)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\(([\d!?\(\)\.]+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(!)\(([\d!?\(\)\.]+)\)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;)")
                 .expect("Invalid subfactorial-chain regex")
         });
         static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+\?)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?)([!?\.\(\)\d-]+\?)(!+)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
         static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d])(-?)([!?\.\(\)\d-]+)(\?)(?![<\d]|&lt;)")
                 .expect("Invalid factorial-chain regex")
         });
         let mut list: Vec<(CalculationJob, String)> = Vec::new();
 
         for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
-            let text = &capture[2];
+            let negative = !capture[1].is_empty();
+            let text = &capture[3];
             let mut inner = Self::extract_calculation_jobs(text, include_termial);
             if inner.is_empty() {
                 continue;
@@ -211,14 +235,16 @@ impl RedditComment {
                 CalculationJob {
                     base: CalculationBase::Calc(Box::new(inner)),
                     level: -1,
+                    negative,
                 },
                 capture[0].to_string(),
             ))
         }
         for capture in FACTORIAL_CHAIN_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
-            let text = &capture[1];
-            let level = capture[2]
+            let negative = !capture[1].is_empty();
+            let text = &capture[2];
+            let level = capture[3]
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
@@ -233,6 +259,7 @@ impl RedditComment {
                 CalculationJob {
                     base: CalculationBase::Calc(Box::new(inner)),
                     level,
+                    negative,
                 },
                 capture[0].to_string(),
             ))
@@ -240,8 +267,9 @@ impl RedditComment {
         if include_termial {
             for capture in FACTORIAL_TERMIAL_CHAIN_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
-                let text = &capture[1];
-                let level = capture[2]
+                let negative = !capture[1].is_empty();
+                let text = &capture[2];
+                let level = capture[3]
                     .len()
                     .to_i32()
                     .expect("Failed to convert exclamation count to i32");
@@ -256,13 +284,15 @@ impl RedditComment {
                     CalculationJob {
                         base: CalculationBase::Calc(Box::new(inner)),
                         level,
+                        negative,
                     },
                     capture[0].to_string(),
                 ))
             }
             for capture in TERMIAL_CHAIN_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
-                let text = &capture[1];
+                let negative = !capture[1].is_empty();
+                let text = &capture[2];
                 let mut inner = Self::extract_calculation_jobs(text, include_termial);
                 if inner.is_empty() {
                     continue;
@@ -274,6 +304,7 @@ impl RedditComment {
                     CalculationJob {
                         base: CalculationBase::Calc(Box::new(inner)),
                         level: 0,
+                        negative,
                     },
                     capture[0].to_string(),
                 ))
@@ -281,23 +312,26 @@ impl RedditComment {
         }
         for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
-            let number = capture[2]
+            let negative = !capture[1].is_empty();
+            let number = capture[3]
                 .parse::<Integer>()
                 .expect("Failed to parse number");
             list.push((
                 CalculationJob {
                     base: CalculationBase::Num(Number::Int(number)),
                     level: -1,
+                    negative,
                 },
                 capture[0].to_string(),
             ));
         }
         for capture in FACTORIAL_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
-            let number = capture[1]
+            let negative = !capture[1].is_empty();
+            let number = capture[2]
                 .parse::<Integer>()
                 .expect("Failed to parse number");
-            let level = capture[2]
+            let level = capture[3]
                 .len()
                 .to_i32()
                 .expect("Failed to convert exclamation count to i32");
@@ -305,6 +339,7 @@ impl RedditComment {
                 CalculationJob {
                     base: CalculationBase::Num(Number::Int(number)),
                     level,
+                    negative,
                 },
                 capture[0].to_string(),
             ));
@@ -312,13 +347,15 @@ impl RedditComment {
         if include_termial {
             for capture in TERMIAL_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
-                let number = capture[1]
+                let negative = !capture[1].is_empty();
+                let number = capture[2]
                     .parse::<Integer>()
                     .expect("Failed to parse number");
                 list.push((
                     CalculationJob {
                         base: CalculationBase::Num(Number::Int(number)),
                         level: 0,
+                        negative,
                     },
                     capture[0].to_string(),
                 ));
@@ -326,13 +363,15 @@ impl RedditComment {
         }
         for capture in GAMMA_REGEX.captures_iter(text) {
             let capture = capture.expect("Failed to capture regex");
-            let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
+            let negative = !capture[1].is_empty();
+            let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
             list.push((
                 CalculationJob {
                     base: CalculationBase::Num(Number::Float(
                         Float::with_val(FLOAT_PRECISION, gamma).into(),
                     )),
                     level: 1,
+                    negative,
                 },
                 capture[0].to_string(),
             ))
@@ -340,13 +379,98 @@ impl RedditComment {
         if include_termial {
             for capture in FRACTIONAL_TERMIAL_REGEX.captures_iter(text) {
                 let capture = capture.expect("Failed to capture regex");
-                let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
+                let negative = !capture[1].is_empty();
+                let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
                 list.push((
                     CalculationJob {
                         base: CalculationBase::Num(Number::Float(
                             Float::with_val(FLOAT_PRECISION, gamma).into(),
                         )),
                         level: 0,
+                        negative,
+                    },
+                    capture[0].to_string(),
+                ))
+            }
+        }
+        for capture in SUBFACTORIAL_PAREN_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = !capture[1].is_empty();
+            let number = capture[3]
+                .parse::<Integer>()
+                .expect("Failed to parse number");
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(number)),
+                    level: -1,
+                    negative,
+                },
+                capture[0].to_string(),
+            ));
+        }
+        for capture in FACTORIAL_PAREN_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = !capture[1].is_empty();
+            let number = capture[2]
+                .parse::<Integer>()
+                .expect("Failed to parse number");
+            let level = capture[3]
+                .len()
+                .to_i32()
+                .expect("Failed to convert exclamation count to i32");
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(number)),
+                    level,
+                    negative,
+                },
+                capture[0].to_string(),
+            ));
+        }
+        if include_termial {
+            for capture in TERMIAL_PAREN_REGEX.captures_iter(text) {
+                let capture = capture.expect("Failed to capture regex");
+                let negative = !capture[1].is_empty();
+                let number = capture[2]
+                    .parse::<Integer>()
+                    .expect("Failed to parse number");
+                list.push((
+                    CalculationJob {
+                        base: CalculationBase::Num(Number::Int(number)),
+                        level: 0,
+                        negative,
+                    },
+                    capture[0].to_string(),
+                ));
+            }
+        }
+        for capture in GAMMA_PAREN_REGEX.captures_iter(text) {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = !capture[1].is_empty();
+            let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
+            list.push((
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Float(
+                        Float::with_val(FLOAT_PRECISION, gamma).into(),
+                    )),
+                    level: 1,
+                    negative,
+                },
+                capture[0].to_string(),
+            ))
+        }
+        if include_termial {
+            for capture in FRACTIONAL_TERMIAL_PAREN_REGEX.captures_iter(text) {
+                let capture = capture.expect("Failed to capture regex");
+                let negative = !capture[1].is_empty();
+                let gamma = capture[2].parse::<f64>().expect("Failed to parse float");
+                list.push((
+                    CalculationJob {
+                        base: CalculationBase::Num(Number::Float(
+                            Float::with_val(FLOAT_PRECISION, gamma).into(),
+                        )),
+                        level: 0,
+                        negative,
                     },
                     capture[0].to_string(),
                 ))
@@ -529,12 +653,12 @@ mod tests {
             vec![
                 Calculation {
                     value: 5.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
@@ -555,7 +679,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                levels: vec![2],
+                steps: vec![(2, false)],
                 result: CalculationResult::Exact(Integer::from(48)),
             }]
         );
@@ -575,7 +699,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                levels: vec![3],
+                steps: vec![(3, false)],
                 result: CalculationResult::Exact(Integer::from(18)),
             }]
         );
@@ -622,7 +746,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                levels: vec![-1],
+                steps: vec![(-1, false)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }]
         );
@@ -641,8 +765,63 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                levels: vec![0],
+                steps: vec![(0, false)],
                 result: CalculationResult::Exact(Integer::from(15)),
+            }]
+        );
+    }
+    #[test]
+    fn test_comment_new_negative() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment -5? -5! -!5 -(10)!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            true,
+        );
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![
+                Calculation {
+                    value: Number::Int(5.into()),
+                    steps: vec![(-1, true)],
+                    result: CalculationResult::Exact(44.into())
+                },
+                Calculation {
+                    value: Number::Int(5.into()),
+                    steps: vec![(0, true)],
+                    result: CalculationResult::Exact(15.into())
+                },
+                Calculation {
+                    value: Number::Int(5.into()),
+                    steps: vec![(1, true)],
+                    result: CalculationResult::Exact(120.into())
+                },
+                Calculation {
+                    value: Number::Int(10.into()),
+                    steps: vec![(1, true)],
+                    result: CalculationResult::Exact(3628800.into())
+                }
+            ]
+        );
+    }
+    #[test]
+    fn test_comment_new_of_negative() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment (-5)!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            true,
+        );
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![Calculation {
+                value: (-5).into(),
+                steps: vec![(1, false)],
+                result: CalculationResult::ComplexInfinity,
             }]
         );
     }
@@ -689,7 +868,7 @@ mod tests {
                 .map(|calc| match calc {
                     Calculation {
                         value: Number::Float(number),
-                        levels: _,
+                        steps: _,
                         result: CalculationResult::Float(gamma),
                     } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
                     _ => unreachable!("No normal factorial included"),
@@ -715,7 +894,7 @@ mod tests {
                 .map(|calc| match calc {
                     Calculation {
                         value: Number::Float(number),
-                        levels: _,
+                        steps: _,
                         result: CalculationResult::Float(gamma),
                     } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
                     _ => unreachable!("No normal factorial included"),
@@ -766,7 +945,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                levels: vec![1],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(Integer::from(720))
             }]
         );
@@ -904,7 +1083,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 10.into(),
-                levels: vec![3],
+                steps: vec![(3, false)],
                 result: CalculationResult::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
@@ -923,7 +1102,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5.into(),
-                levels: vec![-1],
+                steps: vec![(-1, false)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
@@ -941,7 +1120,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5000.into(),
-                levels: vec![-1],
+                steps: vec![(-1, false)],
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
@@ -960,7 +1139,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 10.into(),
-                levels: vec![46],
+                steps: vec![(46, false)],
                 result: CalculationResult::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
@@ -980,12 +1159,12 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 5.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
@@ -1006,17 +1185,17 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 5.into(),
-                    levels: vec![2],
+                    steps: vec![(2, false)],
                     result: CalculationResult::Exact(Integer::from(60)),
                 },
                 Calculation {
                     value: 6.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
                 Calculation {
                     value: 3249.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(math::factorial(3249, 1)),
                 },
             ],
@@ -1209,6 +1388,19 @@ mod tests {
         let reply = comment.get_reply();
         assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of The termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of Subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
+    #[test]
+    fn test_get_reply_mixed_factorial_chain4() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain -!(-((-!(-5))???!!?!)!?)",
+            "1234",
+            "test_author",
+            "test_subreddit",
+            true,
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "minus Subfactorial of minus The termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of minus Subfactorial of -5 is ∞\u{0303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
 
     #[test]
     fn test_get_reply_factorial_chain_from_approximate() {
@@ -1259,17 +1451,17 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 8.into(),
-                    levels: vec![2],
+                    steps: vec![(2, false)],
                     result: CalculationResult::Exact(Integer::from(384)),
                 },
                 Calculation {
                     value: 10000.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Exact(math::factorial(10000, 1)),
                 },
                 Calculation {
                     value: 37923648.into(),
-                    levels: vec![1],
+                    steps: vec![(1, false)],
                     result: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
                         CalculationResult::Approximate(base.into(), exponent)
@@ -1277,7 +1469,7 @@ mod tests {
                 },
                 Calculation {
                     value: 283462.into(),
-                    levels: vec![2],
+                    steps: vec![(2, false)],
                     result: CalculationResult::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
