@@ -71,6 +71,7 @@ impl RedditClient {
     pub(crate) async fn get_comments(
         &mut self,
         already_replied_to_comments: &mut Vec<String>,
+        check_mentions: bool,
     ) -> Result<Vec<RedditComment>, ()> {
         static SUBREDDIT_URL: LazyLock<Url> = LazyLock::new(|| {
             Url::parse(&format!(
@@ -100,31 +101,50 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let (subs_response, mentions_response) = join!(
-            self.client
+        let (subs_response, mentions_response) = if check_mentions {
+            let (a, b) = join!(
+                self.client
+                    .get(SUBREDDIT_URL.clone())
+                    .bearer_auth(&self.token.access_token)
+                    .send(),
+                self.client
+                    .get(MENTION_URL.clone())
+                    .bearer_auth(&self.token.access_token)
+                    .send()
+            );
+            (a, Some(b))
+        } else {
+            let a = self
+                .client
                 .get(SUBREDDIT_URL.clone())
                 .bearer_auth(&self.token.access_token)
-                .send(),
-            self.client
-                .get(MENTION_URL.clone())
-                .bearer_auth(&self.token.access_token)
                 .send()
-        );
+                .await;
+            (a, None)
+        };
         let subs_response = subs_response.expect("Failed to get comments");
-        let mentions_response = mentions_response.expect("Failed to get comments");
+        let mentions_response = mentions_response.map(|x| x.expect("Failed to get comments"));
 
-        match RedditClient::check_response_status(&subs_response)
-            .and(RedditClient::check_response_status(&mentions_response))
-        {
+        match RedditClient::check_response_status(&subs_response).and(
+            mentions_response
+                .as_ref()
+                .map(RedditClient::check_response_status)
+                .unwrap_or(Ok(())),
+        ) {
             Ok(_) => {
-                let (mentions, paths) = RedditClient::extract_comments(
-                    mentions_response,
-                    already_replied_to_comments,
-                    true,
-                    TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
-                )
-                .await
-                .expect("Failed to extract comments");
+                let (mentions, paths) = if let Some(mentions_response) = mentions_response {
+                    let (a, b) = RedditClient::extract_comments(
+                        mentions_response,
+                        already_replied_to_comments,
+                        true,
+                        TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    )
+                    .await
+                    .expect("Failed to extract comments");
+                    (Some(a), Some(b))
+                } else {
+                    (None, None)
+                };
                 let (mut res, _) = RedditClient::extract_comments(
                     subs_response,
                     already_replied_to_comments,
@@ -134,29 +154,33 @@ impl RedditClient {
                 .await
                 .expect("Failed to extract comments");
                 let mut parents = Vec::new();
-                for path in paths {
-                    let response = self
-                        .client
-                        .get(format!("{}{}", REDDIT_OAUTH_URL, path))
-                        .bearer_auth(&self.token.access_token)
-                        .send()
-                        .await
-                        .expect("Failed to get comment");
-                    let parent = RedditClient::extract_comment(
-                        &response
-                            .json::<Value>()
+                if let Some(paths) = paths {
+                    for path in paths {
+                        let response = self
+                            .client
+                            .get(format!("{}{}", REDDIT_OAUTH_URL, path))
+                            .bearer_auth(&self.token.access_token)
+                            .send()
                             .await
-                            .expect("Response isn't JSON")
-                            .as_array_mut()
-                            .expect("Malformed JSON")
-                            .remove(0),
-                        already_replied_to_comments,
-                        true,
-                        TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
-                    );
-                    parents.push(parent);
+                            .expect("Failed to get comment");
+                        let parent = RedditClient::extract_comment(
+                            &response
+                                .json::<Value>()
+                                .await
+                                .expect("Response isn't JSON")
+                                .as_array_mut()
+                                .expect("Malformed JSON")
+                                .remove(0),
+                            already_replied_to_comments,
+                            true,
+                            TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                        );
+                        parents.push(parent);
+                    }
                 }
-                res.extend(mentions);
+                if let Some(mentions) = mentions {
+                    res.extend(mentions);
+                }
                 res.extend(parents);
                 Ok(res)
             }
@@ -522,7 +546,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n[{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]"
                 )]).await
             },
-            client.get_comments(&mut already_replied)
+            client.get_comments(&mut already_replied, true)
         );
         status.unwrap();
         let comments = comments.unwrap();

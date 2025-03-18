@@ -46,6 +46,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
     let sleep_between_requests = sleep_between_requests.as_str().parse().unwrap();
 
+    let check_mentions = std::env::var("IGNORE_MENTIONS")
+        .ok()
+        .map(|m| {
+            m.parse::<bool>()
+                .expect("IGNORE_MENTIONS needs to be true or false if set")
+        })
+        .unwrap_or(true);
+
     // read comment_ids from the file
     let already_replied_to_comments: String =
         fs::read_to_string(COMMENT_IDS_FILE_PATH).unwrap_or("".to_string());
@@ -72,7 +80,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         let comments = reddit_client
-            .get_comments(&mut already_replied_or_rejected)
+            .get_comments(&mut already_replied_or_rejected, check_mentions)
             .await
             .unwrap_or_default();
         let end = SystemTime::now();
