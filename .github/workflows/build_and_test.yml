@@ -7,6 +7,7 @@ env:
 
 jobs:
   format:
+    name: Format Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -14,6 +15,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   test:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -21,13 +23,15 @@ jobs:
         run: cargo test
 
   clippy:
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
 
-  version_check:
+  bumped_version:
+    name: Bumped Version Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
