@@ -34,7 +34,7 @@ pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
 pub struct CalculationJob {
     pub(crate) base: CalculationBase,
     pub(crate) level: i32,
-    pub(crate) negative: bool,
+    pub(crate) negative: u32,
 }
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CalculationBase {
@@ -64,15 +64,23 @@ impl CalculationJob {
                         let neg = steps.last().unwrap().1;
                         let res = match res {
                             CalculationResult::Exact(res) => {
-                                let res = if neg { -res.clone() } else { res.clone() };
+                                let res = if neg % 2 != 0 {
+                                    -res.clone()
+                                } else {
+                                    res.clone()
+                                };
                                 Ok(Number::Int(res))
                             }
                             CalculationResult::Approximate(base, exponent) => {
                                 let res = base.as_float()
                                     * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
-                                let res = if neg { -res.clone() } else { res.clone() };
+                                let res = if neg % 2 != 0 {
+                                    -res.clone()
+                                } else {
+                                    res.clone()
+                                };
                                 match res.to_integer() {
-                                    None => Err(if neg {
+                                    None => Err(if neg % 2 != 0 {
                                         CalculationResult::ComplexInfinity
                                     } else if level == 0 {
                                         let termial = math::approximate_approx_termial((
@@ -89,7 +97,7 @@ impl CalculationJob {
                                     Some(res) => Ok(Number::Int(res)),
                                 }
                             }
-                            CalculationResult::ApproximateDigits(digits) => Err(if neg {
+                            CalculationResult::ApproximateDigits(digits) => Err(if neg % 2 != 0 {
                                 CalculationResult::ComplexInfinity
                             } else if level == 0 {
                                 CalculationResult::ApproximateDigits((digits.clone() - 1) * 2 + 1)
@@ -100,7 +108,7 @@ impl CalculationJob {
                                 )
                             }),
                             CalculationResult::ApproximateDigitsTower(depth, exponent) => {
-                                Err(if neg {
+                                Err(if neg % 2 != 0 {
                                     CalculationResult::ComplexInfinity
                                 } else if level == 0 {
                                     CalculationResult::ApproximateDigitsTower(
@@ -115,7 +123,7 @@ impl CalculationJob {
                                 })
                             }
                             CalculationResult::Float(gamma) => {
-                                let gamma = if neg {
+                                let gamma = if neg % 2 != 0 {
                                     -gamma.as_float().clone()
                                 } else {
                                     gamma.as_float().clone()
@@ -160,7 +168,7 @@ impl CalculationJob {
     fn calculate_appropriate_factorial(
         num: Number,
         level: i32,
-        negative: bool,
+        negative: u32,
     ) -> Option<Calculation> {
         let calc_num = match &num {
             Number::Float(num) => match level {

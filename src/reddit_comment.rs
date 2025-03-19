@@ -161,43 +161,43 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d-]|!\()(-?)(!)(\d+)(?![<.,\d]|&lt;|\)[!?])")
+            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)(\d+)(?![<.,\d]|&lt;|\)[!?])")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)\((-?\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-?\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d-]|!\()(-?)(!)\((-?\d+)\)(?![<.,\d]|&lt;|\)[!?])")
+            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)\((-?\d+)\)(?![<.,\d]|&lt;|\)[!?])")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)\((-?\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-?\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid subfactorial-chain regex")
         });
         static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?)([\(\d][!?\.\(\)\d-]*\?)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d-]*\?)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-?)([\(\d][!?\.\(\)\d-]*)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d-]*)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         let mut list: Vec<CalculationJob> = Vec::new();
@@ -275,7 +275,10 @@ impl RedditComment {
     ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
         regex.captures_iter(text).map(move |capture| {
             let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
+            let negative = capture[1]
+                .len()
+                .to_u32()
+                .expect("Failed to convert negative count to u32");
             let base = capture[base_index]
                 .parse::<Number>()
                 .expect("Failed to parse number");
@@ -302,7 +305,10 @@ impl RedditComment {
     ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
         regex.captures_iter(text).filter_map(move |capture| {
             let capture = capture.expect("Failed to capture regex");
-            let negative = !capture[1].is_empty();
+            let negative = capture[1]
+                .len()
+                .to_u32()
+                .expect("Failed to convert negative count to u32");
             let text = &capture[inner_index];
             let level = match levels_index {
                 Ok(i) => capture[i]
@@ -458,34 +464,34 @@ mod tests {
                 CalculationJob {
                     base: CalculationBase::Num(Number::Int(24.into())),
                     level: 1,
-                    negative: false
+                    negative: 0
                 },
                 CalculationJob {
                     base: CalculationBase::Num(Number::Int(24.into())),
                     level: 1,
-                    negative: true
+                    negative: 1
                 },
                 CalculationJob {
                     base: CalculationBase::Calc(Box::new(CalculationJob {
                         base: CalculationBase::Num(Number::Int(2.into())),
                         level: 1,
-                        negative: false
+                        negative: 0
                     })),
                     level: 0,
-                    negative: false
+                    negative: 0
                 },
                 CalculationJob {
                     base: CalculationBase::Calc(Box::new(CalculationJob {
                         base: CalculationBase::Calc(Box::new(CalculationJob {
                             base: CalculationBase::Num(Number::Int(2.into())),
                             level: 1,
-                            negative: false
+                            negative: 0
                         })),
                         level: 0,
-                        negative: false
+                        negative: 0
                     })),
                     level: 1,
-                    negative: false
+                    negative: 0
                 }
             ]
         );
@@ -506,12 +512,12 @@ mod tests {
             vec![
                 Calculation {
                     value: 5.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
@@ -532,7 +538,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                steps: vec![(2, false)],
+                steps: vec![(2, 0)],
                 result: CalculationResult::Exact(Integer::from(48)),
             }]
         );
@@ -552,7 +558,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                steps: vec![(3, false)],
+                steps: vec![(3, 0)],
                 result: CalculationResult::Exact(Integer::from(18)),
             }]
         );
@@ -599,7 +605,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                steps: vec![(-1, false)],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }]
         );
@@ -618,7 +624,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                steps: vec![(0, false)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(Integer::from(15)),
             }]
         );
@@ -626,7 +632,7 @@ mod tests {
     #[test]
     fn test_comment_new_negative() {
         let comment = RedditComment::new(
-            "This is a spoiler comment -5? -5! -!5 -(10)!",
+            "This is a spoiler comment -5? -5! -!5 --(10)!",
             "123",
             "test_author",
             "test_subreddit",
@@ -638,22 +644,22 @@ mod tests {
             vec![
                 Calculation {
                     value: Number::Int(5.into()),
-                    steps: vec![(-1, true)],
+                    steps: vec![(-1, 1)],
                     result: CalculationResult::Exact(44.into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
-                    steps: vec![(0, true)],
+                    steps: vec![(0, 1)],
                     result: CalculationResult::Exact(15.into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
-                    steps: vec![(1, true)],
+                    steps: vec![(1, 1)],
                     result: CalculationResult::Exact(120.into())
                 },
                 Calculation {
                     value: Number::Int(10.into()),
-                    steps: vec![(1, true)],
+                    steps: vec![(1, 2)],
                     result: CalculationResult::Exact(3628800.into())
                 }
             ]
@@ -673,7 +679,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: (-5).into(),
-                steps: vec![(1, false)],
+                steps: vec![(1, 0)],
                 result: CalculationResult::ComplexInfinity,
             }]
         );
@@ -798,7 +804,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                steps: vec![(1, false)],
+                steps: vec![(1, 0)],
                 result: CalculationResult::Exact(Integer::from(720))
             }]
         );
@@ -936,7 +942,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 10.into(),
-                steps: vec![(3, false)],
+                steps: vec![(3, 0)],
                 result: CalculationResult::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
@@ -955,7 +961,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5.into(),
-                steps: vec![(-1, false)],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
@@ -973,7 +979,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5000.into(),
-                steps: vec![(-1, false)],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
@@ -992,7 +998,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 10.into(),
-                steps: vec![(46, false)],
+                steps: vec![(46, 0)],
                 result: CalculationResult::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
@@ -1012,12 +1018,12 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 5.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
@@ -1038,17 +1044,17 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 5.into(),
-                    steps: vec![(2, false)],
+                    steps: vec![(2, 0)],
                     result: CalculationResult::Exact(Integer::from(60)),
                 },
                 Calculation {
                     value: 6.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
                 Calculation {
                     value: 3249.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(math::factorial(3249, 1)),
                 },
             ],
@@ -1304,17 +1310,17 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 8.into(),
-                    steps: vec![(2, false)],
+                    steps: vec![(2, 0)],
                     result: CalculationResult::Exact(Integer::from(384)),
                 },
                 Calculation {
                     value: 10000.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(math::factorial(10000, 1)),
                 },
                 Calculation {
                     value: 37923648.into(),
-                    steps: vec![(1, false)],
+                    steps: vec![(1, 0)],
                     result: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
                         CalculationResult::Approximate(base.into(), exponent)
@@ -1322,7 +1328,7 @@ mod tests {
                 },
                 Calculation {
                     value: 283462.into(),
-                    steps: vec![(2, false)],
+                    steps: vec![(2, 0)],
                     result: CalculationResult::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
