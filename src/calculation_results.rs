@@ -28,11 +28,20 @@ pub(crate) enum Number {
 impl FromStr for Number {
     type Err = rug::float::ParseFloatError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let Ok(num) = s.parse::<Integer>() else {
+        let negatives = s.find(|c| c != '-').unwrap_or_default();
+        let s = &s[negatives..];
+        let negative = negatives % 2 != 0;
+        let Ok(mut num) = s.parse::<Integer>() else {
             let num = Float::parse(s)?;
-            let num = Float::with_val(FLOAT_PRECISION, num);
+            let mut num = Float::with_val(FLOAT_PRECISION, num);
+            if negative {
+                num *= -1;
+            }
             return Ok(Self::Float(num.into()));
         };
+        if negative {
+            num *= -1;
+        }
         Ok(Number::Int(num))
     }
 }

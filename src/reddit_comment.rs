@@ -173,15 +173,15 @@ impl RedditComment {
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-?\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)\((-?\d+)\)(?![<.,\d]|&lt;|\)[!?])")
+            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)\((-*\d+)\)(?![<.,\d]|&lt;|\)[!?])")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-?\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -1250,7 +1250,7 @@ mod tests {
     #[test]
     fn test_get_reply_mixed_factorial_chain4() {
         let comment = RedditComment::new(
-            "This is a test with a factorial chain -!(-((-!(-5))???!!?!)!?)",
+            "This is a test with a factorial chain -!(-((-!(---5))???!!?!)!?)",
             "1234",
             "test_author",
             "test_subreddit",
