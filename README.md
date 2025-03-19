@@ -83,7 +83,7 @@ INFLUXDB_BUCKET=factorion-test
 INFLUXDB_TOKEN=<token>
 ```
 
-Replace with the values you received from the Reddit App creation. InfluxDB and is optional and can be removed if not needed.
+Replace with the values you received from the Reddit App creation. InfluxDB is optional and can be removed if not needed.
 
 ## Run the following command to install dependencies:
 
