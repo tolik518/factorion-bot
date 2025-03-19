@@ -132,7 +132,7 @@ impl RedditClient {
                 .unwrap_or(Ok(())),
         ) {
             Ok(_) => {
-                let (mentions, paths) = if let Some(mentions_response) = mentions_response {
+                let (mentions, ids) = if let Some(mentions_response) = mentions_response {
                     let (a, b) = RedditClient::extract_comments(
                         mentions_response,
                         already_replied_to_comments,
@@ -153,32 +153,33 @@ impl RedditClient {
                 )
                 .await
                 .expect("Failed to extract comments");
-                let mut parents = Vec::new();
-                if let Some(paths) = paths {
-                    for path in paths {
-                        let response = self
-                            .client
-                            .get(format!("{}{}", REDDIT_OAUTH_URL, path))
-                            .bearer_auth(&self.token.access_token)
-                            .send()
-                            .await
-                            .expect("Failed to get comment");
-                        if Self::check_response_status(&response).is_ok() {
-                            let parent = RedditClient::extract_comment(
-                                &response.json::<Value>().await.expect("Response isn't JSON")[1]
-                                    ["data"]["children"][0],
-                                already_replied_to_comments,
-                                true,
-                                TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
-                            );
-                            parents.push(parent);
-                        }
+                if let Some(ids) = ids {
+                    let response = self
+                        .client
+                        .get(format!(
+                            "{}/api/info?id={}",
+                            REDDIT_OAUTH_URL,
+                            ids.join(",")
+                        ))
+                        .bearer_auth(&self.token.access_token)
+                        .send()
+                        .await
+                        .expect("Failed to get comment");
+                    if Self::check_response_status(&response).is_ok() {
+                        let (comments, _) = Self::extract_comments(
+                            response,
+                            already_replied_to_comments,
+                            true,
+                            TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                        )
+                        .await
+                        .expect("Failed to extract comments");
+                        res.extend(comments);
                     }
                 }
                 if let Some(mentions) = mentions {
                     res.extend(mentions);
                 }
-                res.extend(parents);
                 Ok(res)
             }
             Err(_) => Err(()),
@@ -355,14 +356,9 @@ impl RedditClient {
         Ok(())
     }
 
-    fn extract_summon_parent_path(comment: &Value) -> Option<String> {
-        let mut context = comment["data"]["context"].as_str().map(|s| s.to_string())?;
-        context.truncate(context.rfind("/").unwrap_or(context.len()));
-        context.truncate(context.rfind("/").unwrap_or(context.len()) + 1);
-        let parent_id = comment["data"]["parent_id"].as_str().map(|s| &s[3..])?;
-        context.push_str(parent_id);
-        context.push('/');
-        Some(context)
+    fn extract_summon_parent_id(comment: &Value) -> Option<String> {
+        let parent_id = comment["data"]["parent_id"].as_str()?.to_string();
+        Some(parent_id)
     }
     async fn extract_comments(
         response: Response,
@@ -390,7 +386,7 @@ impl RedditClient {
                 && extracted_comment.status.no_factorial
                 && !extracted_comment.status.already_replied_or_rejected
             {
-                if let Some(path) = Self::extract_summon_parent_path(comment) {
+                if let Some(path) = Self::extract_summon_parent_id(comment) {
                     parent_paths.push(path);
                 }
             }
@@ -539,8 +535,8 @@ mod tests {
                     "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"body\":\"u/factorion-bot\",\"parent_id\":\"t1_m38msum\",\"context\":\"/r/some_sub/8msu32a/some_post/m38msun/?context=3\"}}]}}"
                 ),(
-                    "GET /r/some_sub/8msu32a/some_post/m38msum/ HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n[{},{\"data\": {\"children\": [{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]}}]"
+                    "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]}}"
                 )]).await
             },
             client.get_comments(&mut already_replied, true)
@@ -598,7 +594,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(comments.0.len(), 3);
-        assert_eq!(comments.1, ["/r/some_sub/8msu32a/some_post/m38msum/"]);
+        assert_eq!(comments.1, ["t1_m38msum"]);
         println!("{:#?}", comments);
     }
 
