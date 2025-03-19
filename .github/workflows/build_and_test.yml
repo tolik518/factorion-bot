@@ -26,3 +26,27 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
+
+  version_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Ensure you have the commit history to compare
+      - name: Ensure version bump in Cargo.toml
+        run: |
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          # Fetch the base branch version of Cargo.toml
+          git fetch origin "$BASE_BRANCH"
+          BASE_VERSION=$(git show origin/"$BASE_BRANCH":Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
+          # Get the PR branch version
+          PR_VERSION=$(grep '^version' Cargo.toml | head -n 1 | cut -d '"' -f2)
+          echo "Base version: $BASE_VERSION"
+          echo "PR version: $PR_VERSION"
+
+          if [ "$BASE_VERSION" = "$PR_VERSION" ]; then
+            echo "Error: version not bumped! Please update the version in Cargo.toml."
+            exit 1
+          else
+            echo "Version bump detected."
+          fi
