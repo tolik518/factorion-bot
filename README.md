@@ -75,6 +75,8 @@ PASSWORD=<reddit_app_password>
 
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
 SUBREDDITS=<subreddits>
+TERMIAL_SUBREDDITS=<subbreddits_with_termials>
+CHECK_MENTIONS=<ignore_mentions>
 
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test

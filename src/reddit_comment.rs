@@ -1,12 +1,10 @@
 //! Parses comments and generates the reply.
-use crate::math::FLOAT_PRECISION;
 
 use crate::calculation_results::{Calculation, Number};
 use crate::calculation_tasks::{CalculationBase, CalculationJob};
 
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
-use rug::{Float, Integer};
 use std::fmt::Write;
 use std::sync::LazyLock;
 
@@ -143,7 +141,7 @@ impl RedditComment {
 
         calculation_list.sort();
         calculation_list.dedup();
-        calculation_list.sort_by_key(|x| x.levels.len());
+        calculation_list.sort_by_key(|x| x.steps.len());
 
         if calculation_list.is_empty() {
             status.no_factorial = true;
@@ -163,212 +161,89 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+)(!+)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
+                .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d])(!)(\d+)(?![<.,\d]|&lt;)")
+            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)(\d+)(?![<.,\d]|&lt;|\)[!?])")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+)(\?)(?![<\d]|&lt;)").expect("Invalid factorial regex")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
+                .expect("Invalid factorial regex")
         });
-        static GAMMA_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(!)(?![<\d]|&lt;)").expect("Invalid gamma regex")
+        static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+                .expect("Invalid factorial regex")
         });
-        static FRACTIONAL_TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\b(\d+\.\d+)(\?)(?![<\d]|&lt;)")
+        static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)\((-*\d+)\)(?![<.,\d]|&lt;|\)[!?])")
+                .expect("Invalid subfactorial regex")
+        });
+        static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])\(([\d!?\(\)\.]+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(!)\(([\d!?\(\)\.]+)\)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid subfactorial-chain regex")
         });
         static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+\?)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d-]*\?)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])([!?\.\(\)\d]+)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d-]*)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
-        let mut list: Vec<(CalculationJob, String)> = Vec::new();
+        let mut list: Vec<CalculationJob> = Vec::new();
 
-        for capture in SUBFACTORIAL_CHAIN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let text = &capture[2];
-            let mut inner = Self::extract_calculation_jobs(text, include_termial);
-            if inner.is_empty() {
-                continue;
-            }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level: -1,
-                },
-                capture[0].to_string(),
-            ))
-        }
-        for capture in FACTORIAL_CHAIN_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let text = &capture[1];
-            let level = capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            let mut inner = Self::extract_calculation_jobs(text, include_termial);
-            if inner.is_empty() {
-                continue;
-            }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level,
-                },
-                capture[0].to_string(),
-            ))
-        }
+        list.extend(Self::extract_chain(
+            &SUBFACTORIAL_CHAIN_REGEX,
+            text,
+            include_termial,
+            3,
+            Err(-1),
+        ));
+        list.extend(Self::extract_chain(
+            &FACTORIAL_CHAIN_REGEX,
+            text,
+            include_termial,
+            2,
+            Ok(3),
+        ));
         if include_termial {
-            for capture in FACTORIAL_TERMIAL_CHAIN_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let text = &capture[1];
-                let level = capture[2]
-                    .len()
-                    .to_i32()
-                    .expect("Failed to convert exclamation count to i32");
-                let mut inner = Self::extract_calculation_jobs(text, include_termial);
-                if inner.is_empty() {
-                    continue;
-                }
-                inner.sort_by_key(|x| x.get_depth());
-                inner.reverse();
-                let inner = inner.remove(0);
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Calc(Box::new(inner)),
-                        level,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
-            for capture in TERMIAL_CHAIN_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let text = &capture[1];
-                let mut inner = Self::extract_calculation_jobs(text, include_termial);
-                if inner.is_empty() {
-                    continue;
-                }
-                inner.sort_by_key(|x| x.get_depth());
-                inner.reverse();
-                let inner = inner.remove(0);
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Calc(Box::new(inner)),
-                        level: 0,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
-        }
-        for capture in SUBFACTORIAL_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let number = capture[2]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level: -1,
-                },
-                capture[0].to_string(),
+            list.extend(Self::extract_chain(
+                &FACTORIAL_TERMIAL_CHAIN_REGEX,
+                text,
+                include_termial,
+                2,
+                Ok(3),
             ));
+            list.extend(
+                Self::extract_chain(&TERMIAL_CHAIN_REGEX, text, include_termial, 2, Err(0))
+                    .filter(|job| job.level != -1),
+            );
         }
-        for capture in FACTORIAL_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let number = capture[1]
-                .parse::<Integer>()
-                .expect("Failed to parse number");
-            let level = capture[2]
-                .len()
-                .to_i32()
-                .expect("Failed to convert exclamation count to i32");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Int(number)),
-                    level,
-                },
-                capture[0].to_string(),
-            ));
-        }
+        list.extend(Self::extract_base(&SUBFACTORIAL_REGEX, text, 3, Err(-1)));
+        list.extend(Self::extract_base(&FACTORIAL_REGEX, text, 2, Ok(3)));
         if include_termial {
-            for capture in TERMIAL_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let number = capture[1]
-                    .parse::<Integer>()
-                    .expect("Failed to parse number");
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Num(Number::Int(number)),
-                        level: 0,
-                    },
-                    capture[0].to_string(),
-                ));
-            }
+            list.extend(Self::extract_base(&TERMIAL_REGEX, text, 2, Err(0)));
         }
-        for capture in GAMMA_REGEX.captures_iter(text) {
-            let capture = capture.expect("Failed to capture regex");
-            let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-            list.push((
-                CalculationJob {
-                    base: CalculationBase::Num(Number::Float(
-                        Float::with_val(FLOAT_PRECISION, gamma).into(),
-                    )),
-                    level: 1,
-                },
-                capture[0].to_string(),
-            ))
-        }
+        list.extend(Self::extract_base(
+            &SUBFACTORIAL_PAREN_REGEX,
+            text,
+            3,
+            Err(-1),
+        ));
+        list.extend(Self::extract_base(&FACTORIAL_PAREN_REGEX, text, 2, Ok(3)));
         if include_termial {
-            for capture in FRACTIONAL_TERMIAL_REGEX.captures_iter(text) {
-                let capture = capture.expect("Failed to capture regex");
-                let gamma = capture[1].parse::<f64>().expect("Failed to parse float");
-                list.push((
-                    CalculationJob {
-                        base: CalculationBase::Num(Number::Float(
-                            Float::with_val(FLOAT_PRECISION, gamma).into(),
-                        )),
-                        level: 0,
-                    },
-                    capture[0].to_string(),
-                ))
-            }
+            list.extend(Self::extract_base(&TERMIAL_PAREN_REGEX, text, 2, Err(0)));
         }
-        // remove all inner pendings
-        let mut i = 0;
-        while i < list.len() {
-            let text = &list[i].1;
-            if list.iter().enumerate().any(|(j, pend)| {
-                // don't remove self
-                i != j
-                    // don't remove doubles (explicit request for inner)
-                    && list.get(i + 1).map(|(_,s)|s) != Some(text)
-                    && pend.1.contains(text)
-            }) {
-                list.remove(i);
-                continue;
-            }
-            i += 1;
-        }
-        let mut list: Vec<CalculationJob> = list.into_iter().map(|(x, _)| x).collect();
         list.sort();
         list.sort_by_key(|x| x.get_depth());
         list.dedup();
@@ -391,6 +266,70 @@ impl RedditComment {
             status,
             commands,
         }
+    }
+    fn extract_base<'r, 't>(
+        regex: &'r Regex,
+        text: &'t str,
+        base_index: usize,
+        levels_index: Result<usize, i32>,
+    ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
+        regex.captures_iter(text).map(move |capture| {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = capture[1]
+                .len()
+                .to_u32()
+                .expect("Failed to convert negative count to u32");
+            let base = capture[base_index]
+                .parse::<Number>()
+                .expect("Failed to parse number");
+            let level = match levels_index {
+                Ok(i) => capture[i]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert factorial count to i32"),
+                Err(l) => l,
+            };
+            CalculationJob {
+                base: CalculationBase::Num(base),
+                level,
+                negative,
+            }
+        })
+    }
+    fn extract_chain<'r, 't>(
+        regex: &'r Regex,
+        text: &'t str,
+        include_termial: bool,
+        inner_index: usize,
+        levels_index: Result<usize, i32>,
+    ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
+        regex.captures_iter(text).filter_map(move |capture| {
+            let capture = capture.expect("Failed to capture regex");
+            let negative = capture[1]
+                .len()
+                .to_u32()
+                .expect("Failed to convert negative count to u32");
+            let text = &capture[inner_index];
+            let level = match levels_index {
+                Ok(i) => capture[i]
+                    .len()
+                    .to_i32()
+                    .expect("Failed to convert exclamation count to i32"),
+                Err(l) => l,
+            };
+            let mut inner = Self::extract_calculation_jobs(text, include_termial);
+            if inner.is_empty() {
+                return None;
+            }
+            inner.sort_by_key(|x| x.get_depth());
+            inner.reverse();
+            let inner = inner.remove(0);
+            Some(CalculationJob {
+                base: CalculationBase::Calc(Box::new(inner)),
+                level,
+                negative,
+            })
+        })
     }
 
     pub(crate) fn add_status(&mut self, status: Status) {
@@ -510,9 +449,53 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
+    use rug::Integer;
+
     use crate::{calculation_results::CalculationResult, math};
 
     use super::*;
+
+    #[test]
+    fn test_extraction_dedup() {
+        let jobs = RedditComment::extract_calculation_jobs("24! -24! 2!? (2!?)!", true);
+        assert_eq!(
+            jobs,
+            [
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(24.into())),
+                    level: 1,
+                    negative: 0
+                },
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(24.into())),
+                    level: 1,
+                    negative: 1
+                },
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(CalculationJob {
+                        base: CalculationBase::Num(Number::Int(2.into())),
+                        level: 1,
+                        negative: 0
+                    })),
+                    level: 0,
+                    negative: 0
+                },
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(CalculationJob {
+                        base: CalculationBase::Calc(Box::new(CalculationJob {
+                            base: CalculationBase::Num(Number::Int(2.into())),
+                            level: 1,
+                            negative: 0
+                        })),
+                        level: 0,
+                        negative: 0
+                    })),
+                    level: 1,
+                    negative: 0
+                }
+            ]
+        );
+    }
 
     #[test]
     fn test_comment_new() {
@@ -529,12 +512,12 @@ mod tests {
             vec![
                 Calculation {
                     value: 5.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
@@ -555,7 +538,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                levels: vec![2],
+                steps: vec![(2, 0)],
                 result: CalculationResult::Exact(Integer::from(48)),
             }]
         );
@@ -575,7 +558,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                levels: vec![3],
+                steps: vec![(3, 0)],
                 result: CalculationResult::Exact(Integer::from(18)),
             }]
         );
@@ -622,7 +605,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                levels: vec![-1],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }]
         );
@@ -641,8 +624,63 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                levels: vec![0],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(Integer::from(15)),
+            }]
+        );
+    }
+    #[test]
+    fn test_comment_new_negative() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment -5? -5! -!5 --(10)!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            true,
+        );
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![
+                Calculation {
+                    value: Number::Int(5.into()),
+                    steps: vec![(-1, 1)],
+                    result: CalculationResult::Exact(44.into())
+                },
+                Calculation {
+                    value: Number::Int(5.into()),
+                    steps: vec![(0, 1)],
+                    result: CalculationResult::Exact(15.into())
+                },
+                Calculation {
+                    value: Number::Int(5.into()),
+                    steps: vec![(1, 1)],
+                    result: CalculationResult::Exact(120.into())
+                },
+                Calculation {
+                    value: Number::Int(10.into()),
+                    steps: vec![(1, 2)],
+                    result: CalculationResult::Exact(3628800.into())
+                }
+            ]
+        );
+    }
+    #[test]
+    fn test_comment_new_of_negative() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment (-5)!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            true,
+        );
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![Calculation {
+                value: (-5).into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::ComplexInfinity,
             }]
         );
     }
@@ -689,7 +727,7 @@ mod tests {
                 .map(|calc| match calc {
                     Calculation {
                         value: Number::Float(number),
-                        levels: _,
+                        steps: _,
                         result: CalculationResult::Float(gamma),
                     } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
                     _ => unreachable!("No normal factorial included"),
@@ -715,13 +753,13 @@ mod tests {
                 .map(|calc| match calc {
                     Calculation {
                         value: Number::Float(number),
-                        levels: _,
+                        steps: _,
                         result: CalculationResult::Float(gamma),
                     } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
                     _ => unreachable!("No normal factorial included"),
                 })
                 .collect::<Vec<_>>(),
-            vec![(0.5, -0.125)]
+            vec![(0.5, 0.375)]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
@@ -766,7 +804,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 6.into(),
-                levels: vec![1],
+                steps: vec![(1, 0)],
                 result: CalculationResult::Exact(Integer::from(720))
             }]
         );
@@ -849,7 +887,7 @@ mod tests {
             false
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of The factorial of 3 is 720 \n\nThe factorial of The factorial of The factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -862,7 +900,7 @@ mod tests {
             false
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of The factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of The factorial of The factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of The factorial of The factorial of The factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of the factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of the factorial of the factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of the factorial of the factorial of the factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -904,7 +942,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 10.into(),
-                levels: vec![3],
+                steps: vec![(3, 0)],
                 result: CalculationResult::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
@@ -923,7 +961,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5.into(),
-                levels: vec![-1],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
@@ -941,7 +979,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5000.into(),
-                levels: vec![-1],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
@@ -960,7 +998,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 10.into(),
-                levels: vec![46],
+                steps: vec![(46, 0)],
                 result: CalculationResult::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
@@ -980,12 +1018,12 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 5.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(120)),
                 },
                 Calculation {
                     value: 6.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
             ],
@@ -1006,17 +1044,17 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 5.into(),
-                    levels: vec![2],
+                    steps: vec![(2, 0)],
                     result: CalculationResult::Exact(Integer::from(60)),
                 },
                 Calculation {
                     value: 6.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(Integer::from(720)),
                 },
                 Calculation {
                     value: 3249.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(math::factorial(3249, 1)),
                 },
             ],
@@ -1153,7 +1191,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1167,7 +1205,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1181,7 +1219,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of Subfactorial of Triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of subfactorial of triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain2() {
@@ -1194,7 +1232,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of Subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of The factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of the factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain3() {
@@ -1207,7 +1245,20 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of The termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of Subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of the termial of the factorial of the factorial of the termial of double-factorial of the termial of the termial of the termial of subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+    #[test]
+    fn test_get_reply_mixed_factorial_chain4() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial chain -!(-((-!(---5))???!!?!)!?)",
+            "1234",
+            "test_author",
+            "test_subreddit",
+            true,
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Negative subfactorial of the negative termial of the factorial of the factorial of the termial of double-factorial of the termial of the termial of the termial of negative subfactorial of -5 is ∞\u{0303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1221,7 +1272,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1235,7 +1286,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of The factorial of The factorial of The factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of the factorial of the factorial of the factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1249,7 +1300,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of The factorial of The factorial of 3.141592 has approximately 4.944306506471065948183172034785 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of the factorial of the factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1259,17 +1310,17 @@ mod tests {
             calculation_list: vec![
                 Calculation {
                     value: 8.into(),
-                    levels: vec![2],
+                    steps: vec![(2, 0)],
                     result: CalculationResult::Exact(Integer::from(384)),
                 },
                 Calculation {
                     value: 10000.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: CalculationResult::Exact(math::factorial(10000, 1)),
                 },
                 Calculation {
                     value: 37923648.into(),
-                    levels: vec![1],
+                    steps: vec![(1, 0)],
                     result: {
                         let (base, exponent) = math::approximate_factorial(37923648.into());
                         CalculationResult::Approximate(base.into(), exponent)
@@ -1277,7 +1328,7 @@ mod tests {
                 },
                 Calculation {
                     value: 283462.into(),
-                    levels: vec![2],
+                    steps: vec![(2, 0)],
                     result: CalculationResult::ApproximateDigits(
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
