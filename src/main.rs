@@ -46,13 +46,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
     let sleep_between_requests = sleep_between_requests.as_str().parse().unwrap();
 
-    let check_mentions = std::env::var("IGNORE_MENTIONS")
-        .ok()
-        .map(|m| {
-            m.parse::<bool>()
-                .expect("IGNORE_MENTIONS needs to be true or false if set")
-        })
-        .unwrap_or(true);
+    let check_mentions = std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set");
+    let check_mentions = check_mentions == "true";
 
     // read comment_ids from the file
     let already_replied_to_comments: String =

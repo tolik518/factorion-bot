@@ -1236,7 +1236,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "minus Subfactorial of minus The termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of minus Subfactorial of -5 is ∞\u{0303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "negative Subfactorial of The negative termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of negative Subfactorial of -5 is ∞\u{0303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

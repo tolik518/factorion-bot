@@ -114,9 +114,11 @@ impl Calculation {
 impl Calculation {
     pub fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
         let factorial_string = self.steps.iter().rev().fold(String::new(), |a, e| {
-            let minus_str = if e.1 { "minus " } else { "" };
+            let minus_str = if e.1 { "negative " } else { "" };
             if e.0 == 0 {
-                format!("{}{}The termial of ", a, minus_str)
+                format!("{}The {}termial of ", a, minus_str)
+            } else if e.0 == 1 {
+                format!("{}The {}factorial of ", a, minus_str)
             } else {
                 format!(
                     "{}{}{}{}",
