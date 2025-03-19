@@ -887,7 +887,7 @@ mod tests {
             false
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of The factorial of 3 is 720 \n\nThe factorial of The factorial of The factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -900,7 +900,7 @@ mod tests {
             false
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of The factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of The factorial of The factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of The factorial of The factorial of The factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of the factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of the factorial of the factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of the factorial of the factorial of the factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1191,7 +1191,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1205,7 +1205,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of The factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1219,7 +1219,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of Subfactorial of Triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of subfactorial of triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain2() {
@@ -1232,7 +1232,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of Subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of The factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of the factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain3() {
@@ -1245,7 +1245,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of The termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of Subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of the termial of the factorial of the factorial of the termial of double-factorial of the termial of the termial of the termial of subfactorial of 5 has on the order of 10^(10\\^10\\^(1280903611140\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain4() {
@@ -1258,7 +1258,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "negative Subfactorial of The negative termial of The factorial of The factorial of The termial of Double-factorial of The termial of The termial of The termial of negative Subfactorial of -5 is ∞\u{0303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "Negative subfactorial of the negative termial of the factorial of the factorial of the termial of double-factorial of the termial of the termial of the termial of negative subfactorial of -5 is ∞\u{0303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1272,7 +1272,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1286,7 +1286,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of The factorial of The factorial of The factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "The factorial of the factorial of the factorial of the factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1300,7 +1300,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of The factorial of The factorial of The factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of the factorial of the factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]

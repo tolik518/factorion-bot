@@ -123,7 +123,7 @@ impl Calculation {
 
 impl Calculation {
     pub fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
-        let factorial_string = self.steps.iter().rev().fold(String::new(), |a, e| {
+        let mut factorial_string = self.steps.iter().rev().fold(String::new(), |a, e| {
             let negative_str = if e.1 > 0 { "negative " } else { "" };
             let negative_strength = if e.1 > 1 {
                 format!("{}y ", Self::get_factorial_level_string(e.1 as i32))
@@ -131,10 +131,10 @@ impl Calculation {
                 String::new()
             };
             if e.0 == 0 {
-                format!("{}The {}{}termial of ", a, negative_strength, negative_str)
+                format!("{}the {}{}termial of ", a, negative_strength, negative_str)
             } else if e.0 == 1 {
                 format!(
-                    "{}The {}{}factorial of ",
+                    "{}the {}{}factorial of ",
                     a, negative_strength, negative_str
                 )
             } else {
@@ -148,6 +148,7 @@ impl Calculation {
                 )
             }
         });
+        factorial_string[..1].make_ascii_uppercase();
         let number = match &self.value {
             Number::Int(value) => {
                 if value > &*TOO_BIG_NUMBER || force_shorten {
@@ -348,52 +349,52 @@ impl Calculation {
 
     fn get_factorial_level_string(level: i32) -> Cow<'static, str> {
         match level {
-            -1 => "Sub".into(),
-            1 => "The ".into(),
-            2 => "Double-".into(),
-            3 => "Triple-".into(),
-            4 => "Quadruple-".into(),
-            5 => "Quintuple-".into(),
-            6 => "Sextuple-".into(),
-            7 => "Septuple-".into(),
-            8 => "Octuple-".into(),
-            9 => "Nonuple-".into(),
-            10 => "Decuple-".into(),
-            11 => "Undecuple-".into(),
-            12 => "Duodecuple-".into(),
-            13 => "Tredecuple-".into(),
-            14 => "Quattuordecuple-".into(),
-            15 => "Quindecuple-".into(),
-            16 => "Sexdecuple-".into(),
-            17 => "Septendecuple-".into(),
-            18 => "Octodecuple-".into(),
-            19 => "Novemdecuple-".into(),
-            20 => "Vigintuple-".into(),
-            21 => "Unvigintuple-".into(),
-            22 => "Duovigintuple-".into(),
-            23 => "Trevigintuple-".into(),
-            24 => "Quattuorvigintuple-".into(),
-            25 => "Quinvigintuple-".into(),
-            26 => "Sexvigintuple-".into(),
-            27 => "Septenvigintuple-".into(),
-            28 => "Octovigintuple-".into(),
-            29 => "Novemvigintuple-".into(),
-            30 => "Trigintuple-".into(),
-            31 => "Untrigintuple-".into(),
-            32 => "Duotrigintuple-".into(),
-            33 => "Tretrigintuple-".into(),
-            34 => "Quattuortrigintuple-".into(),
-            35 => "Quintrigintuple-".into(),
-            36 => "Sextrigintuple-".into(),
-            37 => "Septentrigintuple-".into(),
-            38 => "Octotrigintuple-".into(),
-            39 => "Novemtrigintuple-".into(),
-            40 => "Quadragintuple-".into(),
-            41 => "Unquadragintuple-".into(),
-            42 => "Duoquadragintuple-".into(),
-            43 => "Trequadragintuple-".into(),
-            44 => "Quattuorquadragintuple-".into(),
-            45 => "Quinquadragintuple-".into(),
+            -1 => "sub".into(),
+            1 => "the ".into(),
+            2 => "double-".into(),
+            3 => "triple-".into(),
+            4 => "quadruple-".into(),
+            5 => "quintuple-".into(),
+            6 => "sextuple-".into(),
+            7 => "septuple-".into(),
+            8 => "octuple-".into(),
+            9 => "nonuple-".into(),
+            10 => "decuple-".into(),
+            11 => "undecuple-".into(),
+            12 => "duodecuple-".into(),
+            13 => "tredecuple-".into(),
+            14 => "quattuordecuple-".into(),
+            15 => "quindecuple-".into(),
+            16 => "sexdecuple-".into(),
+            17 => "septendecuple-".into(),
+            18 => "octodecuple-".into(),
+            19 => "novemdecuple-".into(),
+            20 => "vigintuple-".into(),
+            21 => "unvigintuple-".into(),
+            22 => "duovigintuple-".into(),
+            23 => "trevigintuple-".into(),
+            24 => "quattuorvigintuple-".into(),
+            25 => "quinvigintuple-".into(),
+            26 => "sexvigintuple-".into(),
+            27 => "septenvigintuple-".into(),
+            28 => "octovigintuple-".into(),
+            29 => "novemvigintuple-".into(),
+            30 => "trigintuple-".into(),
+            31 => "untrigintuple-".into(),
+            32 => "duotrigintuple-".into(),
+            33 => "tretrigintuple-".into(),
+            34 => "quattuortrigintuple-".into(),
+            35 => "quintrigintuple-".into(),
+            36 => "sextrigintuple-".into(),
+            37 => "septentrigintuple-".into(),
+            38 => "octotrigintuple-".into(),
+            39 => "novemtrigintuple-".into(),
+            40 => "quadragintuple-".into(),
+            41 => "unquadragintuple-".into(),
+            42 => "duoquadragintuple-".into(),
+            43 => "trequadragintuple-".into(),
+            44 => "quattuorquadragintuple-".into(),
+            45 => "quinquadragintuple-".into(),
             _ => {
                 let mut suffix = String::new();
                 write!(&mut suffix, "{}-", level).unwrap();
@@ -432,12 +433,12 @@ mod tests {
 
     #[test]
     fn test_factorial_level_string() {
-        assert_eq!(Calculation::get_factorial_level_string(1), "The ");
-        assert_eq!(Calculation::get_factorial_level_string(2), "Double-");
-        assert_eq!(Calculation::get_factorial_level_string(3), "Triple-");
+        assert_eq!(Calculation::get_factorial_level_string(1), "the ");
+        assert_eq!(Calculation::get_factorial_level_string(2), "double-");
+        assert_eq!(Calculation::get_factorial_level_string(3), "triple-");
         assert_eq!(
             Calculation::get_factorial_level_string(45),
-            "Quinquadragintuple-"
+            "quinquadragintuple-"
         );
         assert_eq!(Calculation::get_factorial_level_string(50), "50-");
     }
@@ -576,7 +577,7 @@ mod test {
         };
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
-        assert_eq!(s, "The factorial of Triple-factorial of 5 is 3628800 \n\n");
+        assert_eq!(s, "The factorial of triple-factorial of 5 is 3628800 \n\n");
     }
     #[test]
     fn test_format_factorial_negative() {
@@ -587,7 +588,7 @@ mod test {
         };
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
-        assert_eq!(s, "The Triple-y negative factorial of 0 is 3628800 \n\n");
+        assert_eq!(s, "The triple-y negative factorial of 0 is 3628800 \n\n");
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 1)],
