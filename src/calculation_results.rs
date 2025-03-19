@@ -123,30 +123,26 @@ impl Calculation {
 
 impl Calculation {
     pub fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
-        let mut factorial_string = self.steps.iter().rev().fold(String::new(), |a, e| {
+        let mut factorial_string = self.steps.iter().rev().fold(String::new(), |mut a, e| {
             let negative_str = if e.1 > 0 { "negative " } else { "" };
             let negative_strength = if e.1 > 1 {
                 format!("{}y ", Self::get_factorial_level_string(e.1 as i32))
             } else {
                 String::new()
             };
-            if e.0 == 0 {
-                format!("{}the {}{}termial of ", a, negative_strength, negative_str)
-            } else if e.0 == 1 {
-                format!(
-                    "{}the {}{}factorial of ",
-                    a, negative_strength, negative_str
-                )
-            } else {
-                format!(
-                    "{}{}{}{}{}",
+            let _ = match e.0 {
+                0 => write!(a, "the {}{}termial of ", negative_strength, negative_str),
+                1 => write!(a, "the {}{}factorial of ", negative_strength, negative_str),
+                _ => write!(
                     a,
+                    "{}{}{}{}",
                     negative_strength,
                     negative_str,
                     Self::get_factorial_level_string(e.0),
                     PLACEHOLDER
-                )
-            }
+                ),
+            };
+            a
         });
         factorial_string[..1].make_ascii_uppercase();
         let number = match &self.value {
@@ -325,13 +321,13 @@ impl Calculation {
                         .map(|n| n.to_digit(10).expect("Not a base 10 number"))
                     else {
                         // If we reached the end we get 10
-                        *number = "10".to_string();
+                        number.push_str("10");
                         return;
                     };
                     last_digit = digit;
                 }
                 // Round up
-                number.push_str(&format!("{}", last_digit + 1));
+                let _ = write!(number, "{}", last_digit + 1);
             }
         }
     }
