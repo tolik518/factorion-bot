@@ -1,7 +1,8 @@
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
-use reddit_comment::Status;
+use reddit_comment::{Commands, Status};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -21,7 +22,7 @@ const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDITS: OnceLock<&str> = OnceLock::new();
-static TERMIAL_SUBREDDITS: OnceLock<&str> = OnceLock::new();
+static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -40,7 +41,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let _ = COMMENT_COUNT.set(API_COMMENT_COUNT);
 
     let termial_subreddits = std::env::var("TERMIAL_SUBREDDITS").unwrap_or_default();
-    let _ = TERMIAL_SUBREDDITS.set(termial_subreddits.leak());
+    let commands = termial_subreddits
+        .leak()
+        .split('+')
+        .filter_map(|s| s.split_once(':'))
+        .map(|(sub, commands)| {
+            (
+                sub,
+                commands
+                    .split(',')
+                    .map(|command| match command {
+                        "shorten" => Commands::SHORTEN,
+                        "termial" => Commands::TERMIAL,
+                        "steps" => Commands::STEPS,
+                        "no_note" => Commands::NO_NOTE,
+                        s => Err(s).expect("Unknown command in subreddit {sub}"),
+                    })
+                    .fold(Commands::NONE, |a, e| a | e),
+            )
+        })
+        .collect();
+    let _ = SUBREDDIT_COMMANDS.set(commands);
 
     let sleep_between_requests =
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
