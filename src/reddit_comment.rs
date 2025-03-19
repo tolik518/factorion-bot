@@ -161,46 +161,46 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d])(-?)(!)(\d+)(?![<.,\d]|&lt;)")
+            Regex::new(r"(?<![,.!?\d-]|!\()(-?)(!)(\d+)(?![<.,\d]|&lt;|\)[!?])")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d*\.?\d+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)\((-?\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d])(-?)(!)\((-?\d+)\)(?![<.,\d]|&lt;)")
+            Regex::new(r"(?<![,.!?\d-]|!\()(-?)(!)\((-?\d+)\)(?![<.,\d]|&lt;|\)[!?])")
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?|\b)\((-?\d*\.?\d+)\)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?|\b)\((-?\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid subfactorial-chain regex")
         });
         static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?)([!?\.\(\)\d-]+\?)(!+)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?)([\(\d][!?\.\(\)\d-]*\?)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d])(-?)([!?\.\(\)\d-]+)(\?)(?![<\d]|&lt;)")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-?)([\(\d][!?\.\(\)\d-]*)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
-        let mut list: Vec<(CalculationJob, String)> = Vec::new();
+        let mut list: Vec<CalculationJob> = Vec::new();
 
         list.extend(Self::extract_chain(
             &SUBFACTORIAL_CHAIN_REGEX,
@@ -224,13 +224,10 @@ impl RedditComment {
                 2,
                 Ok(3),
             ));
-            list.extend(Self::extract_chain(
-                &TERMIAL_CHAIN_REGEX,
-                text,
-                include_termial,
-                2,
-                Err(0),
-            ));
+            list.extend(
+                Self::extract_chain(&TERMIAL_CHAIN_REGEX, text, include_termial, 2, Err(0))
+                    .filter(|job| job.level != -1),
+            );
         }
         list.extend(Self::extract_base(&SUBFACTORIAL_REGEX, text, 3, Err(-1)));
         list.extend(Self::extract_base(&FACTORIAL_REGEX, text, 2, Ok(3)));
@@ -247,23 +244,6 @@ impl RedditComment {
         if include_termial {
             list.extend(Self::extract_base(&TERMIAL_PAREN_REGEX, text, 2, Err(0)));
         }
-        // remove all inner pendings
-        let mut i = 0;
-        while i < list.len() {
-            let text = &list[i].1;
-            if list.iter().enumerate().any(|(j, pend)| {
-                // don't remove self
-                i != j
-                    // don't remove doubles (explicit request for inner)
-                    && list.get(i + 1).map(|(_,s)|s) != Some(text)
-                    && pend.1.contains(text)
-            }) {
-                list.remove(i);
-                continue;
-            }
-            i += 1;
-        }
-        let mut list: Vec<CalculationJob> = list.into_iter().map(|(x, _)| x).collect();
         list.sort();
         list.sort_by_key(|x| x.get_depth());
         list.dedup();
@@ -292,7 +272,7 @@ impl RedditComment {
         text: &'t str,
         base_index: usize,
         levels_index: Result<usize, i32>,
-    ) -> impl Iterator<Item = (CalculationJob, String)> + use<'r, 't> {
+    ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
         regex.captures_iter(text).map(move |capture| {
             let capture = capture.expect("Failed to capture regex");
             let negative = !capture[1].is_empty();
@@ -306,14 +286,11 @@ impl RedditComment {
                     .expect("Failed to convert factorial count to i32"),
                 Err(l) => l,
             };
-            (
-                CalculationJob {
-                    base: CalculationBase::Num(base),
-                    level,
-                    negative,
-                },
-                capture[0].to_string(),
-            )
+            CalculationJob {
+                base: CalculationBase::Num(base),
+                level,
+                negative,
+            }
         })
     }
     fn extract_chain<'r, 't>(
@@ -322,7 +299,7 @@ impl RedditComment {
         include_termial: bool,
         inner_index: usize,
         levels_index: Result<usize, i32>,
-    ) -> impl Iterator<Item = (CalculationJob, String)> + use<'r, 't> {
+    ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
         regex.captures_iter(text).filter_map(move |capture| {
             let capture = capture.expect("Failed to capture regex");
             let negative = !capture[1].is_empty();
@@ -341,14 +318,11 @@ impl RedditComment {
             inner.sort_by_key(|x| x.get_depth());
             inner.reverse();
             let inner = inner.remove(0);
-            Some((
-                CalculationJob {
-                    base: CalculationBase::Calc(Box::new(inner)),
-                    level,
-                    negative,
-                },
-                capture[0].to_string(),
-            ))
+            Some(CalculationJob {
+                base: CalculationBase::Calc(Box::new(inner)),
+                level,
+                negative,
+            })
         })
     }
 
@@ -474,6 +448,48 @@ mod tests {
     use crate::{calculation_results::CalculationResult, math};
 
     use super::*;
+
+    #[test]
+    fn test_extraction_dedup() {
+        let jobs = RedditComment::extract_calculation_jobs("24! -24! 2!? (2!?)!", true);
+        assert_eq!(
+            jobs,
+            [
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(24.into())),
+                    level: 1,
+                    negative: false
+                },
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Int(24.into())),
+                    level: 1,
+                    negative: true
+                },
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(CalculationJob {
+                        base: CalculationBase::Num(Number::Int(2.into())),
+                        level: 1,
+                        negative: false
+                    })),
+                    level: 0,
+                    negative: false
+                },
+                CalculationJob {
+                    base: CalculationBase::Calc(Box::new(CalculationJob {
+                        base: CalculationBase::Calc(Box::new(CalculationJob {
+                            base: CalculationBase::Num(Number::Int(2.into())),
+                            level: 1,
+                            negative: false
+                        })),
+                        level: 0,
+                        negative: false
+                    })),
+                    level: 1,
+                    negative: false
+                }
+            ]
+        );
+    }
 
     #[test]
     fn test_comment_new() {
