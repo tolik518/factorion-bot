@@ -6,7 +6,7 @@
 
 <p align="center"> 
 A reddit bot replying to comments, containing factorials, with the solution.  
-This little fella is currently running on <b>r/mathmemes</b>, <b>r/unexpectedfactorial</b> and on <b>r/ProgrammerHumor</b>. 
+This little fella is currently running on <b>r/mathmemes</b> and <b>r/unexpectedfactorial</b>. 
 </p>
 
 ## Table of Contents
