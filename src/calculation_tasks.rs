@@ -63,22 +63,10 @@ impl CalculationJob {
                     })) => {
                         let neg = steps.last().unwrap().1;
                         let res = match res {
-                            CalculationResult::Exact(res) => {
-                                let res = if neg % 2 != 0 {
-                                    -res.clone()
-                                } else {
-                                    res.clone()
-                                };
-                                Ok(Number::Int(res))
-                            }
+                            CalculationResult::Exact(res) => Ok(Number::Int(res.clone())),
                             CalculationResult::Approximate(base, exponent) => {
                                 let res = base.as_float()
                                     * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
-                                let res = if neg % 2 != 0 {
-                                    -res.clone()
-                                } else {
-                                    res.clone()
-                                };
                                 match res.to_integer() {
                                     None => Err(if neg % 2 != 0 {
                                         CalculationResult::ComplexInfinity
@@ -122,14 +110,7 @@ impl CalculationJob {
                                     )
                                 })
                             }
-                            CalculationResult::Float(gamma) => {
-                                let gamma = if neg % 2 != 0 {
-                                    -gamma.as_float().clone()
-                                } else {
-                                    gamma.as_float().clone()
-                                };
-                                Ok(Number::Float(gamma.into()))
-                            }
+                            CalculationResult::Float(gamma) => Ok(Number::Float(gamma.clone())),
                             CalculationResult::ComplexInfinity => {
                                 Err(CalculationResult::ComplexInfinity)
                             }
@@ -173,7 +154,8 @@ impl CalculationJob {
         let calc_num = match &num {
             Number::Float(num) => match level {
                 1 => {
-                    let res = math::fractional_factorial(num.as_float().clone());
+                    let res: Float = math::fractional_factorial(num.as_float().clone())
+                        * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(Calculation {
                             value: Number::Float(num.clone()),
@@ -185,7 +167,8 @@ impl CalculationJob {
                     }
                 }
                 0 => {
-                    let res = math::fractional_termial(num.as_float().clone());
+                    let res: Float = math::fractional_termial(num.as_float().clone())
+                        * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(Calculation {
                             value: Number::Float(num.clone()),
@@ -223,11 +206,15 @@ impl CalculationJob {
                 Calculation {
                     value: Number::Int(calc_num),
                     steps: vec![(level, negative)],
-                    result: CalculationResult::Approximate(factorial.0.into(), factorial.1),
+                    result: CalculationResult::Approximate(
+                        ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                        factorial.1,
+                    ),
                 }
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial = math::factorial(calc_num, level);
+                let factorial =
+                    math::factorial(calc_num, level) * if negative % 2 != 0 { -1 } else { 1 };
                 Calculation {
                     value: num,
                     steps: vec![(level, negative)],
@@ -253,11 +240,15 @@ impl CalculationJob {
                 Calculation {
                     value: num,
                     steps: vec![(-1, negative)],
-                    result: CalculationResult::Approximate(factorial.0.into(), factorial.1),
+                    result: CalculationResult::Approximate(
+                        ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                        factorial.1,
+                    ),
                 }
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial = math::subfactorial(calc_num);
+                let factorial =
+                    math::subfactorial(calc_num) * if negative % 2 != 0 { -1 } else { 1 };
                 Calculation {
                     value: num,
                     steps: vec![(-1, negative)],
@@ -277,10 +268,13 @@ impl CalculationJob {
                 Calculation {
                     value: num,
                     steps: vec![(0, negative)],
-                    result: CalculationResult::Approximate(termial.0.into(), termial.1),
+                    result: CalculationResult::Approximate(
+                        ((termial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                        termial.1,
+                    ),
                 }
             } else {
-                let termial = math::termial(calc_num);
+                let termial = math::termial(calc_num) * if negative % 2 != 0 { -1 } else { 1 };
                 Calculation {
                     value: num,
                     steps: vec![(0, negative)],

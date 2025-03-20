@@ -645,17 +645,17 @@ mod tests {
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(-1, 1)],
-                    result: CalculationResult::Exact(44.into())
+                    result: CalculationResult::Exact((-44).into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(0, 1)],
-                    result: CalculationResult::Exact(15.into())
+                    result: CalculationResult::Exact((-15).into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(1, 1)],
-                    result: CalculationResult::Exact(120.into())
+                    result: CalculationResult::Exact((-120).into())
                 },
                 Calculation {
                     value: Number::Int(10.into()),
