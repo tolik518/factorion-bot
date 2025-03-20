@@ -97,6 +97,17 @@ impl std::ops::BitOr for Commands {
         }
     }
 }
+impl std::ops::BitXor for Commands {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Self {
+            shorten: self.shorten ^ rhs.shorten,
+            steps: self.steps ^ rhs.steps,
+            termial: self.termial ^ rhs.termial,
+            no_note: self.no_note ^ rhs.no_note,
+        }
+    }
+}
 #[allow(dead_code)]
 impl Commands {
     pub(crate) const NONE: Self = Self {
@@ -160,7 +171,7 @@ impl RedditComment {
         subreddit: &str,
         pre_commands: Commands,
     ) -> Self {
-        let commands: Commands = Commands::from_comment_text(comment_text) | pre_commands;
+        let commands: Commands = Commands::from_comment_text(comment_text) ^ pre_commands;
 
         let mut status: Status = Default::default();
 
@@ -824,7 +835,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, []);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
