@@ -376,12 +376,14 @@ impl RedditClient {
         let mut comments = Vec::with_capacity(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            let extracted_comment = Self::extract_comment(
+            let Some(extracted_comment) = Self::extract_comment(
                 comment,
                 already_replied_to_comments,
                 is_mention,
                 termial_subreddits,
-            );
+            ) else {
+                continue;
+            };
             if is_mention
                 && extracted_comment.status.no_factorial
                 && !extracted_comment.status.already_replied_or_rejected
@@ -400,27 +402,34 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         do_termial: bool,
         termial_subreddits: &str,
-    ) -> RedditComment {
+    ) -> Option<RedditComment> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
         let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
 
         if already_replied_to_comments.contains(&comment_id.to_string()) {
-            RedditComment::new_already_replied(comment_id, author, subreddit)
+            Some(RedditComment::new_already_replied(
+                comment_id, author, subreddit,
+            ))
         } else {
             already_replied_to_comments.push(comment_id.to_string());
-            let mut comment = RedditComment::new(
-                comment_text,
-                comment_id,
-                author,
-                subreddit,
-                do_termial || termial_subreddits.split('+').any(|sub| sub == subreddit),
-            );
+            let Ok(mut comment) = std::panic::catch_unwind(|| {
+                RedditComment::new(
+                    comment_text,
+                    comment_id,
+                    author,
+                    subreddit,
+                    do_termial || termial_subreddits.split('+').any(|sub| sub == subreddit),
+                )
+            }) else {
+                println!("Failed to construct comment!");
+                return None;
+            };
 
             comment.add_status(Status::NOT_REPLIED);
 
-            comment
+            Some(comment)
         }
     }
 }

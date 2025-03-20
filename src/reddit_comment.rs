@@ -161,7 +161,7 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d*\.?\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+\.\d+|\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -169,11 +169,11 @@ impl RedditComment {
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d*\.?\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+\.\d+|\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d*\.?\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+\.\d+|-*\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -181,7 +181,7 @@ impl RedditComment {
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d*\.?\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+\.\d+|-*\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -776,6 +776,18 @@ mod tests {
         assert_eq!(comment.status, Status::NO_FACTORIAL);
     }
 
+    #[test]
+    fn test_comment_new_decimals_incomplete() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number .5!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            false,
+        );
+        assert_eq!(comment.calculation_list, []);
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
+    }
     #[test]
     fn test_comment_new_comma_decimals() {
         let comment = RedditComment::new(
