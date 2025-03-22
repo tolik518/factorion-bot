@@ -97,14 +97,14 @@ impl std::ops::BitOr for Commands {
         }
     }
 }
-impl std::ops::BitXor for Commands {
+impl std::ops::BitAnd for Commands {
     type Output = Self;
-    fn bitxor(self, rhs: Self) -> Self::Output {
+    fn bitand(self, rhs: Self) -> Self::Output {
         Self {
-            shorten: self.shorten ^ rhs.shorten,
-            steps: self.steps ^ rhs.steps,
-            termial: self.termial ^ rhs.termial,
-            no_note: self.no_note ^ rhs.no_note,
+            shorten: self.shorten & rhs.shorten,
+            steps: self.steps & rhs.steps,
+            termial: self.termial & rhs.termial,
+            no_note: self.no_note & rhs.no_note,
         }
     }
 }
@@ -154,6 +154,16 @@ impl Commands {
                 || Self::contains_command_format(text, "no_note"),
         }
     }
+    pub(crate) fn overrides_from_comment_text(text: &str) -> Self {
+        Self {
+            shorten: !Self::contains_command_format(text, "long"),
+            steps: !(Self::contains_command_format(text, "no steps")
+                | Self::contains_command_format(text, "no_steps")),
+            termial: !(Self::contains_command_format(text, "no termial")
+                | Self::contains_command_format(text, "no_steps")),
+            no_note: !Self::contains_command_format(text, "note"),
+        }
+    }
 }
 
 pub(crate) const PLACEHOLDER: &str = "factorial of ";
@@ -171,7 +181,9 @@ impl RedditComment {
         subreddit: &str,
         pre_commands: Commands,
     ) -> Self {
-        let commands: Commands = Commands::from_comment_text(comment_text) ^ pre_commands;
+        let command_overrides = Commands::overrides_from_comment_text(comment_text);
+        let commands: Commands =
+            (Commands::from_comment_text(comment_text) | pre_commands) & command_overrides;
 
         let mut status: Status = Default::default();
 
