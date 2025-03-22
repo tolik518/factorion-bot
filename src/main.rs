@@ -60,10 +60,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             )
         })
         .collect::<HashMap<_, _>>();
-    let subreddits = commands.keys().fold(String::new(), |mut a, e| {
-        write!(a, "{e}").unwrap();
-        a
-    });
+    let subreddits = commands
+        .keys()
+        .map(ToString::to_string)
+        .reduce(|a, e| format!("{a}+{e}"))
+        .unwrap_or_default();
     SUBREDDIT_COMMANDS.set(commands).unwrap();
     SUBREDDITS.set(subreddits.leak()).unwrap();
 
