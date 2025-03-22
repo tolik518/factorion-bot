@@ -160,7 +160,7 @@ impl Commands {
             steps: !(Self::contains_command_format(text, "no steps")
                 | Self::contains_command_format(text, "no_steps")),
             termial: !(Self::contains_command_format(text, "no termial")
-                | Self::contains_command_format(text, "no_steps")),
+                | Self::contains_command_format(text, "no_termial")),
             no_note: !Self::contains_command_format(text, "note"),
         }
     }
@@ -950,7 +950,42 @@ mod tests {
             Commands::NONE,
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_termial() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 2? \\[termial\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The termial of 2 is 3 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_no_note() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 10939742352358! \\[no_note\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -960,10 +995,73 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            Commands::NONE
+            Commands::NONE,
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_long() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 200! \\[long\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::SHORTEN,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The factorial of 200 is 788657867364790503552363213932185062295135977687173263294742533244359449963403342920304284011984623904177212138919638830257642790242637105061926624952829931113462857270763317237396988943922445621451664240254033291864131227428294853277524242407573903240321257405579568660226031904170324062351700858796178922222789623703897374720000000000000000000000000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_no_termial() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 2? \\[no termial\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::TERMIAL,
+        );
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
+    }
+
+    #[test]
+    fn test_command_note() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 10939742352358! \\[note\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NO_NOTE,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_no_steps() {
+        let comment = RedditComment::new(
+            "This comment would like to know all the steps to this factorial chain ((3!)!)! \\[no steps\\] \\[short\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::STEPS,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
