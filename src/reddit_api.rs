@@ -476,46 +476,35 @@ impl RedditClient {
         for post in posts_json {
             let post_text = post["data"]["selftext"].as_str().unwrap_or("");
             let post_title = post["data"]["title"].as_str().unwrap_or("");
+            let post_flair = post["data"]["link_flair_text"].as_str().unwrap_or("");
             let author = post["data"]["author"].as_str().unwrap_or("");
             let subreddit = post["data"]["subreddit"].as_str().unwrap_or("");
             let post_id = post["data"]["name"].as_str().unwrap_or_default();
 
+            let body = format!("{post_title} {post_text} {post_flair}");
+
             let extracted_comment = if already_replied_to_comments.contains(&post_id.to_string()) {
-                (
-                    RedditComment::new_already_replied(post_id, author, subreddit),
-                    RedditComment::new_already_replied(post_id, author, subreddit),
-                )
+                RedditComment::new_already_replied(post_id, author, subreddit)
             } else {
                 already_replied_to_comments.push(post_id.to_string());
                 let Ok(mut comment) = std::panic::catch_unwind(|| {
-                    (
-                        RedditComment::new(
-                            post_text,
-                            post_id,
-                            author,
-                            subreddit,
-                            termial_subreddits.split('+').any(|sub| sub == subreddit),
-                        ),
-                        RedditComment::new(
-                            post_title,
-                            post_id,
-                            author,
-                            subreddit,
-                            termial_subreddits.split('+').any(|sub| sub == subreddit),
-                        ),
+                    RedditComment::new(
+                        &body,
+                        post_id,
+                        author,
+                        subreddit,
+                        termial_subreddits.split('+').any(|sub| sub == subreddit),
                     )
                 }) else {
                     println!("Failed to construct comment!");
                     continue;
                 };
 
-                comment.0.add_status(Status::NOT_REPLIED);
-                comment.1.add_status(Status::NOT_REPLIED);
+                comment.add_status(Status::NOT_REPLIED);
 
                 comment
             };
-            posts.push(extracted_comment.0);
-            posts.push(extracted_comment.1);
+            posts.push(extracted_comment);
         }
 
         Ok(posts)
@@ -742,6 +731,7 @@ mod tests {
                                "title": "A mention",
                                "selftext": "u/factorion-bot",
                                "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
+                               "link_flair_text": "!10",
                                "name": "t1_m38msun",
                                "parent_id": "t3_m38msum",
                                "context": "/r/some_sub/8msu32a/some_post/m38msun/?context=3"
@@ -754,7 +744,7 @@ mod tests {
         let comments = RedditClient::extract_posts(response, &mut already_replied, "")
             .await
             .unwrap();
-        assert_eq!(comments.len(), 6);
+        assert_eq!(comments.len(), 3);
         assert_eq!(
             comments[0].calculation_list,
             [Calculation {
@@ -764,11 +754,19 @@ mod tests {
             }]
         );
         assert_eq!(
-            comments[3].calculation_list,
+            comments[1].calculation_list,
             [Calculation {
                 value: Number::Int(2.into()),
                 steps: vec![(1, 0)],
                 result: crate::calculation_results::CalculationResult::Exact(2.into())
+            }]
+        );
+        assert_eq!(
+            comments[2].calculation_list,
+            [Calculation {
+                value: Number::Int(10.into()),
+                steps: vec![(-1, 0)],
+                result: crate::calculation_results::CalculationResult::Exact(1334961.into())
             }]
         );
         println!("{:#?}", comments);
