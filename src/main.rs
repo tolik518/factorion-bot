@@ -4,6 +4,7 @@ use reddit_api::RedditClient;
 use reddit_comment::{Commands, Status};
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt::Write as FmtWrite;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::sync::OnceLock;
@@ -36,15 +37,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut reddit_client = RedditClient::new().await?;
-    let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
-    let _ = SUBREDDITS.set(subreddits.leak());
-    let _ = COMMENT_COUNT.set(API_COMMENT_COUNT);
+    COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
 
-    let termial_subreddits = std::env::var("TERMIAL_SUBREDDITS").unwrap_or_default();
-    let commands = termial_subreddits
-        .leak()
+    let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
+    let subreddit_commands = subreddit_commands.leak();
+    let commands = subreddit_commands
         .split('+')
-        .filter_map(|s| s.split_once(':'))
+        .map(|s| s.split_once(':').unwrap_or_default())
         .map(|(sub, commands)| {
             (
                 sub,
@@ -60,8 +59,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .fold(Commands::NONE, |a, e| a | e),
             )
         })
-        .collect();
-    let _ = SUBREDDIT_COMMANDS.set(commands);
+        .collect::<HashMap<_, _>>();
+    let subreddits = commands.keys().fold(String::new(), |mut a, e| {
+        write!(a, "{e}").unwrap();
+        a
+    });
+    SUBREDDIT_COMMANDS.set(commands).unwrap();
+    SUBREDDITS.set(subreddits.leak()).unwrap();
 
     let sleep_between_requests =
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
