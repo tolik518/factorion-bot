@@ -1,8 +1,10 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
+use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::LazyLock;
 
-use crate::reddit_comment::{RedditComment, Status};
+use crate::reddit_comment::{Commands, RedditComment, Status};
 use crate::{COMMENT_COUNT, SUBREDDITS, TERMIAL_SUBREDDITS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
@@ -138,6 +140,7 @@ impl RedditClient {
                         already_replied_to_comments,
                         true,
                         TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                        &HashMap::new(),
                     )
                     .await
                     .expect("Failed to extract comments");
@@ -150,6 +153,7 @@ impl RedditClient {
                     already_replied_to_comments,
                     false,
                     TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    &HashMap::new(),
                 )
                 .await
                 .expect("Failed to extract comments");
@@ -159,7 +163,12 @@ impl RedditClient {
                         .get(format!(
                             "{}/api/info?id={}",
                             REDDIT_OAUTH_URL,
-                            ids.join(",")
+                            ids.iter()
+                                .map(|(id, _)| id)
+                                .fold(String::new(), |mut a, e| {
+                                    let _ = write!(a, "{e}");
+                                    a
+                                })
                         ))
                         .bearer_auth(&self.token.access_token)
                         .send()
@@ -171,6 +180,7 @@ impl RedditClient {
                             already_replied_to_comments,
                             true,
                             TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                            &ids.into_iter().collect(),
                         )
                         .await
                         .expect("Failed to extract comments");
@@ -365,7 +375,9 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
         termial_subreddits: &str,
-    ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
+        mention_map: &HashMap<String, (String, Commands)>,
+    ) -> Result<(Vec<RedditComment>, Vec<(String, (String, Commands))>), Box<dyn std::error::Error>>
+    {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
@@ -381,6 +393,7 @@ impl RedditClient {
                 already_replied_to_comments,
                 is_mention,
                 termial_subreddits,
+                mention_map,
             ) else {
                 continue;
             };
@@ -389,7 +402,10 @@ impl RedditClient {
                 && !extracted_comment.status.already_replied_or_rejected
             {
                 if let Some(path) = Self::extract_summon_parent_id(comment) {
-                    parent_paths.push(path);
+                    parent_paths.push((
+                        path,
+                        (extracted_comment.id.clone(), extracted_comment.commands),
+                    ));
                 }
             }
             comments.push(extracted_comment);
@@ -402,6 +418,7 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         do_termial: bool,
         termial_subreddits: &str,
+        mention_map: &HashMap<String, (String, Commands)>,
     ) -> Option<RedditComment> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -426,6 +443,10 @@ impl RedditClient {
                 println!("Failed to construct comment!");
                 return None;
             };
+            if let Some((mention, commands)) = mention_map.get(&format!("t1_{comment_id}")) {
+                comment.id = mention.clone();
+                comment.commands = *commands;
+            }
 
             comment.add_status(Status::NOT_REPLIED);
 
@@ -593,7 +614,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
-                               "body": "u/factorion-bot",
+                               "body": "u/factorion-bot !termial",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
                                "id": "m38msun",
                                "parent_id": "t1_m38msum",
@@ -604,11 +625,29 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments = RedditClient::extract_comments(response, &mut already_replied, true, "")
-            .await
-            .unwrap();
+        let comments = RedditClient::extract_comments(
+            response,
+            &mut already_replied,
+            true,
+            "",
+            &HashMap::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(comments.0.len(), 3);
-        assert_eq!(comments.1, ["t1_m38msum"]);
+        assert_eq!(
+            comments.1,
+            [(
+                "t1_m38msum".to_string(),
+                (
+                    "m38msun".to_string(),
+                    Commands {
+                        termial: true,
+                        ..Default::default()
+                    }
+                )
+            )]
+        );
         println!("{:#?}", comments);
     }
 

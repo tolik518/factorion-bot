@@ -81,9 +81,9 @@ impl Status {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub(crate) struct Commands {
-    shorten: bool,
-    include_steps: bool,
-    termial: bool,
+    pub shorten: bool,
+    pub include_steps: bool,
+    pub termial: bool,
 }
 
 impl Commands {
