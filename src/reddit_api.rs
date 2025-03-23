@@ -581,7 +581,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot\",\"parent_id\":\"t1_m38msum\"}}]}}"
+                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]}}"
@@ -595,6 +595,14 @@ mod tests {
         assert_eq!(comments[0].id, "");
         assert_eq!(comments[0].author, "mentioner");
         assert_eq!(comments[0].notify.as_ref().unwrap(), "");
+        assert_eq!(
+            comments[0].commands,
+            Commands {
+                shorten: false,
+                include_steps: false,
+                termial: false
+            }
+        );
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
     }
 
