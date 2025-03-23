@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::reddit_comment::{Commands, RedditComment, Status};
-use crate::{COMMENT_COUNT, SUBREDDITS, SUBREDDIT_COMMANDS};
+use crate::{COMMENT_COUNT, SUBREDDIT_COMMANDS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -75,19 +75,39 @@ impl RedditClient {
         check_mentions: bool,
     ) -> Result<Vec<RedditComment>, ()> {
         static SUBREDDIT_URL: LazyLock<Url> = LazyLock::new(|| {
+            let mut subreddits = SUBREDDIT_COMMANDS
+                .get()
+                .expect("Subreddit commands uninitialized")
+                .iter()
+                .filter_map(|(sub, commands)| (!commands.post_only).then(|| sub.to_string()))
+                .collect::<Vec<_>>();
+            subreddits.sort();
             Url::parse(&format!(
                 "{}/r/{}/comments/?limit={}",
                 REDDIT_OAUTH_URL,
-                SUBREDDITS.get().expect("Subreddits uninitailized"),
+                subreddits
+                    .into_iter()
+                    .reduce(|a, e| format!("{a}+{e}"))
+                    .unwrap_or_default(),
                 COMMENT_COUNT.get().expect("Comment count uninitialzed")
             ))
             .expect("Failed to parse Url")
         });
         static SUBREDDIT_POSTS_URL: LazyLock<Url> = LazyLock::new(|| {
+            let mut post_subreddits = SUBREDDIT_COMMANDS
+                .get()
+                .expect("Subreddit commands uninitialized")
+                .keys()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            post_subreddits.sort();
             Url::parse(&format!(
                 "{}/r/{}/new/?limit={}",
                 REDDIT_OAUTH_URL,
-                SUBREDDITS.get().expect("Subreddits uninitailized"),
+                post_subreddits
+                    .into_iter()
+                    .reduce(|a, e| format!("{a}+{e}"))
+                    .unwrap_or_default(),
                 COMMENT_COUNT.get().expect("Comment count uninitialzed")
             ))
             .expect("Failed to parse Url")
@@ -177,7 +197,7 @@ impl RedditClient {
                 let posts = RedditClient::extract_posts(
                     posts_response,
                     already_replied_to_comments,
-                    TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    SUBREDDIT_COMMANDS.get().unwrap(),
                 )
                 .await
                 .expect("Failed to extract comments");
@@ -393,7 +413,7 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
-        termial_subreddits: &HashMap<&str, Commands>,
+        commands: &HashMap<&str, Commands>,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
@@ -405,12 +425,9 @@ impl RedditClient {
         let mut comments = Vec::with_capacity(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            let Some(extracted_comment) = Self::extract_comment(
-                comment,
-                already_replied_to_comments,
-                is_mention,
-                termial_subreddits,
-            ) else {
+            let Some(extracted_comment) =
+                Self::extract_comment(comment, already_replied_to_comments, is_mention, commands)
+            else {
                 continue;
             };
             if is_mention
@@ -468,7 +485,7 @@ impl RedditClient {
     async fn extract_posts(
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
-        termial_subreddits: &str,
+        commands: &HashMap<&str, Commands>,
     ) -> Result<Vec<RedditComment>, Box<dyn std::error::Error>> {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
@@ -498,7 +515,7 @@ impl RedditClient {
                         post_id,
                         author,
                         subreddit,
-                        termial_subreddits.split('+').any(|sub| sub == subreddit),
+                        commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                     )
                 }) else {
                     println!("Failed to construct comment!");
@@ -621,8 +638,13 @@ mod tests {
                 expiration_time: Utc::now(),
             },
         };
-        let _ = SUBREDDITS.set("test_subreddit");
-        let _ = SUBREDDIT_COMMANDS.set([("test_subreddit", Commands::TERMIAL)].into());
+        let _ = SUBREDDIT_COMMANDS.set(
+            [
+                ("test_subreddit", Commands::TERMIAL),
+                ("post_subreddit", Commands::POST_ONLY),
+            ]
+            .into(),
+        );
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let (status, comments) = join!(
@@ -631,7 +653,7 @@ mod tests {
                     "GET /r/test_subreddit/comments/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
                 ),(
-                    "GET /r/test_subreddit/new/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "GET /r/post_subreddit+test_subreddit/new/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
@@ -748,7 +770,7 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments = RedditClient::extract_posts(response, &mut already_replied, "")
+        let comments = RedditClient::extract_posts(response, &mut already_replied, &HashMap::new())
             .await
             .unwrap();
         assert_eq!(comments.len(), 3);
