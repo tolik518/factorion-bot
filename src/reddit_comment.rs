@@ -6,13 +6,43 @@ use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
 use std::fmt::Write;
+use std::ops::*;
 use std::sync::LazyLock;
+macro_rules! impl_bitwise {
+    ($s_name:ident {$($s_fields:ident),*}, $t_name:ident, $fn_name:ident) => {
+        impl $t_name for $s_name {
+            type Output = Self;
+            fn $fn_name(self, rhs: Self) -> Self {
+                Self {
+                    $($s_fields: self.$s_fields.$fn_name(rhs.$s_fields),)*
+                }
+            }
+        }
+    };
+}
+macro_rules! impl_all_bitwise {
+    ($s_name:ident {$($s_fields:ident,)*}) => {impl_all_bitwise!($s_name {$($s_fields),*});};
+    ($s_name:ident {$($s_fields:ident),*}) => {
+        impl_bitwise!($s_name {$($s_fields),*}, BitOr, bitor);
+        impl_bitwise!($s_name {$($s_fields),*}, BitXor, bitxor);
+        impl_bitwise!($s_name {$($s_fields),*}, BitAnd, bitand);
+        impl Not for $s_name {
+            type Output = Self;
+            fn not(self) -> Self {
+                Self {
+                    $($s_fields: self.$s_fields.not(),)*
+                }
+            }
+        }
+    };
+}
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub(crate) struct RedditComment {
     pub(crate) id: String,
     pub(crate) calculation_list: Vec<Calculation>,
     pub(crate) author: String,
+    pub(crate) notify: Option<String>,
     pub(crate) subreddit: String,
     pub(crate) status: Status,
     pub(crate) commands: Commands,
@@ -28,21 +58,14 @@ pub(crate) struct Status {
     pub(crate) factorials_found: bool,
 }
 
-impl std::ops::BitOr for Status {
-    type Output = Status;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Status {
-            already_replied_or_rejected: self.already_replied_or_rejected
-                | rhs.already_replied_or_rejected,
-            not_replied: self.not_replied | rhs.not_replied,
-            number_too_big_to_calculate: self.number_too_big_to_calculate
-                | rhs.number_too_big_to_calculate,
-            no_factorial: self.no_factorial | rhs.no_factorial,
-            reply_would_be_too_long: self.reply_would_be_too_long | rhs.reply_would_be_too_long,
-            factorials_found: self.factorials_found | rhs.factorials_found,
-        }
-    }
-}
+impl_all_bitwise!(Status {
+    already_replied_or_rejected,
+    not_replied,
+    number_too_big_to_calculate,
+    no_factorial,
+    reply_would_be_too_long,
+    factorials_found,
+});
 #[allow(dead_code)]
 impl Status {
     pub(crate) const NONE: Self = Self {
@@ -81,10 +104,15 @@ impl Status {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub(crate) struct Commands {
-    shorten: bool,
-    include_steps: bool,
-    termial: bool,
+    pub shorten: bool,
+    pub include_steps: bool,
+    pub termial: bool,
 }
+impl_all_bitwise!(Commands {
+    shorten,
+    include_steps,
+    termial,
+});
 
 impl Commands {
     fn contains_command_format(text: &str, command: &str) -> bool {
@@ -152,6 +180,7 @@ impl RedditComment {
         RedditComment {
             id: id.to_string(),
             author: author.to_string(),
+            notify: None,
             subreddit: subreddit.to_string(),
             calculation_list,
             status,
@@ -262,6 +291,7 @@ impl RedditComment {
             id: id.to_string(),
             author: author.to_string(),
             subreddit: subreddit.to_string(),
+            notify: None,
             calculation_list: factorial_list,
             status,
             commands,
@@ -337,7 +367,11 @@ impl RedditComment {
     }
     /// Does the formatting for the reply using [calculated](crate::calculated).
     pub(crate) fn get_reply(&self) -> String {
-        let mut note = String::new();
+        let mut note = self
+            .notify
+            .as_ref()
+            .map(|user| format!("Hey u/{user}! \n\n"))
+            .unwrap_or_default();
 
         // Add Note
         let multiple = self.calculation_list.len() > 1;
@@ -809,7 +843,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -896,7 +930,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -909,7 +943,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of the factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of the factorial of the factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of the factorial of the factorial of the factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -922,13 +956,27 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
         let reply = comment.get_reply();
         assert_eq!(
             reply,
             "If I posted all numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to remove some of them. \n\nThe factorial of 3500 is roughly 2.391128199477649525095387493694 × 10^10886 \n\nThe factorial of 3501 is roughly 8.371339826371250987358951615421 × 10^10889 \n\nThe factorial of 3502 is roughly 2.931643207195212095773104855721 × 10^10893 \n\nThe factorial of 3503 is roughly 1.026954615480482797149318630959 × 10^10897 \n\nThe factorial of 3504 is roughly 3.59844897264361172121121248288 × 10^10900 \n\nThe factorial of 3505 is roughly 1.261256364911585908284529975249 × 10^10904 \n\nThe factorial of 3506 is roughly 4.421964815380020194445562093225 × 10^10907 \n\nThe factorial of 3507 is roughly 1.550783060753773082192058626094 × 10^10911 \n\nThe factorial of 3508 is roughly 5.440146977124235972329741660337 × 10^10914 \n\nThe factorial of 3509 is roughly 1.908947574272894402690506348612 × 10^10918 \n\nThe factorial of 3510 is roughly 6.700405985697859353443677283629 × 10^10921 \n\nThe factorial of 3511 is roughly 2.352512541578518418994075094282 × 10^10925 \n\nThe factorial of 3512 is roughly 8.262024046023756687507191731119 × 10^10928 \n\nThe factorial of 3513 is roughly 2.902449047368145724321276455142 × 10^10932 \n\nThe factorial of 3514 is roughly 1.019920595245166407526496546337 × 10^10936 \n\nThe factorial of 3515 is roughly 3.585020892286759922455635360374 × 10^10939 \n\nThe factorial of 3516 is roughly 1.260493345728024788735401392708 × 10^10943 \n\nThe factorial of 3517 is roughly 4.433155096925463181982406698153 × 10^10946 \n\nThe factorial of 3518 is roughly 1.55958396309837794742141067641 × 10^10950 \n\nThe factorial of 3519 is roughly 5.488175966143191996975944170287 × 10^10953 \n\nThe factorial of 3520 is roughly 1.931837940082403582935532347941 × 10^10957 \n\nThe factorial of 3521 is roughly 6.802001387030143015516009397101 × 10^10960 \n\nThe factorial of 3522 is roughly 2.395664888512016370064738509659 × 10^10964 \n\nThe factorial of 3523 is roughly 8.439927402227833671738073769528 × 10^10967 \n\nThe factorial of 3524 is roughly 2.974230416545088585920497196382 × 10^10971 \n\nThe factorial of 3525 is roughly 1.048416221832143726536975261725 × 10^10975 \n\nThe factorial of 3526 is roughly 3.696715598180138779769374772841 × 10^10978 \n\nThe factorial of 3527 is roughly 1.303831591478134947624658482381 × 10^10982 \n\nThe factorial of 3528 is roughly 4.59991785473486009521979512584 × 10^10985 \n\nThe factorial of 3529 is roughly 1.623311010935932127603065699909 × 10^10989 \n\nThe factorial of 3530 is roughly 5.730287868603840410438821920679 × 10^10992 \n\nThe factorial of 3531 is roughly 2.023364646404016048925948020192 × 10^10996 \n\nThe factorial of 3532 is roughly 7.146523931098984684806448407317 × 10^10999 \n\nThe factorial of 3533 is roughly 2.524866904857271289142118222305 × 10^11003 \n\nThe factorial of 3534 is roughly 8.922879641765596735828245797626 × 10^11006 \n\nThe factorial of 3535 is roughly 3.154237953364138446115284889461 × 10^11010 \n\nThe factorial of 3536 is roughly 1.115338540309559354546364736913 × 10^11014 \n\nThe factorial of 3537 is roughly 3.944952417074911437030492074462 × 10^11017 \n\nThe factorial of 3538 is roughly 1.395724165161103666421388095945 × 10^11021 \n\nThe factorial of 3539 is roughly 4.939467820505145875465292471549 × 10^11024 \n\nThe factorial of 3540 is roughly 1.748571608458821639914713534928 × 10^11028 \n\nThe factorial of 3541 is roughly 6.191692065552687426938000627181 × 10^11031 \n\nThe factorial of 3542 is roughly 2.193097329618761886621439822147 × 10^11035 \n\nThe factorial of 3543 is roughly 7.770143838839273364299761289869 × 10^11038 \n\nThe factorial of 3544 is roughly 2.753738976484638480307835401129 × 10^11042 \n\nThe factorial of 3545 is roughly 9.762004671638043412691276497004 × 10^11045 \n\nThe factorial of 3546 is roughly 3.461606856562850194140326645838 × 10^11049 \n\nThe factorial of 3547 is roughly 1.227831952022842963861573861279 × 10^11053 \n\nThe factorial of 3548 is roughly 4.356347765777046835780864059816 × 10^11056 \n\nThe factorial of 3549 is roughly 1.546067822074273922018628654829 × 10^11060 \n\nThe factorial of 3550 is roughly 5.488540768363672423166131724642 × 10^11063 \n\nThe factorial of 3551 is roughly 1.948980826845940077466293375421 × 10^11067 \n\nThe factorial of 3552 is roughly 6.922779896956779155160274069494 × 10^11070 \n\nThe factorial of 3553 is roughly 2.459663697388743633828445376891 × 10^11074 \n\nThe factorial of 3554 is roughly 8.741644780519594874626294869471 × 10^11077 \n\nThe factorial of 3555 is roughly 3.107654719474715977929647826097 × 10^11081 \n\nThe factorial of 3556 is roughly 1.10508201824520900175178276696 × 10^11085 \n\nThe factorial of 3557 is roughly 3.930776738898208419231091302077 × 10^11088 \n\nThe factorial of 3558 is roughly 1.398570363699982555562422285279 × 10^11092 \n\nThe factorial of 3559 is roughly 4.977511924408237915246660913308 × 10^11095 \n\nThe factorial of 3560 is roughly 1.771994245089332697827811285138 × 10^11099 \n\nThe factorial of 3561 is roughly 6.310071506763113736964835986375 × 10^11102 \n\nThe factorial of 3562 is roughly 2.247647470709021113106874578347 × 10^11106 \n\nThe factorial of 3563 is roughly 8.00836793813624222599979412265 × 10^11109 \n\nThe factorial of 3564 is roughly 2.854182333151756729346326625312 × 10^11113 \n\nThe factorial of 3565 is roughly 1.017516001768601274011965441924 × 10^11117 \n\nThe factorial of 3566 is roughly 3.6284620623068321431266687659 × 10^11120 \n\nThe factorial of 3567 is roughly 1.294272417624847025453282748797 × 10^11124 \n\nThe factorial of 3568 is roughly 4.617963986085454186817312847707 × 10^11127 \n\nThe factorial of 3569 is roughly 1.648151346633898599275098955346 × 10^11131 \n\nThe factorial of 3570 is roughly 5.883900307483017999412103270587 × 10^11134 \n\nThe factorial of 3571 is roughly 2.101140799802185727590062077927 × 10^11138 \n\nThe factorial of 3572 is roughly 7.505274936893407418951701742354 × 10^11141 \n\nThe factorial of 3573 is roughly 2.681634734952014470791443032543 × 10^11145 \n\nThe factorial of 3574 is roughly 9.584162542718499718608617398309 × 10^11148 \n\nThe factorial of 3575 is roughly 3.426338109021863649402580719895 × 10^11152 \n\nThe factorial of 3576 is roughly 1.225258507786218441026362865435 × 10^11156 \n\nThe factorial of 3577 is roughly 4.382749682351303363551299969659 × 10^11159 \n\nThe factorial of 3578 is roughly 1.568147836345296343478655129144 × 10^11163 \n\nThe factorial of 3579 is roughly 5.612401106279815613310106707207 × 10^11166 \n\nThe factorial of 3580 is roughly 2.00923959604817398956501820118 × 10^11170 \n\nThe factorial of 3581 is roughly 7.195086993448511056632330178426 × 10^11173 \n\nThe factorial of 3582 is roughly 2.577280161053256660485700669912 × 10^11177 \n\nThe factorial of 3583 is roughly 9.234394817053818614520265500295 × 10^11180 \n\nThe factorial of 3584 is roughly 3.309607102432088591444063155306 × 10^11184 \n\nThe factorial of 3585 is roughly 1.186494146221903760032696641177 × 10^11188 \n\nThe factorial of 3586 is roughly 4.254768008351746883477250155261 × 10^11191 \n\nThe factorial of 3587 is roughly 1.526185284595771607103289630692 × 10^11195 \n\nThe factorial of 3588 is roughly 5.475952801129628526286603194924 × 10^11198 \n\nThe factorial of 3589 is roughly 1.965319460325423678084261886658 × 10^11202 \n\nThe factorial of 3590 is roughly 7.055496862568271004322500173102 × 10^11205 \n\nThe factorial of 3591 is roughly 2.533628923348266117652209812161 × 10^11209 \n\nThe factorial of 3592 is roughly 9.100795092666971894606737645283 × 10^11212 \n\nThe factorial of 3593 is roughly 3.26991567679524300173220083595 × 10^11216 \n\nThe factorial of 3594 is roughly 1.17520769424021033482255298044 × 10^11220 \n\nThe factorial of 3595 is roughly 4.224871660793556153687077964683 × 10^11223 \n\nThe factorial of 3596 is roughly 1.5192638492213627928658732361 × 10^11227 \n\nThe factorial of 3597 is roughly 5.464792065649241965938546030252 × 10^11230 \n\nThe factorial of 3598 is roughly 1.966232185220597259344688861685 × 10^11234 \n\nThe factorial of 3599 is roughly 7.076469634608929536381535213204 × 10^11237 \n\nThe factorial of 3600 is roughly 2.547529068459214633097352676753 × 10^11241 \n\nThe factorial of 3601 is roughly 9.173652175521631893783566988988 × 10^11244 \n\nThe factorial of 3602 is roughly 3.304349513622891808140840829434 × 10^11248 \n\nThe factorial of 3603 is roughly 1.190557129758327918473144950845 × 10^11252 \n\nThe factorial of 3604 is roughly 4.290767895649013818177214402845 × 10^11255 \n\nThe factorial of 3605 is roughly 1.546821826381469481452885792226 × 10^11259 \n\nThe factorial of 3606 is roughly 5.577839505931578950119106166766 × 10^11262 \n\nThe factorial of 3607 is roughly 2.011926709789520527307961594352 × 10^11266 \n\nThe factorial of 3608 is roughly 7.259031568920590062527125432424 × 10^11269 \n\nThe factorial of 3609 is roughly 2.619784493223440953566039568562 × 10^11273 \n\nThe factorial of 3610 is roughly 9.457422020536621842373402842508 × 10^11276 \n\nThe factorial of 3611 is roughly 3.41507509161577414728103576643 × 10^11280 \n\nThe factorial of 3612 is roughly 1.233525123091617621997910118834 × 10^11284 \n\nThe factorial of 3613 is roughly 4.456726269730014468278449259348 × 10^11287 \n\nThe factorial of 3614 is roughly 1.610660873880427228835831562329 × 10^11291 \n\nThe factorial of 3615 is roughly 5.822539059077744432241531097818 × 10^11294 \n\nThe factorial of 3616 is roughly 2.105430123762512386698537644971 × 10^11298 \n\nThe factorial of 3617 is roughly 7.61534075764900730268861066186 × 10^11301 \n\nThe factorial of 3618 is roughly 2.755230286117410842112739337461 × 10^11305 \n\nThe factorial of 3619 is roughly 9.971178405458909837606003662271 × 10^11308 \n\nThe factorial of 3620 is roughly 3.609566582776125361213373325742 × 10^11312 \n\nThe factorial of 3621 is roughly 1.307024059623234993295362481251 × 10^11316 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
+    }
+
+    #[test]
+    fn test_notify_reply() {
+        let mut comment = RedditComment::new(
+            "This comment is unaware of 2!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            false,
+        );
+        comment.notify = Some("notified".to_string());
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Hey u/notified! \n\nThe factorial of 2 is 2 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -958,6 +1006,7 @@ mod tests {
                 result: CalculationResult::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -977,6 +1026,7 @@ mod tests {
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -995,6 +1045,7 @@ mod tests {
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1014,6 +1065,7 @@ mod tests {
                 result: CalculationResult::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1040,6 +1092,7 @@ mod tests {
                 },
             ],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1071,6 +1124,7 @@ mod tests {
                 },
             ],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND | Status::REPLY_WOULD_BE_TOO_LONG,
             commands: Default::default(),
@@ -1157,7 +1211,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1185,7 +1239,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1213,7 +1267,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false
+            false,
         );
 
         let reply = comment.get_reply();
@@ -1347,6 +1401,7 @@ mod tests {
                 },
             ],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::REPLY_WOULD_BE_TOO_LONG,
             commands: Default::default(),
