@@ -1,9 +1,10 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use crate::reddit_comment::{RedditComment, Status};
-use crate::{COMMENT_COUNT, SUBREDDITS, TERMIAL_SUBREDDITS};
+use crate::reddit_comment::{Commands, RedditComment, Status};
+use crate::{COMMENT_COUNT, SUBREDDITS, SUBREDDIT_COMMANDS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -157,7 +158,7 @@ impl RedditClient {
                         mentions_response,
                         already_replied_to_comments,
                         true,
-                        TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                        SUBREDDIT_COMMANDS.get().unwrap(),
                     )
                     .await
                     .expect("Failed to extract comments");
@@ -169,7 +170,7 @@ impl RedditClient {
                     subs_response,
                     already_replied_to_comments,
                     false,
-                    TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    SUBREDDIT_COMMANDS.get().unwrap(),
                 )
                 .await
                 .expect("Failed to extract comments");
@@ -198,7 +199,7 @@ impl RedditClient {
                             response,
                             already_replied_to_comments,
                             true,
-                            TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                            SUBREDDIT_COMMANDS.get().unwrap(),
                         )
                         .await
                         .expect("Failed to extract comments");
@@ -392,7 +393,7 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
-        termial_subreddits: &str,
+        termial_subreddits: &HashMap<&str, Commands>,
     ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
@@ -429,7 +430,7 @@ impl RedditClient {
         comment: &Value,
         already_replied_to_comments: &mut Vec<String>,
         do_termial: bool,
-        termial_subreddits: &str,
+        commands: &HashMap<&str, Commands>,
     ) -> Option<RedditComment> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -448,7 +449,11 @@ impl RedditClient {
                     comment_id,
                     author,
                     subreddit,
-                    do_termial || termial_subreddits.split('+').any(|sub| sub == subreddit),
+                    if do_termial {
+                        Commands::TERMIAL
+                    } else {
+                        Commands::NONE
+                    } | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                 )
             }) else {
                 println!("Failed to construct comment!");
@@ -617,6 +622,7 @@ mod tests {
             },
         };
         let _ = SUBREDDITS.set("test_subreddit");
+        let _ = SUBREDDIT_COMMANDS.set([("test_subreddit", Commands::TERMIAL)].into());
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let (status, comments) = join!(
@@ -686,9 +692,10 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments = RedditClient::extract_comments(response, &mut already_replied, true, "")
-            .await
-            .unwrap();
+        let comments =
+            RedditClient::extract_comments(response, &mut already_replied, true, &HashMap::new())
+                .await
+                .unwrap();
         assert_eq!(comments.0.len(), 3);
         assert_eq!(comments.1, ["t1_m38msum"]);
         println!("{:#?}", comments);
