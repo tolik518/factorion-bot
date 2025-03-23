@@ -375,9 +375,14 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
         termial_subreddits: &str,
-        mention_map: &HashMap<String, (String, Commands)>,
-    ) -> Result<(Vec<RedditComment>, Vec<(String, (String, Commands))>), Box<dyn std::error::Error>>
-    {
+        mention_map: &HashMap<String, (String, Commands, String)>,
+    ) -> Result<
+        (
+            Vec<RedditComment>,
+            Vec<(String, (String, Commands, String))>,
+        ),
+        Box<dyn std::error::Error>,
+    > {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
@@ -404,7 +409,11 @@ impl RedditClient {
                 if let Some(path) = Self::extract_summon_parent_id(comment) {
                     parent_paths.push((
                         path,
-                        (extracted_comment.id.clone(), extracted_comment.commands),
+                        (
+                            extracted_comment.id.clone(),
+                            extracted_comment.commands,
+                            extracted_comment.author.clone(),
+                        ),
                     ));
                 }
             }
@@ -418,7 +427,7 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         do_termial: bool,
         termial_subreddits: &str,
-        mention_map: &HashMap<String, (String, Commands)>,
+        mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Option<RedditComment> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -443,9 +452,13 @@ impl RedditClient {
                 println!("Failed to construct comment!");
                 return None;
             };
-            if let Some((mention, commands)) = mention_map.get(&format!("t1_{comment_id}")) {
+            if let Some((mention, commands, mention_author)) =
+                mention_map.get(&format!("t1_{comment_id}"))
+            {
                 comment.id = mention.clone();
                 comment.commands = *commands;
+                comment.notify = Some(author.to_string());
+                comment.author = mention_author.clone();
             }
 
             comment.add_status(Status::NOT_REPLIED);
@@ -644,7 +657,8 @@ mod tests {
                     Commands {
                         termial: true,
                         ..Default::default()
-                    }
+                    },
+                    "Little_Tweetybird_".to_string(),
                 )
             )]
         );
