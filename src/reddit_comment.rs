@@ -6,7 +6,36 @@ use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
 use std::fmt::Write;
+use std::ops::*;
 use std::sync::LazyLock;
+macro_rules! impl_bitwise {
+    ($s_name:ident {$($s_fields:ident),*}, $t_name:ident, $fn_name:ident) => {
+        impl $t_name for $s_name {
+            type Output = Self;
+            fn $fn_name(self, rhs: Self) -> Self {
+                Self {
+                    $($s_fields: self.$s_fields.$fn_name(rhs.$s_fields),)*
+                }
+            }
+        }
+    };
+}
+macro_rules! impl_all_bitwise {
+    ($s_name:ident {$($s_fields:ident,)*}) => {impl_all_bitwise!($s_name {$($s_fields),*});};
+    ($s_name:ident {$($s_fields:ident),*}) => {
+        impl_bitwise!($s_name {$($s_fields),*}, BitOr, bitor);
+        impl_bitwise!($s_name {$($s_fields),*}, BitXor, bitxor);
+        impl_bitwise!($s_name {$($s_fields),*}, BitAnd, bitand);
+        impl Not for $s_name {
+            type Output = Self;
+            fn not(self) -> Self {
+                Self {
+                    $($s_fields: self.$s_fields.not(),)*
+                }
+            }
+        }
+    };
+}
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub(crate) struct RedditComment {
@@ -29,21 +58,14 @@ pub(crate) struct Status {
     pub(crate) factorials_found: bool,
 }
 
-impl std::ops::BitOr for Status {
-    type Output = Status;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Status {
-            already_replied_or_rejected: self.already_replied_or_rejected
-                | rhs.already_replied_or_rejected,
-            not_replied: self.not_replied | rhs.not_replied,
-            number_too_big_to_calculate: self.number_too_big_to_calculate
-                | rhs.number_too_big_to_calculate,
-            no_factorial: self.no_factorial | rhs.no_factorial,
-            reply_would_be_too_long: self.reply_would_be_too_long | rhs.reply_would_be_too_long,
-            factorials_found: self.factorials_found | rhs.factorials_found,
-        }
-    }
-}
+impl_all_bitwise!(Status {
+    already_replied_or_rejected,
+    not_replied,
+    number_too_big_to_calculate,
+    no_factorial,
+    reply_would_be_too_long,
+    factorials_found,
+});
 #[allow(dead_code)]
 impl Status {
     pub(crate) const NONE: Self = Self {
@@ -86,6 +108,11 @@ pub(crate) struct Commands {
     pub include_steps: bool,
     pub termial: bool,
 }
+impl_all_bitwise!(Commands {
+    shorten,
+    include_steps,
+    termial,
+});
 
 impl Commands {
     fn contains_command_format(text: &str, command: &str) -> bool {
