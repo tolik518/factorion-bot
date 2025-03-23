@@ -600,7 +600,7 @@ mod tests {
             Commands {
                 shorten: false,
                 include_steps: false,
-                termial: false
+                termial: true,
             }
         );
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
