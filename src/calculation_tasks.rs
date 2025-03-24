@@ -184,11 +184,55 @@ impl CalculationJob {
             Number::Int(num) => num.clone(),
         };
         if level > 0 {
-            Some(if calc_num < 0 {
+            Some(if calc_num < 0 && level == 1 {
                 Calculation {
                     value: num,
                     steps: vec![(level, negative)],
                     result: CalculationResult::ComplexInfinity,
+                }
+            } else if calc_num < 0 {
+                let factor = math::negative_multifacorial_factor(calc_num.clone(), level);
+                match (factor, -level - 1 > calc_num) {
+                    (Some(factor), true) => {
+                        let mut res = Self::calculate_appropriate_factorial(
+                            Number::Int(-calc_num.clone() - level),
+                            level,
+                            negative,
+                        )?;
+                        res.value = num;
+                        res.result = match res.result {
+                            CalculationResult::Exact(n) => {
+                                let n = Float::with_val(FLOAT_PRECISION, n);
+                                CalculationResult::Float((factor / n).into())
+                            }
+                            CalculationResult::Approximate(b, e) => {
+                                let (b, e) =
+                                    math::adjust_approximate((factor / Float::from(b), -e));
+                                CalculationResult::Approximate(b.into(), e)
+                            }
+                            CalculationResult::ApproximateDigits(n) => {
+                                CalculationResult::ApproximateDigits(-n)
+                            }
+                            CalculationResult::ApproximateDigitsTower(_, _) => {
+                                CalculationResult::ApproximateDigits(0.into())
+                            }
+                            CalculationResult::ComplexInfinity => {
+                                CalculationResult::Exact(0.into())
+                            }
+                            CalculationResult::Float(f) => {
+                                CalculationResult::Float((factor / Float::from(f)).into())
+                            }
+                        };
+
+                        res
+                    }
+                    (factor, _) => Calculation {
+                        value: num,
+                        steps: vec![(level, negative)],
+                        result: factor
+                            .map(CalculationResult::Exact)
+                            .unwrap_or(CalculationResult::ComplexInfinity),
+                    },
                 }
                 // Check if we can approximate the number of digits
             } else if calc_num > *UPPER_APPROXIMATION_LIMIT

@@ -483,9 +483,12 @@ impl RedditComment {
 
 #[cfg(test)]
 mod tests {
-    use rug::Integer;
+    use rug::{Float, Integer};
 
-    use crate::{calculation_results::CalculationResult, math};
+    use crate::{
+        calculation_results::CalculationResult,
+        math::{self, FLOAT_PRECISION},
+    };
 
     use super::*;
 
@@ -702,7 +705,7 @@ mod tests {
     #[test]
     fn test_comment_new_of_negative() {
         let comment = RedditComment::new(
-            "This is a spoiler comment (-5)!",
+            "This is a spoiler comment (-5)! (-5)!! (-5)!!!! (-5)!!!!!",
             "123",
             "test_author",
             "test_subreddit",
@@ -711,11 +714,30 @@ mod tests {
 
         assert_eq!(
             comment.calculation_list,
-            vec![Calculation {
-                value: (-5).into(),
-                steps: vec![(1, 0)],
-                result: CalculationResult::ComplexInfinity,
-            }]
+            vec![
+                Calculation {
+                    value: (-5).into(),
+                    steps: vec![(1, 0)],
+                    result: CalculationResult::ComplexInfinity,
+                },
+                Calculation {
+                    value: (-5).into(),
+                    steps: vec![(2, 0)],
+                    result: CalculationResult::Float(
+                        Float::with_val(FLOAT_PRECISION, 3).recip().into()
+                    ),
+                },
+                Calculation {
+                    value: (-5).into(),
+                    steps: vec![(4, 0)],
+                    result: CalculationResult::Exact((-1).into()),
+                },
+                Calculation {
+                    value: (-5).into(),
+                    steps: vec![(5, 0)],
+                    result: CalculationResult::ComplexInfinity,
+                }
+            ]
         );
     }
 
