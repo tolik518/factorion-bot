@@ -36,6 +36,11 @@ pub(crate) fn termial(n: Integer) -> Integer {
 pub(crate) fn fractional_factorial(x: Float) -> Float {
     (x + 1.0f64).gamma()
 }
+
+/// Calculates the k-factorial of x.
+///
+/// Algorithm adapted from the formula by pregunton in a
+/// [Math Stack Exchange reply](https://math.stackexchange.com/questions/3488791/define-the-triple-factorial-n-as-a-continuous-function-for-n-in-mathbb/3488935#3488935).
 pub(crate) fn fractional_multifactorial(x: Float, k: i32) -> Float {
     let _k = k;
     let k = Float::with_val(FLOAT_PRECISION, k);

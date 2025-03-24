@@ -815,6 +815,32 @@ mod tests {
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
     #[test]
+    fn test_comment_new_decimals_multifactorial() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 0.5!!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        steps: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(0.5, 0.9628277824464175)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+    #[test]
     fn test_comment_new_decimals_termial() {
         let comment = RedditComment::new(
             "This is a test comment with decimal number 0.5?",

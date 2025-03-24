@@ -179,7 +179,19 @@ impl CalculationJob {
                         num.as_float().to_integer()?
                     }
                 }
-                _ => unimplemented!(),
+                k => {
+                    let res: Float = math::fractional_multifactorial(num.as_float().clone(), k)
+                        * if negative % 2 != 0 { -1 } else { 1 };
+                    if res.is_finite() {
+                        return Some(Calculation {
+                            value: Number::Float(num.clone()),
+                            steps: vec![(k, negative)],
+                            result: CalculationResult::Float(res.into()),
+                        });
+                    } else {
+                        num.as_float().to_integer()?
+                    }
+                }
             },
             Number::Int(num) => num.clone(),
         };
