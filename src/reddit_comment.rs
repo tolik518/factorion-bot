@@ -104,15 +104,42 @@ impl Status {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub(crate) struct Commands {
-    pub shorten: bool,
-    pub include_steps: bool,
-    pub termial: bool,
+    pub(crate) shorten: bool,
+    pub(crate) steps: bool,
+    pub(crate) termial: bool,
+    pub(crate) no_note: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
-    include_steps,
+    steps,
     termial,
+    no_note,
 });
+#[allow(dead_code)]
+impl Commands {
+    pub(crate) const NONE: Self = Self {
+        shorten: false,
+        steps: false,
+        termial: false,
+        no_note: false,
+    };
+    pub(crate) const SHORTEN: Self = Self {
+        shorten: true,
+        ..Self::NONE
+    };
+    pub(crate) const STEPS: Self = Self {
+        steps: true,
+        ..Self::NONE
+    };
+    pub(crate) const TERMIAL: Self = Self {
+        termial: true,
+        ..Self::NONE
+    };
+    pub(crate) const NO_NOTE: Self = Self {
+        no_note: true,
+        ..Self::NONE
+    };
+}
 
 impl Commands {
     fn contains_command_format(text: &str, command: &str) -> bool {
@@ -126,10 +153,22 @@ impl Commands {
         Self {
             shorten: Self::contains_command_format(text, "short")
                 || Self::contains_command_format(text, "shorten"),
-            include_steps: Self::contains_command_format(text, "steps")
+            steps: Self::contains_command_format(text, "steps")
                 || Self::contains_command_format(text, "all"),
             termial: Self::contains_command_format(text, "termial")
                 || Self::contains_command_format(text, "triangle"),
+            no_note: Self::contains_command_format(text, "no note")
+                || Self::contains_command_format(text, "no_note"),
+        }
+    }
+    pub(crate) fn overrides_from_comment_text(text: &str) -> Self {
+        Self {
+            shorten: !Self::contains_command_format(text, "long"),
+            steps: !(Self::contains_command_format(text, "no steps")
+                | Self::contains_command_format(text, "no_steps")),
+            termial: !(Self::contains_command_format(text, "no termial")
+                | Self::contains_command_format(text, "no_termial")),
+            no_note: !Self::contains_command_format(text, "note"),
         }
     }
 }
@@ -147,18 +186,20 @@ impl RedditComment {
         id: &str,
         author: &str,
         subreddit: &str,
-        do_termial: bool,
+        pre_commands: Commands,
     ) -> Self {
-        let commands: Commands = Commands::from_comment_text(comment_text);
+        let command_overrides = Commands::overrides_from_comment_text(comment_text);
+        let commands: Commands =
+            (Commands::from_comment_text(comment_text) | pre_commands) & command_overrides;
 
         let mut status: Status = Default::default();
 
         let pending_list: Vec<CalculationJob> =
-            Self::extract_calculation_jobs(comment_text, commands.termial || do_termial);
+            Self::extract_calculation_jobs(comment_text, commands.termial);
 
         let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
-            .flat_map(|calc| calc.execute(commands.include_steps))
+            .flat_map(|calc| calc.execute(commands.steps))
             .filter_map(|x| {
                 if x.is_none() {
                     status.number_too_big_to_calculate = true;
@@ -375,47 +416,49 @@ impl RedditComment {
 
         // Add Note
         let multiple = self.calculation_list.len() > 1;
-        if self
-            .calculation_list
-            .iter()
-            .any(Calculation::is_digit_tower)
-        {
-            if multiple {
-                let _ = note.write_str("Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\n");
-            } else {
-                let _ = note.write_str("That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\n");
-            }
-        } else if self
-            .calculation_list
-            .iter()
-            .any(Calculation::is_aproximate_digits)
-        {
-            if multiple {
-                let _ = note.write_str("Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\n");
-            } else {
-                let _ = note.write_str("That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\n");
-            }
-        } else if self
-            .calculation_list
-            .iter()
-            .any(Calculation::is_approximate)
-        {
-            if multiple {
-                let _ = note.write_str(
+        if !self.commands.no_note {
+            if self
+                .calculation_list
+                .iter()
+                .any(Calculation::is_digit_tower)
+            {
+                if multiple {
+                    let _ = note.write_str("Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\n");
+                } else {
+                    let _ = note.write_str("That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\n");
+                }
+            } else if self
+                .calculation_list
+                .iter()
+                .any(Calculation::is_aproximate_digits)
+            {
+                if multiple {
+                    let _ = note.write_str("Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\n");
+                } else {
+                    let _ = note.write_str("That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\n");
+                }
+            } else if self
+                .calculation_list
+                .iter()
+                .any(Calculation::is_approximate)
+            {
+                if multiple {
+                    let _ = note.write_str(
                 "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\n",
             );
-            } else {
-                let _ = note.write_str(
+                } else {
+                    let _ = note.write_str(
                 "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\n",
             );
-            }
-        } else if self.calculation_list.iter().any(Calculation::is_rounded) {
-            let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round at some point.\n\n");
-        } else if self.calculation_list.iter().any(Calculation::is_too_long) {
-            if multiple {
-                let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
-            } else {
-                let _ = note.write_str("If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\n");
+                }
+            } else if self.calculation_list.iter().any(Calculation::is_rounded) {
+                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round at some point.\n\n");
+            } else if self.calculation_list.iter().any(Calculation::is_too_long) {
+                if multiple {
+                    let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
+                } else {
+                    let _ = note.write_str("If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\n");
+                }
             }
         }
 
@@ -433,7 +476,7 @@ impl RedditComment {
             && !self.commands.shorten
             && !self.calculation_list.iter().all(|fact| fact.is_too_long())
         {
-            if note.is_empty() {
+            if note.is_empty() && !self.commands.no_note {
                 let _ = note.write_str("If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\n");
             };
             reply = self
@@ -538,7 +581,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -566,7 +609,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(
             comment.calculation_list,
@@ -586,7 +629,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(
             comment.calculation_list,
@@ -606,7 +649,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -619,7 +662,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -632,7 +675,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         assert_eq!(
@@ -651,7 +694,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            true,
+            Commands::TERMIAL,
         );
 
         assert_eq!(
@@ -670,7 +713,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            true,
+            Commands::TERMIAL,
         );
 
         assert_eq!(
@@ -706,7 +749,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            true,
+            Commands::TERMIAL,
         );
 
         assert_eq!(
@@ -726,7 +769,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -739,7 +782,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -752,7 +795,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(
             comment
@@ -778,7 +821,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            true,
+            Commands::TERMIAL,
         );
         assert_eq!(
             comment
@@ -804,7 +847,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -817,7 +860,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, []);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -829,7 +872,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
@@ -843,7 +886,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE
         );
         assert_eq!(comment.id, "123");
         assert_eq!(
@@ -869,7 +912,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(comment.id, "123");
         assert_eq!(comment.calculation_list, vec![]);
@@ -886,7 +929,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         comment.add_status(Status::NOT_REPLIED);
         assert_eq!(
@@ -902,7 +945,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         assert_eq!(
             comment.get_reply(),
@@ -917,10 +960,45 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_termial() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 2? \\[termial\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The termial of 2 is 3 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_no_note() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 10939742352358! \\[no_note\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -930,10 +1008,73 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of 3 is 6 \n\nThe factorial of the factorial of 3 is 720 \n\nThe factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_long() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 200! \\[long\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::SHORTEN,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The factorial of 200 is 788657867364790503552363213932185062295135977687173263294742533244359449963403342920304284011984623904177212138919638830257642790242637105061926624952829931113462857270763317237396988943922445621451664240254033291864131227428294853277524242407573903240321257405579568660226031904170324062351700858796178922222789623703897374720000000000000000000000000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_no_termial() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 2? \\[no termial\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::TERMIAL,
+        );
+        assert_eq!(comment.status, Status::NO_FACTORIAL);
+    }
+
+    #[test]
+    fn test_command_note() {
+        let comment = RedditComment::new(
+            "This comment would like the short version of this factorial 10939742352358! \\[note\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NO_NOTE,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
+    fn test_command_no_steps() {
+        let comment = RedditComment::new(
+            "This comment would like to know all the steps to this factorial chain ((3!)!)! \\[no steps\\] \\[short\\]",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::STEPS,
+        );
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The factorial of the factorial of the factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -943,7 +1084,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE
         );
         let reply = comment.get_reply();
         assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of the factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of the factorial of the factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of the factorial of the factorial of the factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
@@ -956,7 +1097,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE
         );
         let reply = comment.get_reply();
         assert_eq!(
@@ -972,7 +1113,7 @@ mod tests {
             "123",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         comment.notify = Some("notified".to_string());
         let reply = comment.get_reply();
@@ -987,7 +1128,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
         let reply = comment.get_reply();
         assert_eq!(
@@ -1141,7 +1282,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1155,7 +1296,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1169,7 +1310,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1183,7 +1324,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1197,7 +1338,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1211,7 +1352,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE
         );
 
         let reply = comment.get_reply();
@@ -1225,7 +1366,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1239,7 +1380,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE
         );
 
         let reply = comment.get_reply();
@@ -1253,7 +1394,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1267,7 +1408,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE
         );
 
         let reply = comment.get_reply();
@@ -1281,7 +1422,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1294,7 +1435,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1307,7 +1448,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            true,
+            Commands::TERMIAL,
         );
 
         let reply = comment.get_reply();
@@ -1320,7 +1461,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            true,
+            Commands::TERMIAL,
         );
 
         let reply = comment.get_reply();
@@ -1334,7 +1475,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1348,7 +1489,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
@@ -1362,7 +1503,7 @@ mod tests {
             "1234",
             "test_author",
             "test_subreddit",
-            false,
+            Commands::NONE,
         );
 
         let reply = comment.get_reply();
