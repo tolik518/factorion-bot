@@ -2,11 +2,14 @@
 use rug::integer::IntegerExt64;
 use rug::ops::*;
 use rug::{Complete, Float, Integer};
+use std::ops::Add;
 use std::sync::LazyLock;
 
 pub const FLOAT_PRECISION: u32 = 1024;
 
 pub static E: LazyLock<Float> = LazyLock::new(|| Float::with_val(FLOAT_PRECISION, 1).exp());
+pub static PI: LazyLock<Float> =
+    LazyLock::new(|| Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi).exp());
 pub static LN10: LazyLock<Float> = LazyLock::new(|| Float::with_val(FLOAT_PRECISION, 10).ln());
 
 pub fn factorial(n: u64, k: i32) -> Integer {
@@ -34,6 +37,42 @@ pub(crate) fn termial(n: Integer) -> Integer {
 
 pub(crate) fn fractional_factorial(x: Float) -> Float {
     (x + 1.0f64).gamma()
+}
+pub(crate) fn fractional_multifactorial(x: Float, k: i32) -> Float {
+    let _k = k;
+    let k = Float::with_val(FLOAT_PRECISION, k);
+    let fact = fractional_factorial(x.clone() / k.clone());
+    let pow = k.clone().pow(x.clone() / k.clone());
+    let t = fractional_multifactorial_series(x, _k, k);
+    fact * pow * t
+}
+
+fn fractional_multifactorial_series(x: Float, _k: i32, k: Float) -> Float {
+    (1..=_k)
+        .map(|j| {
+            let j = Float::with_val(FLOAT_PRECISION, j);
+            (j.clone() * k.clone().pow(-j.clone() / k.clone())
+                / fractional_factorial(j.clone() / k.clone()))
+            .pow(fractional_multifactorial_exponent_series(
+                x.clone(),
+                j.clone(),
+                _k,
+                k.clone(),
+            ))
+        })
+        .reduce(Add::add)
+        .unwrap_or(Float::new(FLOAT_PRECISION))
+}
+
+fn fractional_multifactorial_exponent_series(x: Float, j: Float, _k: i32, k: Float) -> Float {
+    k.clone().recip()
+        * (1.._k)
+            .map(|l| {
+                let l = Float::with_val(FLOAT_PRECISION, l);
+                ((2 * PI.clone() * l * (x.clone() - j.clone()) / k.clone()) as Float).cos()
+            })
+            .reduce(Add::add)
+            .unwrap_or(Float::new(FLOAT_PRECISION))
 }
 
 pub(crate) fn fractional_termial(x: Float) -> Float {
