@@ -4,7 +4,6 @@ use reddit_api::RedditClient;
 use reddit_comment::{Commands, Status};
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::Write as FmtWrite;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::sync::OnceLock;

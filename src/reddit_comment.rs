@@ -6,13 +6,43 @@ use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use fancy_regex::Regex;
 use num_traits::ToPrimitive;
 use std::fmt::Write;
+use std::ops::*;
 use std::sync::LazyLock;
+macro_rules! impl_bitwise {
+    ($s_name:ident {$($s_fields:ident),*}, $t_name:ident, $fn_name:ident) => {
+        impl $t_name for $s_name {
+            type Output = Self;
+            fn $fn_name(self, rhs: Self) -> Self {
+                Self {
+                    $($s_fields: self.$s_fields.$fn_name(rhs.$s_fields),)*
+                }
+            }
+        }
+    };
+}
+macro_rules! impl_all_bitwise {
+    ($s_name:ident {$($s_fields:ident,)*}) => {impl_all_bitwise!($s_name {$($s_fields),*});};
+    ($s_name:ident {$($s_fields:ident),*}) => {
+        impl_bitwise!($s_name {$($s_fields),*}, BitOr, bitor);
+        impl_bitwise!($s_name {$($s_fields),*}, BitXor, bitxor);
+        impl_bitwise!($s_name {$($s_fields),*}, BitAnd, bitand);
+        impl Not for $s_name {
+            type Output = Self;
+            fn not(self) -> Self {
+                Self {
+                    $($s_fields: self.$s_fields.not(),)*
+                }
+            }
+        }
+    };
+}
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub(crate) struct RedditComment {
     pub(crate) id: String,
     pub(crate) calculation_list: Vec<Calculation>,
     pub(crate) author: String,
+    pub(crate) notify: Option<String>,
     pub(crate) subreddit: String,
     pub(crate) status: Status,
     pub(crate) commands: Commands,
@@ -28,21 +58,14 @@ pub(crate) struct Status {
     pub(crate) factorials_found: bool,
 }
 
-impl std::ops::BitOr for Status {
-    type Output = Status;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Status {
-            already_replied_or_rejected: self.already_replied_or_rejected
-                | rhs.already_replied_or_rejected,
-            not_replied: self.not_replied | rhs.not_replied,
-            number_too_big_to_calculate: self.number_too_big_to_calculate
-                | rhs.number_too_big_to_calculate,
-            no_factorial: self.no_factorial | rhs.no_factorial,
-            reply_would_be_too_long: self.reply_would_be_too_long | rhs.reply_would_be_too_long,
-            factorials_found: self.factorials_found | rhs.factorials_found,
-        }
-    }
-}
+impl_all_bitwise!(Status {
+    already_replied_or_rejected,
+    not_replied,
+    number_too_big_to_calculate,
+    no_factorial,
+    reply_would_be_too_long,
+    factorials_found,
+});
 #[allow(dead_code)]
 impl Status {
     pub(crate) const NONE: Self = Self {
@@ -86,28 +109,12 @@ pub(crate) struct Commands {
     pub(crate) termial: bool,
     pub(crate) no_note: bool,
 }
-impl std::ops::BitOr for Commands {
-    type Output = Self;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self {
-            shorten: self.shorten | rhs.shorten,
-            steps: self.steps | rhs.steps,
-            termial: self.termial | rhs.termial,
-            no_note: self.no_note | rhs.no_note,
-        }
-    }
-}
-impl std::ops::BitAnd for Commands {
-    type Output = Self;
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
-            shorten: self.shorten & rhs.shorten,
-            steps: self.steps & rhs.steps,
-            termial: self.termial & rhs.termial,
-            no_note: self.no_note & rhs.no_note,
-        }
-    }
-}
+impl_all_bitwise!(Commands {
+    shorten,
+    steps,
+    termial,
+    no_note,
+});
 #[allow(dead_code)]
 impl Commands {
     pub(crate) const NONE: Self = Self {
@@ -214,6 +221,7 @@ impl RedditComment {
         RedditComment {
             id: id.to_string(),
             author: author.to_string(),
+            notify: None,
             subreddit: subreddit.to_string(),
             calculation_list,
             status,
@@ -324,6 +332,7 @@ impl RedditComment {
             id: id.to_string(),
             author: author.to_string(),
             subreddit: subreddit.to_string(),
+            notify: None,
             calculation_list: factorial_list,
             status,
             commands,
@@ -399,7 +408,11 @@ impl RedditComment {
     }
     /// Does the formatting for the reply using [calculated](crate::calculated).
     pub(crate) fn get_reply(&self) -> String {
-        let mut note = String::new();
+        let mut note = self
+            .notify
+            .as_ref()
+            .map(|user| format!("Hey u/{user}! \n\n"))
+            .unwrap_or_default();
 
         // Add Note
         let multiple = self.calculation_list.len() > 1;
@@ -1094,6 +1107,20 @@ mod tests {
     }
 
     #[test]
+    fn test_notify_reply() {
+        let mut comment = RedditComment::new(
+            "This comment is unaware of 2!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        comment.notify = Some("notified".to_string());
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Hey u/notified! \n\nThe factorial of 2 is 2 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
     #[ignore = "currently obsolete"]
     fn test_reply_too_long() {
         let comment = RedditComment::new(
@@ -1120,6 +1147,7 @@ mod tests {
                 result: CalculationResult::Exact(Integer::from(280)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1139,6 +1167,7 @@ mod tests {
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1157,6 +1186,7 @@ mod tests {
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1176,6 +1206,7 @@ mod tests {
                 result: CalculationResult::Exact(Integer::from(10)),
             }],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1202,6 +1233,7 @@ mod tests {
                 },
             ],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND,
             commands: Default::default(),
@@ -1233,6 +1265,7 @@ mod tests {
                 },
             ],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::FACTORIALS_FOUND | Status::REPLY_WOULD_BE_TOO_LONG,
             commands: Default::default(),
@@ -1509,6 +1542,7 @@ mod tests {
                 },
             ],
             author: "test_author".to_string(),
+            notify: None,
             subreddit: "test_subreddit".to_string(),
             status: Status::REPLY_WOULD_BE_TOO_LONG,
             commands: Default::default(),

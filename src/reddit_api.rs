@@ -1,6 +1,7 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::LazyLock;
 
 use crate::reddit_comment::{Commands, RedditComment, Status};
@@ -139,6 +140,7 @@ impl RedditClient {
                         already_replied_to_comments,
                         true,
                         SUBREDDIT_COMMANDS.get().unwrap(),
+                        &HashMap::new(),
                     )
                     .await
                     .expect("Failed to extract comments");
@@ -151,6 +153,7 @@ impl RedditClient {
                     already_replied_to_comments,
                     false,
                     SUBREDDIT_COMMANDS.get().unwrap(),
+                    &HashMap::new(),
                 )
                 .await
                 .expect("Failed to extract comments");
@@ -160,7 +163,12 @@ impl RedditClient {
                         .get(format!(
                             "{}/api/info?id={}",
                             REDDIT_OAUTH_URL,
-                            ids.join(",")
+                            ids.iter()
+                                .map(|(id, _)| id)
+                                .fold(String::new(), |mut a, e| {
+                                    let _ = write!(a, "{e}");
+                                    a
+                                })
                         ))
                         .bearer_auth(&self.token.access_token)
                         .send()
@@ -172,6 +180,7 @@ impl RedditClient {
                             already_replied_to_comments,
                             true,
                             SUBREDDIT_COMMANDS.get().unwrap(),
+                            &ids.into_iter().collect(),
                         )
                         .await
                         .expect("Failed to extract comments");
@@ -366,7 +375,14 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
         termial_subreddits: &HashMap<&str, Commands>,
-    ) -> Result<(Vec<RedditComment>, Vec<String>), Box<dyn std::error::Error>> {
+        mention_map: &HashMap<String, (String, Commands, String)>,
+    ) -> Result<
+        (
+            Vec<RedditComment>,
+            Vec<(String, (String, Commands, String))>,
+        ),
+        Box<dyn std::error::Error>,
+    > {
         let empty_vec = Vec::new();
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
@@ -382,6 +398,7 @@ impl RedditClient {
                 already_replied_to_comments,
                 is_mention,
                 termial_subreddits,
+                mention_map,
             ) else {
                 continue;
             };
@@ -390,7 +407,14 @@ impl RedditClient {
                 && !extracted_comment.status.already_replied_or_rejected
             {
                 if let Some(path) = Self::extract_summon_parent_id(comment) {
-                    parent_paths.push(path);
+                    parent_paths.push((
+                        path,
+                        (
+                            extracted_comment.id.clone(),
+                            extracted_comment.commands,
+                            extracted_comment.author.clone(),
+                        ),
+                    ));
                 }
             }
             comments.push(extracted_comment);
@@ -403,6 +427,7 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         do_termial: bool,
         commands: &HashMap<&str, Commands>,
+        mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Option<RedditComment> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -431,6 +456,14 @@ impl RedditClient {
                 println!("Failed to construct comment!");
                 return None;
             };
+            if let Some((mention, commands, mention_author)) =
+                mention_map.get(&format!("t1_{comment_id}"))
+            {
+                comment.id = mention.clone();
+                comment.commands = *commands;
+                comment.notify = Some(author.to_string());
+                comment.author = mention_author.clone();
+            }
 
             comment.add_status(Status::NOT_REPLIED);
 
@@ -553,7 +586,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"body\":\"u/factorion-bot\",\"parent_id\":\"t1_m38msum\"}}]}}"
+                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]}}"
@@ -564,6 +597,10 @@ mod tests {
         status.unwrap();
         let comments = comments.unwrap();
         assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].id, "");
+        assert_eq!(comments[0].author, "mentioner");
+        assert_eq!(comments[0].notify.as_ref().unwrap(), "");
+        assert_eq!(comments[0].commands, Commands::TERMIAL);
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
     }
 
@@ -599,7 +636,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
-                               "body": "u/factorion-bot",
+                               "body": "u/factorion-bot !termial",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
                                "id": "m38msun",
                                "parent_id": "t1_m38msum",
@@ -610,12 +647,30 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments =
-            RedditClient::extract_comments(response, &mut already_replied, true, &HashMap::new())
-                .await
-                .unwrap();
+        let comments = RedditClient::extract_comments(
+            response,
+            &mut already_replied,
+            true,
+            &HashMap::new(),
+            &HashMap::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(comments.0.len(), 3);
-        assert_eq!(comments.1, ["t1_m38msum"]);
+        assert_eq!(
+            comments.1,
+            [(
+                "t1_m38msum".to_string(),
+                (
+                    "m38msun".to_string(),
+                    Commands {
+                        termial: true,
+                        ..Default::default()
+                    },
+                    "Little_Tweetybird_".to_string(),
+                )
+            )]
+        );
         println!("{:#?}", comments);
     }
 
