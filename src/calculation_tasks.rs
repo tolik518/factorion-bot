@@ -78,6 +78,7 @@ impl CalculationJob {
                                         CalculationResult::Approximate(termial.0.into(), termial.1)
                                     } else {
                                         CalculationResult::ApproximateDigitsTower(
+                                            false,
                                             1,
                                             exponent.clone() + math::length(exponent),
                                         )
@@ -85,31 +86,44 @@ impl CalculationJob {
                                     Some(res) => Ok(Number::Int(res)),
                                 }
                             }
-                            CalculationResult::ApproximateDigits(digits) => Err(if neg % 2 != 0 {
-                                CalculationResult::ComplexInfinity
-                            } else if level == 0 {
-                                CalculationResult::ApproximateDigits((digits.clone() - 1) * 2 + 1)
-                            } else {
-                                CalculationResult::ApproximateDigitsTower(
-                                    1,
-                                    digits.clone() + math::length(digits),
-                                )
-                            }),
-                            CalculationResult::ApproximateDigitsTower(depth, exponent) => {
-                                Err(if neg % 2 != 0 {
+                            CalculationResult::ApproximateDigits(digits) => {
+                                Err(if digits.is_negative() {
+                                    CalculationResult::Float(Float::new(FLOAT_PRECISION).into())
+                                } else if neg % 2 != 0 {
                                     CalculationResult::ComplexInfinity
                                 } else if level == 0 {
-                                    CalculationResult::ApproximateDigitsTower(
-                                        *depth,
-                                        exponent.clone(),
+                                    CalculationResult::ApproximateDigits(
+                                        (digits.clone() - 1) * 2 + 1,
                                     )
                                 } else {
                                     CalculationResult::ApproximateDigitsTower(
-                                        depth + 1,
-                                        exponent.clone(),
+                                        false,
+                                        1,
+                                        digits.clone() + math::length(digits),
                                     )
                                 })
                             }
+                            CalculationResult::ApproximateDigitsTower(
+                                negative,
+                                depth,
+                                exponent,
+                            ) => Err(if *negative {
+                                CalculationResult::Float(Float::new(FLOAT_PRECISION).into())
+                            } else if neg % 2 != 0 {
+                                CalculationResult::ComplexInfinity
+                            } else if level == 0 {
+                                CalculationResult::ApproximateDigitsTower(
+                                    false,
+                                    *depth,
+                                    exponent.clone(),
+                                )
+                            } else {
+                                CalculationResult::ApproximateDigitsTower(
+                                    false,
+                                    depth + 1,
+                                    exponent.clone(),
+                                )
+                            }),
                             CalculationResult::Float(gamma) => Ok(Number::Float(gamma.clone())),
                             CalculationResult::ComplexInfinity => {
                                 Err(CalculationResult::ComplexInfinity)
@@ -213,8 +227,8 @@ impl CalculationJob {
                             CalculationResult::ApproximateDigits(n) => {
                                 CalculationResult::ApproximateDigits(-n)
                             }
-                            CalculationResult::ApproximateDigitsTower(_, _) => {
-                                CalculationResult::ApproximateDigits(0.into())
+                            CalculationResult::ApproximateDigitsTower(negative, depth, base) => {
+                                CalculationResult::ApproximateDigitsTower(!negative, depth, base)
                             }
                             CalculationResult::ComplexInfinity => {
                                 CalculationResult::Exact(0.into())
