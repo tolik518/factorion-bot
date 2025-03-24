@@ -5,11 +5,12 @@ use std::fmt::Write;
 use std::sync::LazyLock;
 
 use crate::reddit_comment::{Commands, RedditComment, Status};
-use crate::{COMMENT_COUNT, SUBREDDITS, SUBREDDIT_COMMANDS};
+use crate::{COMMENT_COUNT, SUBREDDIT_COMMANDS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use futures::future::OptionFuture;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Response, Url};
 use serde::Deserialize;
@@ -75,14 +76,56 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         check_mentions: bool,
     ) -> Result<Vec<RedditComment>, ()> {
-        static SUBREDDIT_URL: LazyLock<Url> = LazyLock::new(|| {
-            Url::parse(&format!(
-                "{}/r/{}/comments/?limit={}",
-                REDDIT_OAUTH_URL,
-                SUBREDDITS.get().expect("Subreddits uninitailized"),
-                COMMENT_COUNT.get().expect("Comment count uninitialzed")
-            ))
-            .expect("Failed to parse Url")
+        static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
+            let mut subreddits = SUBREDDIT_COMMANDS
+                .get()
+                .expect("Subreddit commands uninitialized")
+                .iter()
+                .filter(|(_, commands)| !commands.post_only)
+                .map(|(sub, _)| sub.to_string())
+                .collect::<Vec<_>>();
+            subreddits.sort();
+            if !subreddits.is_empty() {
+                Some(
+                    Url::parse(&format!(
+                        "{}/r/{}/comments/?limit={}",
+                        REDDIT_OAUTH_URL,
+                        subreddits
+                            .into_iter()
+                            .reduce(|a, e| format!("{a}+{e}"))
+                            .unwrap_or_default(),
+                        COMMENT_COUNT.get().expect("Comment count uninitialzed")
+                    ))
+                    .expect("Failed to parse Url"),
+                )
+            } else {
+                None
+            }
+        });
+        static SUBREDDIT_POSTS_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
+            let mut post_subreddits = SUBREDDIT_COMMANDS
+                .get()
+                .expect("Subreddit commands uninitialized")
+                .keys()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            post_subreddits.sort();
+            if !post_subreddits.is_empty() {
+                Some(
+                    Url::parse(&format!(
+                        "{}/r/{}/new/?limit={}",
+                        REDDIT_OAUTH_URL,
+                        post_subreddits
+                            .into_iter()
+                            .reduce(|a, e| format!("{a}+{e}"))
+                            .unwrap_or_default(),
+                        COMMENT_COUNT.get().expect("Comment count uninitialzed")
+                    ))
+                    .expect("Failed to parse Url"),
+                )
+            } else {
+                None
+            }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
             Url::parse(&format!(
@@ -103,36 +146,48 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let (subs_response, mentions_response) = if check_mentions {
-            let (a, b) = join!(
+        let (subs_response, posts_response, mentions_response) = join!(
+            OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
                 self.client
-                    .get(SUBREDDIT_URL.clone())
-                    .bearer_auth(&self.token.access_token)
-                    .send(),
-                self.client
-                    .get(MENTION_URL.clone())
+                    .get(subreddit_url)
                     .bearer_auth(&self.token.access_token)
                     .send()
-            );
-            (a, Some(b))
-        } else {
-            let a = self
-                .client
-                .get(SUBREDDIT_URL.clone())
-                .bearer_auth(&self.token.access_token)
-                .send()
-                .await;
-            (a, None)
-        };
-        let subs_response = subs_response.expect("Failed to get comments");
+            })),
+            OptionFuture::from(SUBREDDIT_POSTS_URL.clone().map(|subreddit_url| {
+                self.client
+                    .get(subreddit_url)
+                    .bearer_auth(&self.token.access_token)
+                    .send()
+            })),
+            OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
+                |subreddit_url| {
+                    self.client
+                        .get(subreddit_url)
+                        .bearer_auth(&self.token.access_token)
+                        .send()
+                }
+            )),
+        );
+        let subs_response = subs_response.map(|x| x.expect("Failed to get comments"));
+        let posts_response = posts_response.map(|x| x.expect("Failed to get comments"));
         let mentions_response = mentions_response.map(|x| x.expect("Failed to get comments"));
 
-        match RedditClient::check_response_status(&subs_response).and(
-            mentions_response
-                .as_ref()
-                .map(RedditClient::check_response_status)
-                .unwrap_or(Ok(())),
-        ) {
+        match subs_response
+            .as_ref()
+            .map(RedditClient::check_response_status)
+            .unwrap_or(Ok(()))
+            .and(
+                posts_response
+                    .as_ref()
+                    .map(RedditClient::check_response_status)
+                    .unwrap_or(Ok(())),
+            )
+            .and(
+                mentions_response
+                    .as_ref()
+                    .map(RedditClient::check_response_status)
+                    .unwrap_or(Ok(())),
+            ) {
             Ok(_) => {
                 let (mentions, ids) = if let Some(mentions_response) = mentions_response {
                     let (a, b) = RedditClient::extract_comments(
@@ -148,15 +203,29 @@ impl RedditClient {
                 } else {
                     (None, None)
                 };
-                let (mut res, _) = RedditClient::extract_comments(
-                    subs_response,
-                    already_replied_to_comments,
-                    false,
-                    SUBREDDIT_COMMANDS.get().unwrap(),
-                    &HashMap::new(),
-                )
-                .await
-                .expect("Failed to extract comments");
+                let (mut res, _) = if let Some(subs_response) = subs_response {
+                    RedditClient::extract_comments(
+                        subs_response,
+                        already_replied_to_comments,
+                        false,
+                        SUBREDDIT_COMMANDS.get().unwrap(),
+                        &HashMap::new(),
+                    )
+                    .await
+                    .expect("Failed to extract comments")
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                if let Some(posts_response) = posts_response {
+                    let posts = RedditClient::extract_posts(
+                        posts_response,
+                        already_replied_to_comments,
+                        SUBREDDIT_COMMANDS.get().unwrap(),
+                    )
+                    .await
+                    .expect("Failed to extract comments");
+                    res.extend(posts);
+                }
                 if let Some(ids) = ids {
                     let response = self
                         .client
@@ -211,7 +280,7 @@ impl RedditClient {
         reply: &str,
     ) -> Result<(), Error> {
         let params = json!({
-            "thing_id": format!("t1_{}", comment.id),
+            "thing_id": comment.id,
             "text": reply
         });
 
@@ -374,7 +443,7 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
-        termial_subreddits: &HashMap<&str, Commands>,
+        commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Result<
         (
@@ -397,7 +466,7 @@ impl RedditClient {
                 comment,
                 already_replied_to_comments,
                 is_mention,
-                termial_subreddits,
+                commands,
                 mention_map,
             ) else {
                 continue;
@@ -432,7 +501,7 @@ impl RedditClient {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
-        let comment_id = comment["data"]["id"].as_str().unwrap_or_default();
+        let comment_id = comment["data"]["name"].as_str().unwrap_or_default();
 
         if already_replied_to_comments.contains(&comment_id.to_string()) {
             Some(RedditComment::new_already_replied(
@@ -456,9 +525,7 @@ impl RedditClient {
                 println!("Failed to construct comment!");
                 return None;
             };
-            if let Some((mention, commands, mention_author)) =
-                mention_map.get(&format!("t1_{comment_id}"))
-            {
+            if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
                 comment.id = mention.clone();
                 comment.commands = *commands;
                 comment.notify = Some(author.to_string());
@@ -469,6 +536,55 @@ impl RedditClient {
 
             Some(comment)
         }
+    }
+    async fn extract_posts(
+        response: Response,
+        already_replied_to_comments: &mut Vec<String>,
+        commands: &HashMap<&str, Commands>,
+    ) -> Result<Vec<RedditComment>, Box<dyn std::error::Error>> {
+        let empty_vec = Vec::new();
+        let response_json = response.json::<Value>().await?;
+        let posts_json = response_json["data"]["children"]
+            .as_array()
+            .unwrap_or(&empty_vec);
+
+        already_replied_to_comments.reserve(posts_json.len());
+        let mut posts = Vec::with_capacity(posts_json.len());
+        for post in posts_json {
+            let post_text = post["data"]["selftext"].as_str().unwrap_or("");
+            let post_title = post["data"]["title"].as_str().unwrap_or("");
+            let post_flair = post["data"]["link_flair_text"].as_str().unwrap_or("");
+            let author = post["data"]["author"].as_str().unwrap_or("");
+            let subreddit = post["data"]["subreddit"].as_str().unwrap_or("");
+            let post_id = post["data"]["name"].as_str().unwrap_or_default();
+
+            let body = format!("{post_title} {post_text} {post_flair}");
+
+            let extracted_comment = if already_replied_to_comments.contains(&post_id.to_string()) {
+                RedditComment::new_already_replied(post_id, author, subreddit)
+            } else {
+                already_replied_to_comments.push(post_id.to_string());
+                let Ok(mut comment) = std::panic::catch_unwind(|| {
+                    RedditComment::new(
+                        &body,
+                        post_id,
+                        author,
+                        subreddit,
+                        commands.get(subreddit).copied().unwrap_or(Commands::NONE),
+                    )
+                }) else {
+                    println!("Failed to construct comment!");
+                    continue;
+                };
+
+                comment.add_status(Status::NOT_REPLIED);
+
+                comment
+            };
+            posts.push(extracted_comment);
+        }
+
+        Ok(posts)
     }
 }
 
@@ -481,6 +597,8 @@ mod tests {
         net::TcpListener,
         time::timeout,
     };
+
+    use crate::calculation_results::{Calculation, Number};
 
     use super::*;
 
@@ -559,7 +677,7 @@ mod tests {
                 "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 32\r\n\r\ntext=I+relpy&thing_id=t1_some_id",
                 "HTTP/1.1 200 OK\n\n{\"success\": true}"
             )]),
-            client.reply_to_comment(RedditComment::new_already_replied("some_id", "author", "subressit"), "I relpy")
+            client.reply_to_comment(RedditComment::new_already_replied("t1_some_id", "author", "subressit"), "I relpy")
         );
         status.unwrap();
         reply_status.unwrap();
@@ -575,8 +693,13 @@ mod tests {
                 expiration_time: Utc::now(),
             },
         };
-        let _ = SUBREDDITS.set("test_subreddit");
-        let _ = SUBREDDIT_COMMANDS.set([("test_subreddit", Commands::TERMIAL)].into());
+        let _ = SUBREDDIT_COMMANDS.set(
+            [
+                ("test_subreddit", Commands::TERMIAL),
+                ("post_subreddit", Commands::POST_ONLY),
+            ]
+            .into(),
+        );
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let (status, comments) = join!(
@@ -585,11 +708,14 @@ mod tests {
                     "GET /r/test_subreddit/comments/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
                 ),(
+                    "GET /r/post_subreddit+test_subreddit/new/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
+                ),(
                     "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"data\":{\"id\":\"m38msum\", \"body\":\"That's 57!?\"}}]}}"
+                    "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
                 )]).await
             },
             client.get_comments(&mut already_replied, true)
@@ -615,7 +741,7 @@ mod tests {
                                "author_fullname": "t2_b5n60qnt",
                                "body": "comment 1!!",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 1!!&lt;/p&gt;\n&lt;/div&gt;",
-                               "id": "m38msum",
+                               "name": "t1_m38msum",
                                "locked": false,
                                "unrepliable_reason": null
                            }
@@ -626,7 +752,7 @@ mod tests {
                                "author_fullname": "t2_b5n60qnt",
                                "body": "comment 2",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
-                               "id": "m38msug",
+                               "name": "t1_m38msug",
                                "locked": false,
                               "unrepliable_reason": null
                            }
@@ -638,7 +764,7 @@ mod tests {
                                "author_fullname": "t2_b5n60qnt",
                                "body": "u/factorion-bot !termial",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
-                               "id": "m38msun",
+                               "name": "t1_m38msun",
                                "parent_id": "t1_m38msum",
                                "context": "/r/some_sub/8msu32a/some_post/m38msun/?context=3"
                            }
@@ -662,7 +788,7 @@ mod tests {
             [(
                 "t1_m38msum".to_string(),
                 (
-                    "m38msun".to_string(),
+                    "t1_m38msun".to_string(),
                     Commands {
                         termial: true,
                         ..Default::default()
@@ -670,6 +796,84 @@ mod tests {
                     "Little_Tweetybird_".to_string(),
                 )
             )]
+        );
+        println!("{:#?}", comments);
+    }
+
+    #[tokio::test]
+    async fn test_extract_posts() {
+        let response = Response::from(http::Response::builder().status(200).body(r#"{
+               "data": {
+                   "children": [
+                       {
+                           "data": {
+                               "author": "Little_Tweetybird_",
+                               "author_fullname": "t2_b5n60qnt",
+                               "title": "Thats just 1",
+                               "selftext": "comment 1!!",
+                               "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 1!!&lt;/p&gt;\n&lt;/div&gt;",
+                               "name": "t3_m38msum",
+                               "locked": false,
+                               "unrepliable_reason": null
+                           }
+                       },
+                       {
+                           "data": {
+                               "author": "Little_Tweetybird_",
+                               "author_fullname": "t2_b5n60qnt",
+                               "title": "2!",
+                               "selftext": "comment 2",
+                               "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
+                               "name": "t3_m38msug",
+                               "locked": false,
+                              "unrepliable_reason": null
+                           }
+                       },
+                       {
+                           "kind": "t1",
+                           "data": {
+                               "author": "Little_Tweetybird_",
+                               "author_fullname": "t2_b5n60qnt",
+                               "title": "A mention",
+                               "selftext": "u/factorion-bot",
+                               "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
+                               "link_flair_text": "!10",
+                               "name": "t1_m38msun",
+                               "parent_id": "t3_m38msum",
+                               "context": "/r/some_sub/8msu32a/some_post/m38msun/?context=3"
+                           }
+                       }
+                   ]
+               }
+           }"#).unwrap());
+        let mut already_replied = vec![];
+        let comments = RedditClient::extract_posts(response, &mut already_replied, &HashMap::new())
+            .await
+            .unwrap();
+        assert_eq!(comments.len(), 3);
+        assert_eq!(
+            comments[0].calculation_list,
+            [Calculation {
+                value: Number::Int(1.into()),
+                steps: vec![(2, 0)],
+                result: crate::calculation_results::CalculationResult::Exact(1.into())
+            }]
+        );
+        assert_eq!(
+            comments[1].calculation_list,
+            [Calculation {
+                value: Number::Int(2.into()),
+                steps: vec![(1, 0)],
+                result: crate::calculation_results::CalculationResult::Exact(2.into())
+            }]
+        );
+        assert_eq!(
+            comments[2].calculation_list,
+            [Calculation {
+                value: Number::Int(10.into()),
+                steps: vec![(-1, 0)],
+                result: crate::calculation_results::CalculationResult::Exact(1334961.into())
+            }]
         );
         println!("{:#?}", comments);
     }
