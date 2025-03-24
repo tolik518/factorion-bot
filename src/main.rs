@@ -48,12 +48,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 sub,
                 commands
                     .split(',')
-                    .map(|command| match command {
+                    .map(|command| match command.trim() {
                         "shorten" => Commands::SHORTEN,
                         "termial" => Commands::TERMIAL,
                         "steps" => Commands::STEPS,
                         "no_note" => Commands::NO_NOTE,
                         "post_only" => Commands::POST_ONLY,
+                        "" => Commands::NONE,
                         s => panic!("Unknown command in subreddit {sub}: {s}"),
                     })
                     .fold(Commands::NONE, |a, e| a | e),
