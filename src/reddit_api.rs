@@ -9,6 +9,7 @@ use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use futures::future::OptionFuture;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, Response, Url};
 use serde::Deserialize;
@@ -74,7 +75,7 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<String>,
         check_mentions: bool,
     ) -> Result<Vec<RedditComment>, ()> {
-        static SUBREDDIT_URL: LazyLock<Url> = LazyLock::new(|| {
+        static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut subreddits = SUBREDDIT_COMMANDS
                 .get()
                 .expect("Subreddit commands uninitialized")
@@ -82,18 +83,24 @@ impl RedditClient {
                 .filter_map(|(sub, commands)| (!commands.post_only).then(|| sub.to_string()))
                 .collect::<Vec<_>>();
             subreddits.sort();
-            Url::parse(&format!(
-                "{}/r/{}/comments/?limit={}",
-                REDDIT_OAUTH_URL,
-                subreddits
-                    .into_iter()
-                    .reduce(|a, e| format!("{a}+{e}"))
-                    .unwrap_or_default(),
-                COMMENT_COUNT.get().expect("Comment count uninitialzed")
-            ))
-            .expect("Failed to parse Url")
+            if !subreddits.is_empty() {
+                Some(
+                    Url::parse(&format!(
+                        "{}/r/{}/comments/?limit={}",
+                        REDDIT_OAUTH_URL,
+                        subreddits
+                            .into_iter()
+                            .reduce(|a, e| format!("{a}+{e}"))
+                            .unwrap_or_default(),
+                        COMMENT_COUNT.get().expect("Comment count uninitialzed")
+                    ))
+                    .expect("Failed to parse Url"),
+                )
+            } else {
+                None
+            }
         });
-        static SUBREDDIT_POSTS_URL: LazyLock<Url> = LazyLock::new(|| {
+        static SUBREDDIT_POSTS_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut post_subreddits = SUBREDDIT_COMMANDS
                 .get()
                 .expect("Subreddit commands uninitialized")
@@ -101,16 +108,22 @@ impl RedditClient {
                 .map(ToString::to_string)
                 .collect::<Vec<_>>();
             post_subreddits.sort();
-            Url::parse(&format!(
-                "{}/r/{}/new/?limit={}",
-                REDDIT_OAUTH_URL,
-                post_subreddits
-                    .into_iter()
-                    .reduce(|a, e| format!("{a}+{e}"))
-                    .unwrap_or_default(),
-                COMMENT_COUNT.get().expect("Comment count uninitialzed")
-            ))
-            .expect("Failed to parse Url")
+            if !post_subreddits.is_empty() {
+                Some(
+                    Url::parse(&format!(
+                        "{}/r/{}/new/?limit={}",
+                        REDDIT_OAUTH_URL,
+                        post_subreddits
+                            .into_iter()
+                            .reduce(|a, e| format!("{a}+{e}"))
+                            .unwrap_or_default(),
+                        COMMENT_COUNT.get().expect("Comment count uninitialzed")
+                    ))
+                    .expect("Failed to parse Url"),
+                )
+            } else {
+                None
+            }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
             Url::parse(&format!(
@@ -131,41 +144,42 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let (subs_response, posts_response, mentions_response) = if check_mentions {
-            let (a, b, c) = join!(
+        let (subs_response, posts_response, mentions_response) = join!(
+            OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
                 self.client
-                    .get(SUBREDDIT_URL.clone())
-                    .bearer_auth(&self.token.access_token)
-                    .send(),
-                self.client
-                    .get(SUBREDDIT_POSTS_URL.clone())
-                    .bearer_auth(&self.token.access_token)
-                    .send(),
-                self.client
-                    .get(MENTION_URL.clone())
+                    .get(subreddit_url)
                     .bearer_auth(&self.token.access_token)
                     .send()
-            );
-            (a, b, Some(c))
-        } else {
-            let (a, b) = join!(
+            })),
+            OptionFuture::from(SUBREDDIT_POSTS_URL.clone().map(|subreddit_url| {
                 self.client
-                    .get(SUBREDDIT_URL.clone())
-                    .bearer_auth(&self.token.access_token)
-                    .send(),
-                self.client
-                    .get(SUBREDDIT_POSTS_URL.clone())
+                    .get(subreddit_url)
                     .bearer_auth(&self.token.access_token)
                     .send()
-            );
-            (a, b, None)
-        };
-        let subs_response = subs_response.expect("Failed to get comments");
-        let posts_response = posts_response.expect("Failed to get comments");
+            })),
+            OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
+                |subreddit_url| {
+                    self.client
+                        .get(subreddit_url)
+                        .bearer_auth(&self.token.access_token)
+                        .send()
+                }
+            )),
+        );
+        let subs_response = subs_response.map(|x| x.expect("Failed to get comments"));
+        let posts_response = posts_response.map(|x| x.expect("Failed to get comments"));
         let mentions_response = mentions_response.map(|x| x.expect("Failed to get comments"));
 
-        match RedditClient::check_response_status(&subs_response)
-            .and(RedditClient::check_response_status(&posts_response))
+        match subs_response
+            .as_ref()
+            .map(RedditClient::check_response_status)
+            .unwrap_or(Ok(()))
+            .and(
+                posts_response
+                    .as_ref()
+                    .map(RedditClient::check_response_status)
+                    .unwrap_or(Ok(())),
+            )
             .and(
                 mentions_response
                     .as_ref()
@@ -186,22 +200,28 @@ impl RedditClient {
                 } else {
                     (None, None)
                 };
-                let (mut res, _) = RedditClient::extract_comments(
-                    subs_response,
-                    already_replied_to_comments,
-                    false,
-                    SUBREDDIT_COMMANDS.get().unwrap(),
-                )
-                .await
-                .expect("Failed to extract comments");
-                let posts = RedditClient::extract_posts(
-                    posts_response,
-                    already_replied_to_comments,
-                    SUBREDDIT_COMMANDS.get().unwrap(),
-                )
-                .await
-                .expect("Failed to extract comments");
-                res.extend(posts);
+                let (mut res, _) = if let Some(subs_response) = subs_response {
+                    RedditClient::extract_comments(
+                        subs_response,
+                        already_replied_to_comments,
+                        false,
+                        SUBREDDIT_COMMANDS.get().unwrap(),
+                    )
+                    .await
+                    .expect("Failed to extract comments")
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                if let Some(posts_response) = posts_response {
+                    let posts = RedditClient::extract_posts(
+                        posts_response,
+                        already_replied_to_comments,
+                        SUBREDDIT_COMMANDS.get().unwrap(),
+                    )
+                    .await
+                    .expect("Failed to extract comments");
+                    res.extend(posts);
+                }
                 if let Some(ids) = ids {
                     let response = self
                         .client
