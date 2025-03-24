@@ -5,7 +5,7 @@ use std::fmt::Write;
 use std::sync::LazyLock;
 
 use crate::reddit_comment::{Commands, RedditComment, Status};
-use crate::{COMMENT_COUNT, SUBREDDITS, TERMIAL_SUBREDDITS};
+use crate::{COMMENT_COUNT, SUBREDDITS, SUBREDDIT_COMMANDS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -139,7 +139,7 @@ impl RedditClient {
                         mentions_response,
                         already_replied_to_comments,
                         true,
-                        TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                        SUBREDDIT_COMMANDS.get().unwrap(),
                         &HashMap::new(),
                     )
                     .await
@@ -152,7 +152,7 @@ impl RedditClient {
                     subs_response,
                     already_replied_to_comments,
                     false,
-                    TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                    SUBREDDIT_COMMANDS.get().unwrap(),
                     &HashMap::new(),
                 )
                 .await
@@ -179,7 +179,7 @@ impl RedditClient {
                             response,
                             already_replied_to_comments,
                             true,
-                            TERMIAL_SUBREDDITS.get().copied().unwrap_or_default(),
+                            SUBREDDIT_COMMANDS.get().unwrap(),
                             &ids.into_iter().collect(),
                         )
                         .await
@@ -374,7 +374,7 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<String>,
         is_mention: bool,
-        termial_subreddits: &str,
+        termial_subreddits: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Result<
         (
@@ -426,7 +426,7 @@ impl RedditClient {
         comment: &Value,
         already_replied_to_comments: &mut Vec<String>,
         do_termial: bool,
-        termial_subreddits: &str,
+        commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Option<RedditComment> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
@@ -446,7 +446,11 @@ impl RedditClient {
                     comment_id,
                     author,
                     subreddit,
-                    do_termial || termial_subreddits.split('+').any(|sub| sub == subreddit),
+                    if do_termial {
+                        Commands::TERMIAL
+                    } else {
+                        Commands::NONE
+                    } | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                 )
             }) else {
                 println!("Failed to construct comment!");
@@ -572,6 +576,7 @@ mod tests {
             },
         };
         let _ = SUBREDDITS.set("test_subreddit");
+        let _ = SUBREDDIT_COMMANDS.set([("test_subreddit", Commands::TERMIAL)].into());
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let (status, comments) = join!(
@@ -595,14 +600,7 @@ mod tests {
         assert_eq!(comments[0].id, "");
         assert_eq!(comments[0].author, "mentioner");
         assert_eq!(comments[0].notify.as_ref().unwrap(), "");
-        assert_eq!(
-            comments[0].commands,
-            Commands {
-                shorten: false,
-                include_steps: false,
-                termial: true,
-            }
-        );
+        assert_eq!(comments[0].commands, Commands::TERMIAL);
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
     }
 
@@ -653,7 +651,7 @@ mod tests {
             response,
             &mut already_replied,
             true,
-            "",
+            &HashMap::new(),
             &HashMap::new(),
         )
         .await

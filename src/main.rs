@@ -1,7 +1,8 @@
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
-use reddit_comment::Status;
+use reddit_comment::{Commands, Status};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -21,7 +22,7 @@ const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDITS: OnceLock<&str> = OnceLock::new();
-static TERMIAL_SUBREDDITS: OnceLock<&str> = OnceLock::new();
+static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -35,12 +36,37 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut reddit_client = RedditClient::new().await?;
-    let subreddits = std::env::var("SUBREDDITS").expect("SUBREDDITS must be set.");
-    let _ = SUBREDDITS.set(subreddits.leak());
-    let _ = COMMENT_COUNT.set(API_COMMENT_COUNT);
+    COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
 
-    let termial_subreddits = std::env::var("TERMIAL_SUBREDDITS").unwrap_or_default();
-    let _ = TERMIAL_SUBREDDITS.set(termial_subreddits.leak());
+    let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
+    let subreddit_commands = subreddit_commands.leak();
+    let commands = subreddit_commands
+        .split('+')
+        .map(|s| s.split_once(':').unwrap_or_default())
+        .map(|(sub, commands)| {
+            (
+                sub,
+                commands
+                    .split(',')
+                    .map(|command| match command.trim() {
+                        "shorten" => Commands::SHORTEN,
+                        "termial" => Commands::TERMIAL,
+                        "steps" => Commands::STEPS,
+                        "no_note" => Commands::NO_NOTE,
+                        "" => Commands::NONE,
+                        s => Err(s).expect("Unknown command in subreddit {sub}"),
+                    })
+                    .fold(Commands::NONE, |a, e| a | e),
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    let subreddits = commands
+        .keys()
+        .map(ToString::to_string)
+        .reduce(|a, e| format!("{a}+{e}"))
+        .unwrap_or_default();
+    SUBREDDIT_COMMANDS.set(commands).unwrap();
+    SUBREDDITS.set(subreddits.leak()).unwrap();
 
     let sleep_between_requests =
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
