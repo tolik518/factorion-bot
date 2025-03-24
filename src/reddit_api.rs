@@ -80,7 +80,8 @@ impl RedditClient {
                 .get()
                 .expect("Subreddit commands uninitialized")
                 .iter()
-                .filter_map(|(sub, commands)| (!commands.post_only).then(|| sub.to_string()))
+                .filter(|(_, commands)| !commands.post_only)
+                .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             subreddits.sort();
             if !subreddits.is_empty() {

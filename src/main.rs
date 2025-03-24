@@ -1,3 +1,4 @@
+use core::panic;
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
@@ -53,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         "steps" => Commands::STEPS,
                         "no_note" => Commands::NO_NOTE,
                         "post_only" => Commands::POST_ONLY,
-                        s => Err(s).expect("Unknown command in subreddit {sub}"),
+                        s => panic!("Unknown command in subreddit {sub}: {s}"),
                     })
                     .fold(Commands::NONE, |a, e| a | e),
             )
