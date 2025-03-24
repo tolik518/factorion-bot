@@ -908,6 +908,32 @@ mod tests {
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
+    #[test]
+    fn test_comment_new_exponentials_positive() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number -0.1e+2!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        steps: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(10.0, -3628800.0)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
 
     #[test]
     #[ignore = "currently obsolete"]
