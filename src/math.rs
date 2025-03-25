@@ -2,8 +2,8 @@
 use rug::integer::IntegerExt64;
 use rug::ops::*;
 use rug::{Complete, Float, Integer};
-use std::ops::Rem;
 use std::ops::Mul;
+use std::ops::Rem;
 use std::sync::LazyLock;
 
 pub const FLOAT_PRECISION: u32 = 1024;
