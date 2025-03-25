@@ -66,7 +66,7 @@ fn fractional_multifactorial_product(x: Float, _k: i32, k: Float) -> Float {
 fn fractional_multifactorial_sum(x: Float, j: i32, _k: i32, k: Float) -> Float {
     (0.._k)
         .filter(|l| *l != j)
-        .map(|l| 1 - Float::cos_pi(2 * (x.clone() - l) / _k))
+        .map(|l| 1 - Float::cos_pi(2 * ((x.clone() - l) / _k)))
         .reduce(Mul::mul)
         .unwrap_or(Float::with_val(FLOAT_PRECISION, 1))
         / (1.._k)
@@ -93,6 +93,9 @@ pub(crate) fn fractional_termial(x: Float) -> Float {
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
     let n = Float::with_val(FLOAT_PRECISION, n);
+    approximate_factorial_inner(n)
+}
+fn approximate_factorial_inner(n: Float) -> (Float, Integer) {
     let base = n.clone() / &*E;
     let ten_in_base = &*LN10 / base.clone().ln();
     let (extra, _) = (n.clone() / ten_in_base.clone())
@@ -153,6 +156,31 @@ pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
         .unwrap_or(Float::new(FLOAT_PRECISION));
     let factorial = factorial * series_sum;
     adjust_approximate((factorial, extra))
+}
+
+/// Calculates an approximation of the multifactorial
+/// using the sterling aproximation and the fractional multifactorial algorithm.
+///
+/// # Panic
+/// Will panic if either k or n are 0.
+pub fn approximate_multifactorial(n: Integer, k: i32) -> (Float, Integer) {
+    let n = Float::with_val(FLOAT_PRECISION, n);
+    let _k = k;
+    let k = Float::with_val(FLOAT_PRECISION, k);
+    let fact = approximate_factorial_inner(n.clone() / k.clone());
+    let pow = approximate_multifactorial_pow(n.clone(), k.clone());
+    let t = fractional_multifactorial_product(n, _k, k);
+    adjust_approximate((fact.0 * pow.0 * t, fact.1 + pow.1))
+}
+fn approximate_multifactorial_pow(n: Float, k: Float) -> (Float, Integer) {
+    let base = n.clone() / k.clone();
+    let k_log10 = k.clone().log10();
+    let e = (base.clone() * k_log10.clone())
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap()
+        .0;
+    let x = k.pow(base - e.clone() / k_log10);
+    (x, e)
 }
 
 pub fn approximate_subfactorial(n: Integer) -> (Float, Integer) {
@@ -727,6 +755,114 @@ mod tests {
                 Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap()
             )),
             "4.6075738185461799 × 10^299565705518096748172348871081083394917705602994196333433885546216834135350791129225270775050661568251681293893255233696266358320712841036093430778935337187734147872913431329670406629130341173311668836392261509485715565133323135341391486443851787651234656456564268274616437771860439695135334763390446212"
+        );
+    }
+    #[test]
+    fn test_approximate_multifactorial() {
+        // NOTE: the last digit may not be correct
+        assert_eq!(
+            format_approximate(approximate_multifactorial(100_001.into(), 2)),
+            "2.669462450117582 × 10^228290"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(2_546_372_899u128.into(), 2)),
+            "1.766995271233595 × 10^11422554595"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(500_000_000_000u128.into(), 2)),
+            "1.948965818007459 × 10^2816168880614"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(712_460_928_486u128.into(), 2)),
+            "1.778204523968013 × 10^4067605647403"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                8_392_739_232_838_237_120u128.into(),
+                2
+            )),
+            "1.3900498788571092 × 10^77589234466274962697"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                78_473_843_792_461_001_798_392_739_232_838_237_120u128.into(),
+                2
+            )),
+            "4.3782335812047535 × 10^1469831983521197424464922035545868112029" // 3
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(u128::MAX.into(), 2)),
+            "2.652569807741017 × 10^6481961386957948676069998262496287602680"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap(),2
+            )),
+            "2.784233733852614 × 10^98782852759048374086174435540541697458852801497098166716942773108417067675395564612635387525330784125840646946627616848133179160356420518046715389467668593867073936456715664835203314565170586655834517"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),2
+            )),
+            // NOTE: Only the first 5 decimals are correct
+            "2.4030665584107203 × 10^149782852759048374086174435540541697458852801497098166716942773108417067675395564612635387525330784125840646946627616848133179160356420518046715389467668593867073936456715664835203314565170586655834418196130754742857782566661567670695743221925893825617328228282134137308218885930219847567667381695223181"
+        );
+    }
+    #[test]
+    #[ignore = "future_improvement"]
+    fn test_approximate_multifactorial_perfect() {
+        // NOTE: all digits are correct
+        assert_eq!(
+            format_approximate(approximate_multifactorial(100_001.into(), 2)),
+            "2.669462450117582 × 10^228290"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(2_546_372_899u128.into(), 2)),
+            "1.766995271233595 × 10^11422554595"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(500_000_000_000u128.into(), 2)),
+            "1.948965818007459 × 10^2816168880614"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(712_460_928_486u128.into(), 2)),
+            "1.778204523968013 × 10^4067605647403"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                8_392_739_232_838_237_120u128.into(),
+                2
+            )),
+            "1.3900498788571092 × 10^77589234466274962697"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                78_473_843_792_461_001_798_392_739_232_838_237_120u128.into(),
+                2
+            )),
+            "4.3782335812047533 × 10^1469831983521197424464922035545868112029"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(u128::MAX.into(), 2)),
+            "2.652569807741017 × 10^6481961386957948676069998262496287602680"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                Integer::from_str(
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+                .unwrap(),2
+            )),
+            "2.784233733852614 × 10^98782852759048374086174435540541697458852801497098166716942773108417067675395564612635387525330784125840646946627616848133179160356420518046715389467668593867073936456715664835203314565170586655834517"
+        );
+        assert_eq!(
+            format_approximate(approximate_multifactorial(
+                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),2
+            )),
+            "2.4030683314272798 × 10^149782852759048374086174435540541697458852801497098166716942773108417067675395564612635387525330784125840646946627616848133179160356420518046715389467668593867073936456715664835203314565170586655834418196130754742857782566661567670695743221925893825617328228282134137308218885930219847567667381695223181"
         );
     }
     #[test]
