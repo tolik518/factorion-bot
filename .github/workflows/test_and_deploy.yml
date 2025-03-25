@@ -9,8 +9,6 @@ on:
       commit:
         description: 'Commit hash to deploy'
         required: false
-        default: ${{ github.sha }}
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -33,7 +31,7 @@ jobs:
     steps:
       - name: SSH into Server and Deploy
         env:
-          DEPLOY_COMMIT: ${{ github.event.inputs.commit }}
+          DEPLOY_COMMIT: ${{ github.event.inputs.commit || github.sha }}
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
