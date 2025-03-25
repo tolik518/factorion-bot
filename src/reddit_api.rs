@@ -217,10 +217,12 @@ impl RedditClient {
                     (Vec::new(), Vec::new())
                 };
                 if let Some(posts_response) = posts_response {
-                    let posts = RedditClient::extract_posts(
+                    let (posts, _) = RedditClient::extract_comments(
                         posts_response,
                         already_replied_to_comments,
+                        false,
                         SUBREDDIT_COMMANDS.get().unwrap(),
+                        &HashMap::new(),
                     )
                     .await
                     .expect("Failed to extract comments");
@@ -462,13 +464,25 @@ impl RedditClient {
         let mut comments = Vec::with_capacity(comments_json.len());
         let mut parent_paths = Vec::new();
         for comment in comments_json {
-            let Some(extracted_comment) = Self::extract_comment(
-                comment,
-                already_replied_to_comments,
-                is_mention,
-                commands,
-                mention_map,
-            ) else {
+            let kind = comment["kind"].as_str().unwrap_or_default();
+            let extracted_comment = match kind {
+                "t1" => Self::extract_comment(
+                    comment,
+                    already_replied_to_comments,
+                    is_mention,
+                    commands,
+                    mention_map,
+                ),
+                "t3" => Self::extract_post(comment, already_replied_to_comments, commands),
+                e => {
+                    println!(
+                        "Encountered unknown kind: {e} at id {}",
+                        comment["data"]["id"].as_str().unwrap_or_default()
+                    );
+                    continue;
+                }
+            };
+            let Some(extracted_comment) = extracted_comment else {
                 continue;
             };
             if is_mention
@@ -537,30 +551,22 @@ impl RedditClient {
             Some(comment)
         }
     }
-    async fn extract_posts(
-        response: Response,
+    fn extract_post(
+        post: &Value,
         already_replied_to_comments: &mut Vec<String>,
         commands: &HashMap<&str, Commands>,
-    ) -> Result<Vec<RedditComment>, Box<dyn std::error::Error>> {
-        let empty_vec = Vec::new();
-        let response_json = response.json::<Value>().await?;
-        let posts_json = response_json["data"]["children"]
-            .as_array()
-            .unwrap_or(&empty_vec);
+    ) -> Option<RedditComment> {
+        let post_text = post["data"]["selftext"].as_str().unwrap_or("");
+        let post_title = post["data"]["title"].as_str().unwrap_or("");
+        let post_flair = post["data"]["link_flair_text"].as_str().unwrap_or("");
+        let author = post["data"]["author"].as_str().unwrap_or("");
+        let subreddit = post["data"]["subreddit"].as_str().unwrap_or("");
+        let post_id = post["data"]["name"].as_str().unwrap_or_default();
 
-        already_replied_to_comments.reserve(posts_json.len());
-        let mut posts = Vec::with_capacity(posts_json.len());
-        for post in posts_json {
-            let post_text = post["data"]["selftext"].as_str().unwrap_or("");
-            let post_title = post["data"]["title"].as_str().unwrap_or("");
-            let post_flair = post["data"]["link_flair_text"].as_str().unwrap_or("");
-            let author = post["data"]["author"].as_str().unwrap_or("");
-            let subreddit = post["data"]["subreddit"].as_str().unwrap_or("");
-            let post_id = post["data"]["name"].as_str().unwrap_or_default();
+        let body = format!("{post_title} {post_text} {post_flair}");
 
-            let body = format!("{post_title} {post_text} {post_flair}");
-
-            let extracted_comment = if already_replied_to_comments.contains(&post_id.to_string()) {
+        Some(
+            if already_replied_to_comments.contains(&post_id.to_string()) {
                 RedditComment::new_already_replied(post_id, author, subreddit)
             } else {
                 already_replied_to_comments.push(post_id.to_string());
@@ -574,17 +580,14 @@ impl RedditClient {
                     )
                 }) else {
                     println!("Failed to construct comment!");
-                    continue;
+                    return None;
                 };
 
                 comment.add_status(Status::NOT_REPLIED);
 
                 comment
-            };
-            posts.push(extracted_comment);
-        }
-
-        Ok(posts)
+            },
+        )
     }
 }
 
@@ -715,7 +718,7 @@ mod tests {
                     "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
+                    "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
                 )]).await
             },
             client.get_comments(&mut already_replied, true)
@@ -736,6 +739,7 @@ mod tests {
                "data": {
                    "children": [
                        {
+                           "kind": "t1",
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
@@ -747,6 +751,7 @@ mod tests {
                            }
                        },
                        {
+                           "kind": "t1",
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
@@ -806,6 +811,7 @@ mod tests {
                "data": {
                    "children": [
                        {
+                           "kind": "t3",
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
@@ -818,6 +824,7 @@ mod tests {
                            }
                        },
                        {
+                           "kind": "t3",
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
@@ -830,7 +837,7 @@ mod tests {
                            }
                        },
                        {
-                           "kind": "t1",
+                           "kind": "t3",
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
@@ -847,9 +854,15 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments = RedditClient::extract_posts(response, &mut already_replied, &HashMap::new())
-            .await
-            .unwrap();
+        let (comments, _) = RedditClient::extract_comments(
+            response,
+            &mut already_replied,
+            false,
+            &HashMap::new(),
+            &HashMap::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(comments.len(), 3);
         assert_eq!(
             comments[0].calculation_list,
