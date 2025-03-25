@@ -5,6 +5,11 @@ on:
     branches:
       - master
   workflow_dispatch:
+   inputs:
+      commit:
+        description: 'Commit hash to deploy'
+        required: false
+        default: ${{ github.sha }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,10 +19,8 @@ jobs:
     if: github.event_name != 'workflow_dispatch'
     name: Test
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
-
       - name: Test
         run: cargo test
 
@@ -27,8 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://example.com
-
     steps:
       - name: SSH into Server and Deploy
         env:
