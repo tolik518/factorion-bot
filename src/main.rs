@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut reddit_client = RedditClient::new().await?;
     COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
+    let mut requests_per_loop = 0;
 
     let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
     let subreddit_commands = subreddit_commands.leak();
@@ -61,14 +62,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
             )
         })
         .collect::<HashMap<_, _>>();
+    if !commands.is_empty() {
+        requests_per_loop += 1;
+        if !commands.values().all(|v| v.post_only) {
+            requests_per_loop += 1;
+        }
+    }
     SUBREDDIT_COMMANDS.set(commands).unwrap();
-
-    let sleep_between_requests =
-        std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
-    let sleep_between_requests = sleep_between_requests.as_str().parse().unwrap();
 
     let check_mentions = std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set");
     let check_mentions = check_mentions == "true";
+    if check_mentions {
+        requests_per_loop += 1;
+    }
 
     // read comment_ids from the file
     let already_replied_to_comments: String =
@@ -95,7 +101,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
 
         let start = SystemTime::now();
-        let comments = reddit_client
+        let (comments, mut rate) = reddit_client
             .get_comments(&mut already_replied_or_rejected, check_mentions)
             .await
             .unwrap_or_default();
@@ -133,8 +139,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             if should_answer {
                 let reply: String = comment.get_reply();
+                // Sleep to not spam comments too quickly
+                let pause = if rate.1 < 1 {
+                    rate.0 + 5
+                } else if rate.1 < 4 {
+                    rate.0 / rate.1 + 2
+                } else {
+                    2
+                };
+                sleep(Duration::from_secs(pause)).await;
                 match reddit_client.reply_to_comment(comment, &reply).await {
-                    Ok(_) => {
+                    Ok(t) => {
+                        rate = t;
                         influxdb::log_comment_reply(
                             influx_client,
                             &comment_id,
@@ -145,8 +161,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                     Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }
-                // Sleep to not spam comments too quickly
-                sleep(Duration::from_secs(2)).await;
                 continue;
             }
             println!(" -> unknown");
@@ -166,6 +180,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             writeln!(file, "{}", comment_id).expect("Unable to write to file");
         }
 
+        let sleep_between_requests = if rate.1 < requests_per_loop + 1 {
+            rate.0 + 5
+        } else if rate.1 < requests_per_loop * 4 {
+            rate.0 / rate.1 + 2
+        } else {
+            (rate.0 / rate.1).saturating_sub(2)
+        };
         // Sleep to avoid hitting API rate limits
         sleep(Duration::from_secs(sleep_between_requests)).await;
     }
