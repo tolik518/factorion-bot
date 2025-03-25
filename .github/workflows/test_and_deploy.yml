@@ -9,8 +9,12 @@ on:
       commit:
         description: 'Commit hash to deploy'
         required: false
+
 env:
   CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
 
 jobs:
   test:
@@ -24,7 +28,7 @@ jobs:
 
   tag:
     if: github.event_name != 'workflow_dispatch'
-    name: Create Git Tag from Cargo.toml Version
+    name: Create Git Tag
     needs: test
     runs-on: ubuntu-latest
     steps:
