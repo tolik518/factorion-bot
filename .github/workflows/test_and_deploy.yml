@@ -5,7 +5,10 @@ on:
     branches:
       - master
   workflow_dispatch:
-
+   inputs:
+      commit:
+        description: 'Commit hash to deploy'
+        required: false
 env:
   CARGO_TERM_COLOR: always
 
@@ -14,10 +17,8 @@ jobs:
     if: github.event_name != 'workflow_dispatch'
     name: Test
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
-
       - name: Test
         run: cargo test
 
@@ -27,12 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://example.com
-
     steps:
       - name: SSH into Server and Deploy
         env:
-          DEPLOY_COMMIT: ${{ github.event.inputs.commit }}
+          DEPLOY_COMMIT: ${{ github.event.inputs.commit || github.sha }}
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -44,8 +43,8 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i private_key.pem $SSH_USER@$SSH_HOST <<EOF
             set -e  # Exit immediately if a command fails
             cd $SSH_PATH && \
-            git fetch origin master && \
-            git reset --hard "$DEPLOY_COMMIT"  && \
+            git fetch origin && \
+            git reset --hard "$DEPLOY_COMMIT" && \
             docker build -t factorion-bot . && \
             docker stop factorion-bot || true && \
             sleep 3 && \

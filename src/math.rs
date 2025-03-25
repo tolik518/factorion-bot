@@ -3,6 +3,7 @@ use rug::integer::IntegerExt64;
 use rug::ops::*;
 use rug::{Complete, Float, Integer};
 use std::ops::Mul;
+use std::ops::Rem;
 use std::sync::LazyLock;
 
 pub const FLOAT_PRECISION: u32 = 1024;
@@ -12,6 +13,20 @@ pub static LN10: LazyLock<Float> = LazyLock::new(|| Float::with_val(FLOAT_PRECIS
 
 pub fn factorial(n: u64, k: i32) -> Integer {
     Integer::factorial_m_64(n, k as u64).complete()
+}
+
+pub(crate) fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
+    let n = -n;
+    let rem = n.rem(2 * k);
+    if rem == 0 {
+        None
+    } else if rem < k {
+        Some(Integer::ONE.clone())
+    } else if rem == k {
+        None
+    } else {
+        Some(Integer::NEG_ONE.clone())
+    }
 }
 
 pub(crate) fn subfactorial(n: u64) -> Integer {
@@ -238,7 +253,7 @@ pub fn approximate_termial_digits(n: Integer) -> Integer {
 ///
 /// # Panic
 /// Will panic if `x` is not finite.
-fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
+pub(crate) fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     let (extra, _) = (x.clone().ln() / &*LN10)
         .to_integer_round(rug::float::Round::Down)
         .expect("Got non-finite number, x is likely not finite");

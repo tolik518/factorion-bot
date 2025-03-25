@@ -15,7 +15,7 @@ pub(crate) enum CalculationResult {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
-    ApproximateDigitsTower(u16, Integer),
+    ApproximateDigitsTower(bool, u16, Integer),
     Float(OrdFloat),
     ComplexInfinity,
 }
@@ -81,7 +81,7 @@ impl Calculation {
         matches!(
             self,
             Calculation {
-                result: CalculationResult::ApproximateDigitsTower(_, _),
+                result: CalculationResult::ApproximateDigitsTower(_, _, _),
                 ..
             }
         )
@@ -209,12 +209,13 @@ impl Calculation {
                     factorial_string, number, digits
                 )
             }
-            CalculationResult::ApproximateDigitsTower(depth, exponent) => {
+            CalculationResult::ApproximateDigitsTower(negative, depth, exponent) => {
                 let mut s = if self.is_too_long() || force_shorten {
                     Self::truncate(exponent, false)
                 } else {
                     exponent.to_string()
                 };
+                let negative = if *negative { "-" } else { "" };
                 for i in 0..*depth {
                     if i == depth.saturating_sub(1) {
                         s = format!("10^({s})");
@@ -226,8 +227,8 @@ impl Calculation {
                 }
                 write!(
                     acc,
-                    "{}{} has on the order of {} digits \n\n",
-                    factorial_string, number, s
+                    "{}{} has on the order of {}{} digits \n\n",
+                    factorial_string, number, negative, s
                 )
             }
             CalculationResult::Float(gamma) => {
@@ -337,7 +338,7 @@ impl Calculation {
             CalculationResult::Exact(n)
             | CalculationResult::ApproximateDigits(n)
             | CalculationResult::Approximate(_, n)
-            | CalculationResult::ApproximateDigitsTower(_, n) => n,
+            | CalculationResult::ApproximateDigitsTower(_, _, n) => n,
             CalculationResult::Float(_) | CalculationResult::ComplexInfinity => return false,
         };
         n > &*TOO_BIG_NUMBER
@@ -641,13 +642,27 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::ApproximateDigitsTower(9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, 9, 10375.into()),
         };
         let mut s = String::new();
         fact.format(&mut s, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
+        );
+    }
+    #[test]
+    fn test_format_digits_tower_negative() {
+        let fact = Calculation {
+            value: 0.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::ApproximateDigitsTower(true, 9, 10375.into()),
+        };
+        let mut s = String::new();
+        fact.format(&mut s, false).unwrap();
+        assert_eq!(
+            s,
+            "The factorial of 0 has on the order of -10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
         );
     }
     #[test]
@@ -717,6 +732,7 @@ mod test {
             ),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigitsTower(
+                false,
                 9,
                 Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
             ),
