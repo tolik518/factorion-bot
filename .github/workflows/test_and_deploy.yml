@@ -4,11 +4,6 @@ on:
   push:
     branches:
       - master
-  workflow_dispatch:
-   inputs:
-      commit:
-        description: 'Commit hash to deploy'
-        required: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -67,6 +62,7 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch'
     name: Deploy to Server
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -92,25 +88,25 @@ jobs:
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
 
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $SSH_USER@$SSH_HOST <<'EOF'
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $SSH_USER@$SSH_HOST <<EOF
             set -e
-            cd "$SSH_PATH"
-            git fetch origin --tags
-            git checkout "refs/tags/$VERSION"
-            docker build -t factorion-bot:"$VERSION" .
-            docker stop factorion-bot || true
-            sleep 3
-            docker rm factorion-bot || true
-            sleep 1
+            cd $SSH_PATH && \
+            git fetch origin --tags && \
+            git checkout "refs/tags/$VERSION" && \
+            docker build -t factorion-bot:"$VERSION" . && \
+            docker stop factorion-bot || true && \
+            sleep 3 && \
+            docker rm factorion-bot || true && \
+            sleep 1 && \
             docker run -d \
               --network service-network \
               --name factorion-bot \
               --volume "$SSH_PATH":/usr/factorion \
-              factorion-bot:"$VERSION" ./run.sh
-            sleep 3
+              factorion-bot:"$VERSION" ./run.sh && \
+            sleep 3 && \
             if [ "$(docker ps -q -f name=factorion-bot | wc -l)" -eq 0 ]; then
-              echo "ERROR: Container failed to start. Showing logs:"
-              docker logs factorion-bot
+              echo "ERROR: Container failed to start. Showing logs:" && \
+              docker logs factorion-bot && \
               exit 1
             fi
             echo "Deployment successful - container is running"
