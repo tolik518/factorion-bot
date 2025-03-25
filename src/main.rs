@@ -1,3 +1,4 @@
+use core::panic;
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
@@ -21,7 +22,6 @@ pub(crate) mod reddit_comment;
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
-static SUBREDDITS: OnceLock<&str> = OnceLock::new();
 static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
 #[tokio::main]
@@ -53,20 +53,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         "termial" => Commands::TERMIAL,
                         "steps" => Commands::STEPS,
                         "no_note" => Commands::NO_NOTE,
+                        "post_only" => Commands::POST_ONLY,
                         "" => Commands::NONE,
-                        s => Err(s).expect("Unknown command in subreddit {sub}"),
+                        s => panic!("Unknown command in subreddit {sub}: {s}"),
                     })
                     .fold(Commands::NONE, |a, e| a | e),
             )
         })
         .collect::<HashMap<_, _>>();
-    let subreddits = commands
-        .keys()
-        .map(ToString::to_string)
-        .reduce(|a, e| format!("{a}+{e}"))
-        .unwrap_or_default();
     SUBREDDIT_COMMANDS.set(commands).unwrap();
-    SUBREDDITS.set(subreddits.leak()).unwrap();
 
     let sleep_between_requests =
         std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
