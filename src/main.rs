@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let subreddit_commands = subreddit_commands.leak();
     let commands = subreddit_commands
         .split('+')
-        .map(|s| s.split_once(':').unwrap_or_default())
+        .map(|s| s.split_once(':').unwrap_or((s, "")))
         .map(|(sub, commands)| {
             (
                 sub,
