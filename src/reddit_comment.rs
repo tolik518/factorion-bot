@@ -850,6 +850,32 @@ mod tests {
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
     #[test]
+    fn test_comment_new_decimals_multifactorial() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 0.5!!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        steps: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(0.5, 0.9628277824464175)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+    #[test]
     fn test_comment_new_decimals_termial() {
         let comment = RedditComment::new(
             "This is a test comment with decimal number 0.5?",
@@ -1434,6 +1460,20 @@ mod tests {
     }
 
     #[test]
+    fn test_get_reply_approximate_multifactorial_from_new_comment() {
+        let comment = RedditComment::new(
+            "This is a test comment with a factorial of 1489232!!!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
     fn test_get_reply_approximate_digits_from_new_comment() {
         let comment = RedditComment::new(
             "This is a test comment with a factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374!",
@@ -1450,7 +1490,7 @@ mod tests {
     #[test]
     fn test_get_reply_approximate_digits_from_multifactorial() {
         let comment = RedditComment::new(
-            "This is a test comment with a multi-factorial of 8394763!!!!",
+            "This is a test comment with a multi-factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374!!!!",
             "1234",
             "test_author",
             "test_subreddit",
@@ -1458,7 +1498,7 @@ mod tests {
         );
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-factorial of 8394763 has approximately 13619907 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 5111630553891059068760265609072933896403942672124258422158998087001642413131656212192578935036859443537279552278852891828697994100964073969507964938716235258208588005372302744766351440213985182885726791518874267039106507691933781725514702567849001987382341594768284864409295003573151660893751894294566362 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
