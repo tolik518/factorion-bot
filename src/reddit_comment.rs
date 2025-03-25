@@ -108,12 +108,14 @@ pub(crate) struct Commands {
     pub(crate) steps: bool,
     pub(crate) termial: bool,
     pub(crate) no_note: bool,
+    pub(crate) post_only: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
     steps,
     termial,
     no_note,
+    post_only,
 });
 #[allow(dead_code)]
 impl Commands {
@@ -122,6 +124,7 @@ impl Commands {
         steps: false,
         termial: false,
         no_note: false,
+        post_only: false,
     };
     pub(crate) const SHORTEN: Self = Self {
         shorten: true,
@@ -137,6 +140,10 @@ impl Commands {
     };
     pub(crate) const NO_NOTE: Self = Self {
         no_note: true,
+        ..Self::NONE
+    };
+    pub(crate) const POST_ONLY: Self = Self {
+        post_only: true,
         ..Self::NONE
     };
 }
@@ -159,6 +166,7 @@ impl Commands {
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
                 || Self::contains_command_format(text, "no_note"),
+            post_only: false,
         }
     }
     pub(crate) fn overrides_from_comment_text(text: &str) -> Self {
@@ -169,6 +177,7 @@ impl Commands {
             termial: !(Self::contains_command_format(text, "no termial")
                 | Self::contains_command_format(text, "no_termial")),
             no_note: !Self::contains_command_format(text, "note"),
+            post_only: true,
         }
     }
 }
