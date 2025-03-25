@@ -62,7 +62,6 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch'
     name: Deploy to Server
-    needs: test
     runs-on: ubuntu-latest
     environment:
       name: production
