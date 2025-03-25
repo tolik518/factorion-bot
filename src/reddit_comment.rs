@@ -240,7 +240,7 @@ impl RedditComment {
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
         static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+\.\d+|\d+)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -248,11 +248,11 @@ impl RedditComment {
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+\.\d+|\d+)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+\.\d+|-*\d+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -260,24 +260,28 @@ impl RedditComment {
                 .expect("Invalid subfactorial regex")
         });
         static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+\.\d+|-*\d+)\)(\?)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\)(\?)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial regex")
         });
         static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*)\(([\d!?\(\)\.-]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)\(([\d!?\(\)\.\-+eE]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid factorial-chain regex")
         });
         static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*)(!)\(([\d!?\(\)\.-]+)\)(?![<\d]|&lt;|\)?[!?])")
+            Regex::new(r"(?<![,.?!\d-]|!\()(-*)(!)\(([\d!?\(\)\.\-+eE]+)\)(?![<\d]|&lt;|\)?[!?])")
                 .expect("Invalid subfactorial-chain regex")
         });
         static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d-]*\?)(!+)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial-chain regex")
+            Regex::new(
+                r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d\-+eE]*\?)(!+)(?![<\d]|&lt;|\)?[!?])",
+            )
+            .expect("Invalid factorial-chain regex")
         });
         static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d-]*)(\?)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial-chain regex")
+            Regex::new(
+                r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d\-+eE]*)(\?)(?![<\d]|&lt;|\)?[!?])",
+            )
+            .expect("Invalid factorial-chain regex")
         });
         let mut list: Vec<CalculationJob> = Vec::new();
 
@@ -885,6 +889,59 @@ mod tests {
         );
         assert_eq!(comment.calculation_list, vec![]);
         assert_eq!(comment.status, Status::NO_FACTORIAL);
+    }
+
+    #[test]
+    fn test_comment_new_exponentials() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 5.1e-2!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        steps: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(0.051, 0.973020477127066)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+    #[test]
+    fn test_comment_new_exponentials_positive() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number -0.1e+2!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        );
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        steps: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(10.0, -3628800.0)]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
 
     #[test]
