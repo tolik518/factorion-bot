@@ -36,13 +36,26 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 2  # Ensure you have the commit history to compare
-      - name: Ensure version bump in Cargo.toml
+      - name: Ensure version bump in Cargo.toml (if applicable)
         run: |
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          # Fetch the base branch version of Cargo.toml
+          # Fetch the base branch version of Cargo.toml and diff files
           git fetch origin "$BASE_BRANCH"
+          # Get list of changed files between base branch and the current commit
+          CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Filter out files that are not yml, yaml, or md.
+          NON_CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -vE '\.(yml|yaml|md)$' || true)
+          
+          if [ -z "$NON_CONFIG_FILES" ]; then
+            echo "Only YAML, Markdown, or similar files changed. Skipping version bump check."
+            exit 0
+          fi
+
+          # Proceed with version bump check if there are other changes.
           BASE_VERSION=$(git show origin/"$BASE_BRANCH":Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
-          # Get the PR branch version
           PR_VERSION=$(grep '^version' Cargo.toml | head -n 1 | cut -d '"' -f2)
           echo "Base version: $BASE_VERSION"
           echo "PR version: $PR_VERSION"
