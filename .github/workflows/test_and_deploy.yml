@@ -105,9 +105,13 @@ jobs:
               factorion-bot:"$VERSION" ./run.sh && \
             sleep 3 && \
             if [ "$(docker ps -q -f name=factorion-bot | wc -l)" -eq 0 ]; then
-              echo "ERROR: Container failed to start. Showing logs:" && \
-              docker logs factorion-bot && \
-              exit 1
+              echo "WARN: Container takes more time than usual to spin up" && \
+              sleep 4 && \
+              if [ "$(docker ps -q -f name=factorion-bot | wc -l)" -eq 0 ]; then
+                echo "ERROR: Container failed to start. Showing logs:" && \
+                docker logs factorion-bot && \
+                exit 1
+              fi
             fi
             echo "Deployment successful - container is running"
           EOF
