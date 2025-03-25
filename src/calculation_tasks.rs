@@ -203,9 +203,7 @@ impl CalculationJob {
                     result: CalculationResult::ComplexInfinity,
                 }
                 // Check if we can approximate the number of digits
-            } else if calc_num > *UPPER_APPROXIMATION_LIMIT
-                || (level > 1 && calc_num > UPPER_CALCULATION_LIMIT)
-            {
+            } else if calc_num > *UPPER_APPROXIMATION_LIMIT {
                 let factorial = math::approximate_multifactorial_digits(calc_num.clone(), level);
                 Calculation {
                     value: num,
@@ -214,7 +212,11 @@ impl CalculationJob {
                 }
             // Check if the number is within a reasonable range to compute
             } else if calc_num > UPPER_CALCULATION_LIMIT {
-                let factorial = math::approximate_factorial(calc_num.clone());
+                let factorial = if level == 0 {
+                    math::approximate_factorial(calc_num.clone())
+                } else {
+                    math::approximate_multifactorial(calc_num.clone(), level)
+                };
                 Calculation {
                     value: Number::Int(calc_num),
                     steps: vec![(level, negative)],
