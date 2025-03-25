@@ -1,6 +1,10 @@
 [package]
 name = "factorion-bot"
+<<<<<<< HEAD
 version = "2.5.0"
+=======
+version = "2.4.1"
+>>>>>>> master
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
