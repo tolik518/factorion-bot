@@ -972,26 +972,26 @@ mod tests {
     #[test]
     fn test_comment_new_exponentials_positive() {
         let comment = RedditComment::new(
-            "This is a test comment with decimal number -0.1e+2!",
+            "This is a test comment with decimal number -0.1e+2! 1.12342e+2!",
             "123",
             "test_author",
             "test_subreddit",
             Commands::NONE,
         );
         assert_eq!(
-            comment
-                .calculation_list
-                .into_iter()
-                .map(|calc| match calc {
-                    Calculation {
-                        value: Number::Float(number),
-                        steps: _,
-                        result: CalculationResult::Float(gamma),
-                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
-                    _ => unreachable!("No normal factorial included"),
-                })
-                .collect::<Vec<_>>(),
-            vec![(10.0, -3628800.0)]
+            comment.calculation_list,
+            [
+                Calculation {
+                    value: Number::Float(Float::with_val(FLOAT_PRECISION, Float::parse("112.342").unwrap()).into()),
+                    steps: vec![(1, 0)],
+                    result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, Float::parse("993525073229285436539807503113271988267318728609930136156505804196109258655775654879896155361191576205057992198378530500089998766548809286881281158234109518671597164775130317741632313.7252607309857759503328865475739439663463350416381893570704080831760770928994102217701454569735908025174055229200345933253782907").unwrap()).into())
+                },
+                Calculation {
+                    value: Number::Int(10.into()),
+                    steps: vec![(1, 1)],
+                    result: CalculationResult::Exact((-3628800).into())
+                },
+            ]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }

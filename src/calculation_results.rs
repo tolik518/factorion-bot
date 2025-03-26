@@ -37,6 +37,10 @@ impl FromStr for Number {
             if negative {
                 num *= -1;
             }
+            if num.is_integer() {
+                // PANIC: We just checked. (Could even do unwrap_unchecked)
+                return Ok(Number::Int(num.to_integer().unwrap()));
+            }
             return Ok(Self::Float(num.into()));
         };
         if negative {
