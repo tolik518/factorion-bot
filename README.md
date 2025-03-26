@@ -1,3 +1,5 @@
+![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2Ftolik518%2Ffactorion-bot%2Fdeployments%3Fper_page%3D1&query=%24.0.ref&label=Deployed%20version&prefix=v) ![GitHub Tag](https://img.shields.io/github/v/tag/tolik518/factorion-bot?label=Current%20version)
+
 <p align="center">
     <img alt="Factorion-Logo which looks like a robot from futurama" src=".github/image_pixelart_transparent.png" width="128px">
 </p>
