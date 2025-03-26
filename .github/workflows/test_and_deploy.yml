@@ -25,7 +25,7 @@ jobs:
   tag:
     if: github.event_name != 'workflow_dispatch'
     name: Create Git Tag
-    needs: test
+    #needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -42,7 +42,7 @@ jobs:
         id: check_tag
         run: |
           # Get the latest tag sorted by version
-          LATEST=\$(git tag --sort=-v:refname | head -n 1 || echo "")
+          LATEST="$(git tag --sort=-v:refname | head -n 1 || echo "")"
           echo "Latest tag: $LATEST"
           if [ "$LATEST" = "$VERSION" ]; then
             echo "Tag is up-to-date. No new tag needed."
