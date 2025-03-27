@@ -90,6 +90,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .lines()
         .map(|s| s.to_string())
         .collect::<Vec<String>>();
+    let mut last_ids = Default::default();
 
     // Polling Reddit for new comments
     loop {
@@ -102,7 +103,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         let (comments, mut rate) = reddit_client
-            .get_comments(&mut already_replied_or_rejected, check_mentions)
+            .get_comments(
+                &mut already_replied_or_rejected,
+                check_mentions,
+                &mut last_ids,
+            )
             .await
             .unwrap_or_default();
         let end = SystemTime::now();
