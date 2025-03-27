@@ -239,7 +239,7 @@ impl RedditComment {
     }
 
     fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
-        if !text.contains('!') && !(text.contains('?') && include_termial) {
+        if !(text.contains('!') || text.contains('?') && include_termial) {
             return vec![];
         }
 
