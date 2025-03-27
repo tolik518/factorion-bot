@@ -75,6 +75,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if check_mentions {
         requests_per_loop += 1;
     }
+    let check_posts = std::env::var("CHECK_POSTS").expect("CHECK_POSTS must be set");
+    let check_posts = check_posts == "true";
+
+    let posts_every = std::env::var("POSTS_EVERY").unwrap_or("1".to_owned());
+    let posts_every: u8 = posts_every.parse().expect("POSTS_EVERY is not a number");
+    let mentions_every = std::env::var("MENTIONS_EVERY").unwrap_or("1".to_owned());
+    let mentions_every: u8 = mentions_every
+        .parse()
+        .expect("MENTIONS_EVERY is not a number");
 
     // read comment_ids from the file
     let already_replied_to_comments: String =
@@ -93,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut last_ids = Default::default();
 
     // Polling Reddit for new comments
-    loop {
+    for i in (0..u8::MAX).cycle() {
         let today: OffsetDateTime = SystemTime::now().into();
         println!(
             "{} - {} | Polling Reddit for new comments...",
@@ -105,7 +114,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let (comments, mut rate) = reddit_client
             .get_comments(
                 &mut already_replied_or_rejected,
-                check_mentions,
+                check_mentions && i % mentions_every == 0,
+                check_posts && i % posts_every == 0,
                 &mut last_ids,
             )
             .await
@@ -195,4 +205,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Sleep to avoid hitting API rate limits
         sleep(Duration::from_secs(sleep_between_requests)).await;
     }
+    Ok(())
 }

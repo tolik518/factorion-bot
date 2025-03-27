@@ -75,6 +75,7 @@ impl RedditClient {
         &mut self,
         already_replied_to_comments: &mut Vec<String>,
         check_mentions: bool,
+        check_posts: bool,
         last_ids: &mut (String, String, String),
     ) -> Result<(Vec<RedditComment>, (u64, u64)), ()> {
         static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
@@ -155,17 +156,22 @@ impl RedditClient {
                     .bearer_auth(&self.token.access_token)
                     .send()
             })),
-            OptionFuture::from(SUBREDDIT_POSTS_URL.clone().map(|mut subreddit_url| {
-                subreddit_url.set_query(Some(&format!(
-                    "limit={}&after={}",
-                    COMMENT_COUNT.get().expect("Comment count uninitialized"),
-                    last_ids.1
-                )));
-                self.client
-                    .get(subreddit_url)
-                    .bearer_auth(&self.token.access_token)
-                    .send()
-            })),
+            OptionFuture::from(
+                check_posts
+                    .then_some(SUBREDDIT_POSTS_URL.clone())
+                    .flatten()
+                    .map(|mut subreddit_url| {
+                        subreddit_url.set_query(Some(&format!(
+                            "limit={}&after={}",
+                            COMMENT_COUNT.get().expect("Comment count uninitialized"),
+                            last_ids.1
+                        )));
+                        self.client
+                            .get(subreddit_url)
+                            .bearer_auth(&self.token.access_token)
+                            .send()
+                    })
+            ),
             OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
                 |mut subreddit_url| {
                     subreddit_url.set_query(Some(&format!(
@@ -792,7 +798,7 @@ mod tests {
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 7\r\nx-ratelimit-reset: 170\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
                 )]).await
             },
-            client.get_comments(&mut already_replied, true, &mut last_ids)
+            client.get_comments(&mut already_replied, true, true, &mut last_ids)
         );
         status.unwrap();
         let comments = comments.unwrap();
