@@ -2,7 +2,7 @@ use core::panic;
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
-use reddit_comment::{Commands, Status};
+use reddit_comment::{Commands, RedditComment, Status};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
@@ -102,6 +102,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "get_comments").await?;
+
+        let start = SystemTime::now();
+        let comments = comments
+            .into_iter()
+            .map(RedditComment::extract)
+            .collect::<Vec<_>>();
+        let end = SystemTime::now();
+
+        influxdb::log_time_consumed(influx_client, start, end, "extract_factorials").await?;
+
+        let start = SystemTime::now();
+        let comments = comments
+            .into_iter()
+            .map(RedditComment::calc)
+            .collect::<Vec<_>>();
+        let end = SystemTime::now();
+
+        influxdb::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
 
         let start = SystemTime::now();
         for comment in comments {
