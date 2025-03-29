@@ -69,10 +69,7 @@ fn fractional_multifactorial_product(x: Float, _k: i32, k: Float) -> Float {
     (1.._k)
         .map(|j| {
             let exp = fractional_multifactorial_sum(x.clone(), j, _k, k.clone());
-            (j.clone()
-                / k.clone().pow(j.clone() / k.clone())
-                / fractional_factorial(j.clone() / k.clone()))
-            .pow(exp)
+            (j / k.clone().pow(j / k.clone()) / fractional_factorial(j / k.clone())).pow(exp)
         })
         .reduce(Mul::mul)
         .unwrap_or(Float::with_val(FLOAT_PRECISION, 1))

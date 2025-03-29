@@ -78,14 +78,19 @@ PASSWORD=<reddit_app_password>
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
 SUBREDDITS=<subreddits>
 TERMIAL_SUBREDDITS=<subbreddits_with_termials>
-CHECK_MENTIONS=<ignore_mentions>
+CHECK_MENTIONS=<check_mentions>
+CHECK_POSTS=<check_posts>
+MENTIONS_EVERY=<check_mentions_every_nth_loop>
+POSTS_EVERY=<check_posts_every_nth_loop>
 
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test
 INFLUXDB_TOKEN=<token>
 ```
 
-Replace with the values you received from the Reddit App creation. InfluxDB is optional and can be removed if not needed.
+Replace with the values you received from the Reddit App creation.
+InfluxDB is optional and can be removed if not needed.
+The `_EVERY` variables are optional and default to "1".
 
 ## Run the following command to install dependencies:
 
