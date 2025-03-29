@@ -229,13 +229,18 @@ impl RedditCommentConstructed {
         } else {
             status.factorials_found = true;
         }
+        let text = if comment_text.contains('!') || comment_text.contains('?') {
+            comment_text.to_owned()
+        } else {
+            String::new()
+        };
 
         RedditComment {
             id: id.to_string(),
             author: author.to_string(),
             notify: None,
             subreddit: subreddit.to_string(),
-            calculation_list: comment_text.to_owned(),
+            calculation_list: text,
             status,
             commands,
         }
