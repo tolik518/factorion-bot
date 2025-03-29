@@ -145,14 +145,19 @@ impl RedditClient {
         let mut time = (u64::MAX, u64::MIN);
 
         let (subs_response, posts_response, mentions_response) = join!(
-            OptionFuture::from(SUBREDDIT_URL.clone().map(|mut subreddit_url| {
-                subreddit_url.set_query(Some(&format!(
-                    "limit={}&after={}",
-                    COMMENT_COUNT.get().expect("Comment count uninitialized"),
-                    last_ids.0
-                )));
+            OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
                 self.client
                     .get(subreddit_url)
+                    .query(&[
+                        (
+                            "limit",
+                            &COMMENT_COUNT
+                                .get()
+                                .expect("Comment count uninitialized")
+                                .to_string(),
+                        ),
+                        ("after", &last_ids.0),
+                    ])
                     .bearer_auth(&self.token.access_token)
                     .send()
             })),
@@ -160,27 +165,37 @@ impl RedditClient {
                 check_posts
                     .then_some(SUBREDDIT_POSTS_URL.clone())
                     .flatten()
-                    .map(|mut subreddit_url| {
-                        subreddit_url.set_query(Some(&format!(
-                            "limit={}&after={}",
-                            COMMENT_COUNT.get().expect("Comment count uninitialized"),
-                            last_ids.1
-                        )));
+                    .map(|subreddit_url| {
                         self.client
                             .get(subreddit_url)
+                            .query(&[
+                                (
+                                    "limit",
+                                    &COMMENT_COUNT
+                                        .get()
+                                        .expect("Comment count uninitialized")
+                                        .to_string(),
+                                ),
+                                ("after", &last_ids.1),
+                            ])
                             .bearer_auth(&self.token.access_token)
                             .send()
                     })
             ),
             OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
-                |mut subreddit_url| {
-                    subreddit_url.set_query(Some(&format!(
-                        "limit={}&after={}",
-                        COMMENT_COUNT.get().expect("Comment count uninitialized"),
-                        last_ids.2
-                    )));
+                |subreddit_url| {
                     self.client
                         .get(subreddit_url)
+                        .query(&[
+                            (
+                                "limit",
+                                &COMMENT_COUNT
+                                    .get()
+                                    .expect("Comment count uninitialized")
+                                    .to_string(),
+                            ),
+                            ("after", &last_ids.2),
+                        ])
                         .bearer_auth(&self.token.access_token)
                         .send()
                 }
