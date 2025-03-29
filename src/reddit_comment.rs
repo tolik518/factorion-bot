@@ -538,11 +538,11 @@ impl RedditCommentCalculated {
             {
                 if multiple {
                     let _ = note.write_str(
-                "Sorry, some of those are so large, that I can't calculate them, so I'll have to approximate.\n\n",
+                "Some of those are so large, that I can't calculate them, so I'll have to approximate.\n\n",
             );
                 } else {
                     let _ = note.write_str(
-                "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\n",
+                "That is so large, that I can't calculate it, so I'll have to approximate.\n\n",
             );
                 }
             } else if self.calculation_list.iter().any(Calculation::is_rounded) {
@@ -1308,7 +1308,7 @@ mod tests {
         let reply = comment.get_reply();
         assert_eq!(
             reply,
-            "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+            "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
     }
 
@@ -1594,7 +1594,7 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1489232 is approximately 2.120259616630154 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1489232 is approximately 2.120259616630154 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1610,7 +1610,7 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1000002 is approximately 8.263956480142832 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1000002 is approximately 8.263956480142832 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
@@ -1626,7 +1626,7 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Sorry, that is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(reply, "That is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
