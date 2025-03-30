@@ -91,6 +91,8 @@ INFLUXDB_TOKEN=<token>
 Replace with the values you received from the Reddit App creation.
 InfluxDB is optional and can be removed if not needed.
 The `_EVERY` variables are optional and default to "1".
+They control how often posts/mentions are checked compared to comments.
+Setting them to "0" will result in a chrash.
 
 ## Run the following command to install dependencies:
 
