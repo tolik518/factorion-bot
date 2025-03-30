@@ -206,32 +206,10 @@ impl RedditCommentConstructed {
 
         let mut status: Status = Default::default();
 
-        let pending_list: Vec<CalculationJob> =
-            Self::extract_calculation_jobs(comment_text, commands.termial);
-
-        let mut calculation_list: Vec<Calculation> = pending_list
-            .into_iter()
-            .flat_map(|calc| calc.execute(commands.steps))
-            .filter_map(|x| {
-                if x.is_none() {
-                    status.number_too_big_to_calculate = true;
-                };
-                x
-            })
-            .collect();
-
-        calculation_list.sort();
-        calculation_list.dedup();
-        calculation_list.sort_by_key(|x| x.steps.len());
-
-        if calculation_list.is_empty() {
-            status.no_factorial = true;
-        } else {
-            status.factorials_found = true;
-        }
-        let text = if comment_text.contains('!') || comment_text.contains('?') {
+        let text = if Self::might_have_factorial(comment_text) {
             comment_text.to_owned()
         } else {
+            status.no_factorial = true;
             String::new()
         };
 
@@ -246,6 +224,42 @@ impl RedditCommentConstructed {
         }
     }
 
+    pub fn might_have_factorial(text: &str) -> bool {
+        text.contains(")!")
+            || text.contains("!(")
+            || text.contains(")?")
+            || text.contains("0!")
+            || text.contains("1!")
+            || text.contains("2!")
+            || text.contains("3!")
+            || text.contains("4!")
+            || text.contains("5!")
+            || text.contains("6!")
+            || text.contains("7!")
+            || text.contains("8!")
+            || text.contains("9!")
+            || text.contains("!0")
+            || text.contains("!1")
+            || text.contains("!2")
+            || text.contains("!3")
+            || text.contains("!4")
+            || text.contains("!5")
+            || text.contains("!6")
+            || text.contains("!7")
+            || text.contains("!8")
+            || text.contains("!9")
+            || text.contains("0?")
+            || text.contains("1?")
+            || text.contains("2?")
+            || text.contains("3?")
+            || text.contains("4?")
+            || text.contains("5?")
+            || text.contains("6?")
+            || text.contains("7?")
+            || text.contains("8?")
+            || text.contains("9?")
+    }
+
     pub fn extract(self) -> RedditComment<Vec<CalculationJob>> {
         let RedditComment {
             id,
@@ -253,11 +267,15 @@ impl RedditCommentConstructed {
             author,
             notify,
             subreddit,
-            status,
+            mut status,
             commands,
         } = self;
         let pending_list: Vec<CalculationJob> =
             Self::extract_calculation_jobs(&comment_text, commands.termial);
+
+        if pending_list.is_empty() {
+            status.no_factorial = true;
+        }
 
         RedditComment {
             id,

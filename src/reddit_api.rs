@@ -573,8 +573,8 @@ impl RedditClient {
                 continue;
             };
             if is_mention
-                && extracted_comment.status.no_factorial
                 && !extracted_comment.status.already_replied_or_rejected
+                && extracted_comment.status.no_factorial
             {
                 if let Some(path) = Self::extract_summon_parent_id(comment) {
                     parent_paths.push((
