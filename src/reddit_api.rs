@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::LazyLock;
 
-use crate::reddit_comment::{Commands, RedditComment, Status};
+use crate::reddit_comment::{
+    Commands, RedditComment, RedditCommentCalculated, RedditCommentConstructed, Status,
+};
 use crate::{COMMENT_COUNT, SUBREDDIT_COMMANDS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
@@ -77,7 +79,7 @@ impl RedditClient {
         check_mentions: bool,
         check_posts: bool,
         last_ids: &mut (String, String, String),
-    ) -> Result<(Vec<RedditComment>, (u64, u64)), ()> {
+    ) -> Result<(Vec<RedditCommentConstructed>, (u64, u64)), ()> {
         static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut subreddits = SUBREDDIT_COMMANDS
                 .get()
@@ -333,7 +335,7 @@ impl RedditClient {
     /// May panic on a malformed response is recieved from the api.
     pub(crate) async fn reply_to_comment(
         &self,
-        comment: RedditComment,
+        comment: RedditCommentCalculated,
         reply: &str,
     ) -> Result<(u64, u64), Error> {
         let params = json!({
@@ -520,7 +522,7 @@ impl RedditClient {
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Result<
         (
-            Vec<RedditComment>,
+            Vec<RedditCommentConstructed>,
             Vec<(String, (String, Commands, String))>,
             (u64, u64),
             Option<String>,
@@ -597,7 +599,7 @@ impl RedditClient {
         do_termial: bool,
         commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
-    ) -> Option<RedditComment> {
+    ) -> Option<RedditCommentConstructed> {
         let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
@@ -641,7 +643,7 @@ impl RedditClient {
         post: &Value,
         already_replied_to_comments: &mut Vec<String>,
         commands: &HashMap<&str, Commands>,
-    ) -> Option<RedditComment> {
+    ) -> Option<RedditCommentConstructed> {
         let post_text = post["data"]["selftext"].as_str().unwrap_or("");
         let post_title = post["data"]["title"].as_str().unwrap_or("");
         let post_flair = post["data"]["link_flair_text"].as_str().unwrap_or("");
@@ -766,7 +768,7 @@ mod tests {
                 "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 32\r\n\r\ntext=I+relpy&thing_id=t1_some_id",
                 "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 200\n\n{\"success\": true}"
             )]),
-            client.reply_to_comment(RedditComment::new_already_replied("t1_some_id", "author", "subressit"), "I relpy")
+            client.reply_to_comment(RedditComment::new_already_replied("t1_some_id", "author", "subressit").extract().calc(), "I relpy")
         );
         status.unwrap();
         let reply_status = reply_status.unwrap();
@@ -816,14 +818,18 @@ mod tests {
             client.get_comments(&mut already_replied, true, true, &mut last_ids)
         );
         status.unwrap();
-        let comments = comments.unwrap();
-        assert_eq!(comments.0.len(), 2);
-        assert_eq!(comments.0[0].id, "");
-        assert_eq!(comments.0[0].author, "mentioner");
-        assert_eq!(comments.0[0].notify.as_ref().unwrap(), "");
-        assert_eq!(comments.0[0].commands, Commands::TERMIAL);
-        assert_eq!(comments.0[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
-        assert_eq!(comments.1, (170, 7))
+        let (comments, rate) = comments.unwrap();
+        let comments = comments
+            .into_iter()
+            .map(|c| c.extract().calc())
+            .collect::<Vec<_>>();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].id, "");
+        assert_eq!(comments[0].author, "mentioner");
+        assert_eq!(comments[0].notify.as_ref().unwrap(), "");
+        assert_eq!(comments[0].commands, Commands::TERMIAL);
+        assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
+        assert_eq!(rate, (170, 7))
     }
 
     #[tokio::test]
@@ -957,6 +963,10 @@ mod tests {
         )
         .await
         .unwrap();
+        let comments = comments
+            .into_iter()
+            .map(|c| c.extract().calc())
+            .collect::<Vec<_>>();
         assert_eq!(comments.len(), 3);
         assert_eq!(
             comments[0].calculation_list,
