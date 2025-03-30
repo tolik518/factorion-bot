@@ -14,7 +14,7 @@ use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
-use reqwest::{Client, Response, Url};
+use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
 use tokio::join;
@@ -146,60 +146,50 @@ impl RedditClient {
 
         let mut time = (f64::MAX, 0.0);
 
+        fn add_query(request: RequestBuilder, after: &String) -> RequestBuilder {
+            if after.is_empty() {
+                request.query(&[(
+                    "limit",
+                    &COMMENT_COUNT
+                        .get()
+                        .expect("Comment count uninitialzed")
+                        .to_string(),
+                )])
+            } else {
+                request.query(&[
+                    (
+                        "limit",
+                        &COMMENT_COUNT
+                            .get()
+                            .expect("Comment count uninitialized")
+                            .to_string(),
+                    ),
+                    ("after", after),
+                ])
+            }
+        }
+
         let (subs_response, posts_response, mentions_response) = join!(
             OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
-                self.client
-                    .get(subreddit_url)
-                    .query(&[
-                        (
-                            "limit",
-                            &COMMENT_COUNT
-                                .get()
-                                .expect("Comment count uninitialized")
-                                .to_string(),
-                        ),
-                        ("after", &last_ids.0),
-                    ])
-                    .bearer_auth(&self.token.access_token)
-                    .send()
+                let request = self.client.get(subreddit_url);
+                let request = add_query(request, &last_ids.0);
+                request.bearer_auth(&self.token.access_token).send()
             })),
             OptionFuture::from(
                 check_posts
                     .then_some(SUBREDDIT_POSTS_URL.clone())
                     .flatten()
                     .map(|subreddit_url| {
-                        self.client
-                            .get(subreddit_url)
-                            .query(&[
-                                (
-                                    "limit",
-                                    &COMMENT_COUNT
-                                        .get()
-                                        .expect("Comment count uninitialized")
-                                        .to_string(),
-                                ),
-                                ("after", &last_ids.1),
-                            ])
-                            .bearer_auth(&self.token.access_token)
-                            .send()
+                        let request = self.client.get(subreddit_url);
+                        let request = add_query(request, &last_ids.1);
+                        request.bearer_auth(&self.token.access_token).send()
                     })
             ),
             OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
                 |subreddit_url| {
-                    self.client
-                        .get(subreddit_url)
-                        .query(&[
-                            (
-                                "limit",
-                                &COMMENT_COUNT
-                                    .get()
-                                    .expect("Comment count uninitialized")
-                                    .to_string(),
-                            ),
-                            ("after", &last_ids.2),
-                        ])
-                        .bearer_auth(&self.token.access_token)
-                        .send()
+                    let request = self.client.get(subreddit_url);
+                    let request = add_query(request, &last_ids.2);
+                    request.bearer_auth(&self.token.access_token).send()
                 }
             )),
         );
@@ -808,7 +798,7 @@ mod tests {
                     "GET /r/post_subreddit+test_subreddit/new?limit=100&after=t3_83us27sa HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
-                    "GET /message/mentions?limit=100&after= HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "GET /message/mentions?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
