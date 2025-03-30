@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut reddit_client = RedditClient::new().await?;
     COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
-    let mut requests_per_loop = 0;
+    let mut requests_per_loop = 0.0;
 
     let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
     let subreddit_commands = subreddit_commands.leak();
@@ -63,9 +63,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect::<HashMap<_, _>>();
     if !commands.is_empty() {
-        requests_per_loop += 1;
+        requests_per_loop += 1.0;
         if !commands.values().all(|v| v.post_only) {
-            requests_per_loop += 1;
+            requests_per_loop += 1.0;
         }
     }
     SUBREDDIT_COMMANDS.set(commands).unwrap();
@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let check_mentions = std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set");
     let check_mentions = check_mentions == "true";
     if check_mentions {
-        requests_per_loop += 1;
+        requests_per_loop += 1.0;
     }
     let check_posts = std::env::var("CHECK_POSTS").expect("CHECK_POSTS must be set");
     let check_posts = check_posts == "true";
@@ -173,14 +173,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if should_answer {
                 let reply: String = comment.get_reply();
                 // Sleep to not spam comments too quickly
-                let pause = if rate.1 < 1 {
-                    rate.0 + 5
-                } else if rate.1 < 4 {
-                    rate.0 / rate.1 + 2
+                let pause = if rate.1 < 1.0 {
+                    rate.0 + 5.0
+                } else if rate.1 < 4.0 {
+                    rate.0 / rate.1 + 2.0
                 } else {
-                    2
+                    2.0
                 };
-                sleep(Duration::from_secs(pause)).await;
+                sleep(Duration::from_secs(pause as u64)).await;
                 match reddit_client.reply_to_comment(comment, &reply).await {
                     Ok(t) => {
                         rate = t;
@@ -213,15 +213,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             writeln!(file, "{}", comment_id).expect("Unable to write to file");
         }
 
-        let sleep_between_requests = if rate.1 < requests_per_loop + 1 {
-            rate.0 + 5
-        } else if rate.1 < requests_per_loop * 4 {
-            rate.0 / rate.1 + 2
+        let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
+            rate.0 + 5.0
+        } else if rate.1 < requests_per_loop * 4.0 {
+            rate.0 / rate.1 + 2.0
         } else {
-            (rate.0 / rate.1).saturating_sub(2)
+            ((rate.0 / rate.1) - 2.0).max(2.0)
         };
         // Sleep to avoid hitting API rate limits
-        sleep(Duration::from_secs(sleep_between_requests)).await;
+        sleep(Duration::from_secs(sleep_between_requests as u64)).await;
     }
     Ok(())
 }

@@ -79,7 +79,7 @@ impl RedditClient {
         check_mentions: bool,
         check_posts: bool,
         last_ids: &mut (String, String, String),
-    ) -> Result<(Vec<RedditCommentConstructed>, (u64, u64)), ()> {
+    ) -> Result<(Vec<RedditCommentConstructed>, (f64, f64)), ()> {
         static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut subreddits = SUBREDDIT_COMMANDS
                 .get()
@@ -144,7 +144,7 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let mut time = (u64::MAX, u64::MIN);
+        let mut time = (f64::MAX, 0.0);
 
         let (subs_response, posts_response, mentions_response) = join!(
             OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
@@ -337,7 +337,7 @@ impl RedditClient {
         &self,
         comment: RedditCommentCalculated,
         reply: &str,
-    ) -> Result<(u64, u64), Error> {
+    ) -> Result<(f64, f64), Error> {
         let params = json!({
             "thing_id": comment.id,
             "text": reply
@@ -352,14 +352,14 @@ impl RedditClient {
             .await?;
 
         let response_headers = response.headers();
-        let remaining: u64 = response_headers
+        let remaining: f64 = response_headers
             .get("X-Ratelimit-Remaining")
             .expect("Missing Ratelimit header")
             .to_str()
             .unwrap()
             .parse()
             .unwrap();
-        let reset: u64 = response_headers
+        let reset: f64 = response_headers
             .get("X-Ratelimit-Reset")
             .expect("Missing Ratelimit header")
             .to_str()
@@ -524,19 +524,19 @@ impl RedditClient {
         (
             Vec<RedditCommentConstructed>,
             Vec<(String, (String, Commands, String))>,
-            (u64, u64),
+            (f64, f64),
             Option<String>,
         ),
         Box<dyn std::error::Error>,
     > {
         let empty_vec = Vec::new();
         let headers = response.headers();
-        let remaining: u64 = headers
+        let remaining: f64 = headers
             .get("X-Ratelimit-Remaining")
             .ok_or("Missing Ratelimit header")?
             .to_str()?
             .parse()?;
-        let reset: u64 = headers
+        let reset: f64 = headers
             .get("X-Ratelimit-Reset")
             .ok_or("Missing Ratelimit header")?
             .to_str()?
@@ -772,7 +772,7 @@ mod tests {
         );
         status.unwrap();
         let reply_status = reply_status.unwrap();
-        assert_eq!(reply_status, (200, 10));
+        assert_eq!(reply_status, (200.0, 10.0));
     }
 
     #[tokio::test]
@@ -829,7 +829,7 @@ mod tests {
         assert_eq!(comments[0].notify.as_ref().unwrap(), "");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
-        assert_eq!(rate, (170, 7))
+        assert_eq!(rate, (170.0, 7.0))
     }
 
     #[tokio::test]
@@ -902,7 +902,7 @@ mod tests {
             )]
         );
         println!("{:#?}", comments);
-        assert_eq!(comments.2, (350, 10));
+        assert_eq!(comments.2, (350.0, 10.0));
     }
 
     #[tokio::test]
@@ -993,7 +993,7 @@ mod tests {
             }]
         );
         println!("{:#?}", comments);
-        assert_eq!(t, (350, 10));
+        assert_eq!(t, (350.0, 10.0));
         assert_eq!(id.unwrap(), "t1_m38msun");
     }
 
