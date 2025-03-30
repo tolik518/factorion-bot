@@ -180,11 +180,10 @@ fn approximate_factorial_inner(n: Float) -> (Float, Integer) {
 /// Will panic if either k or n are 0.
 pub fn approximate_multifactorial(n: Integer, k: i32) -> (Float, Integer) {
     let n = Float::with_val(FLOAT_PRECISION, n);
-    let _k = k;
     let k = Float::with_val(FLOAT_PRECISION, k);
     let fact = approximate_factorial_inner(n.clone() / k.clone());
     let pow = approximate_multifactorial_pow(n.clone(), k.clone());
-    let t = fractional_multifactorial_product(n, _k, k);
+    let t = approximate_multifactorial_product(n, k);
     adjust_approximate((fact.0 * pow.0 * t, fact.1 + pow.1))
 }
 fn approximate_multifactorial_pow(n: Float, k: Float) -> (Float, Integer) {
@@ -196,6 +195,10 @@ fn approximate_multifactorial_pow(n: Float, k: Float) -> (Float, Integer) {
         .0;
     let x = k.pow(base - e.clone() / k_log10);
     (x, e)
+}
+fn approximate_multifactorial_product(n: Float, k: Float) -> Float {
+    let j: Float = ((n - 1) as Float).rem(&k) + 1;
+    j.clone() / k.clone().pow(j.clone() / k.clone()) / fractional_factorial(j.clone() / k.clone())
 }
 
 pub fn approximate_subfactorial(n: Integer) -> (Float, Integer) {

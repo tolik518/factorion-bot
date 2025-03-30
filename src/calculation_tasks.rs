@@ -27,6 +27,8 @@ pub(crate) static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock:
     max
 });
 
+pub(crate) const UPPER_DECIMAL_MULTIFATORIAL_K_LIMIT: i32 = 50;
+
 pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
 
@@ -193,7 +195,7 @@ impl CalculationJob {
                         num.as_float().to_integer()?
                     }
                 }
-                k => {
+                k if k < UPPER_DECIMAL_MULTIFATORIAL_K_LIMIT => {
                     let res: Float = math::fractional_multifactorial(num.as_float().clone(), k)
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
@@ -206,6 +208,7 @@ impl CalculationJob {
                         num.as_float().to_integer()?
                     }
                 }
+                _ => num.as_float().to_integer()?,
             },
             Number::Int(num) => num.clone(),
         };
