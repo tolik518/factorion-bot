@@ -28,7 +28,7 @@ pub(crate) static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock:
 });
 
 pub(crate) const UPPER_DECIMAL_MULTIFATORIAL_K_LIMIT: i32 = 50;
-
+pub(crate) const INTEGER_CONSTRUCTION_LIMIT: i64 = 1_000_000_000;
 pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
 
