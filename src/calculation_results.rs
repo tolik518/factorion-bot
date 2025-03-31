@@ -1,11 +1,12 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
-use crate::calculation_tasks::TOO_BIG_NUMBER;
+use crate::calculation_tasks::{INTEGER_CONSTRUCTION_LIMIT, TOO_BIG_NUMBER};
 use crate::math::{FLOAT_PRECISION, LN10};
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 
 use rug::float::OrdFloat;
+use rug::integer::IntegerExt64;
 use rug::ops::Pow;
-use rug::{Float, Integer};
+use rug::{Complete, Float, Integer};
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::str::FromStr;
@@ -25,28 +26,53 @@ pub(crate) enum Number {
     Float(OrdFloat),
     Int(Integer),
 }
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub(crate) enum ParseNumberError {
+    Float(rug::float::ParseFloatError),
+    Integer(rug::integer::ParseIntegerError),
+}
+impl From<rug::float::ParseFloatError> for ParseNumberError {
+    fn from(value: rug::float::ParseFloatError) -> Self {
+        Self::Float(value)
+    }
+}
+impl From<rug::integer::ParseIntegerError> for ParseNumberError {
+    fn from(value: rug::integer::ParseIntegerError) -> Self {
+        Self::Integer(value)
+    }
+}
 impl FromStr for Number {
-    type Err = rug::float::ParseFloatError;
+    type Err = ParseNumberError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let negatives = s.find(|c| c != '-').unwrap_or_default();
         let s = &s[negatives..];
         let negative = negatives % 2 != 0;
-        let Ok(mut num) = s.parse::<Integer>() else {
-            let num = Float::parse(s)?;
-            let mut num = Float::with_val(FLOAT_PRECISION, num);
+        if let Some((b, e)) = s.split_once(['e', 'E']) {
+            if let Ok(e) = e.parse::<i64>() {
+                let (n, d) = b.split_once('.').unwrap_or((b, ""));
+                if e >= d.len() as i64 && e <= INTEGER_CONSTRUCTION_LIMIT {
+                    let e = e as u64 - d.len() as u64;
+                    let n = format!("{n}{d}").parse::<Integer>()?;
+                    let mut num = n * Integer::u64_pow_u64(10, e).complete();
+                    if negative {
+                        num *= -1;
+                    }
+                    return Ok(Number::Int(num));
+                }
+            }
+        } else if !s.contains('.') {
+            let mut num = s.parse::<Integer>()?;
             if negative {
                 num *= -1;
             }
-            if num.is_integer() {
-                // PANIC: We just checked. (Could even do unwrap_unchecked)
-                return Ok(Number::Int(num.to_integer().unwrap()));
-            }
-            return Ok(Self::Float(num.into()));
-        };
+            return Ok(Number::Int(num));
+        }
+        let mut num = Float::with_val(FLOAT_PRECISION, Float::parse(s)?);
         if negative {
             num *= -1;
         }
-        Ok(Number::Int(num))
+        Ok(Number::Float(num.into()))
     }
 }
 impl From<Integer> for Number {
