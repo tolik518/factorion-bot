@@ -14,7 +14,7 @@ use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
-use reqwest::{Client, Response, Url};
+use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
 use serde_json::{from_str, json, Value};
 use tokio::join;
@@ -77,7 +77,9 @@ impl RedditClient {
         &mut self,
         already_replied_to_comments: &mut Vec<String>,
         check_mentions: bool,
-    ) -> Result<Vec<RedditCommentConstructed>, ()> {
+        check_posts: bool,
+        last_ids: &mut (String, String, String),
+    ) -> Result<(Vec<RedditCommentConstructed>, (f64, f64)), ()> {
         static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut subreddits = SUBREDDIT_COMMANDS
                 .get()
@@ -90,13 +92,12 @@ impl RedditClient {
             if !subreddits.is_empty() {
                 Some(
                     Url::parse(&format!(
-                        "{}/r/{}/comments/?limit={}",
+                        "{}/r/{}/comments",
                         REDDIT_OAUTH_URL,
                         subreddits
                             .into_iter()
                             .reduce(|a, e| format!("{a}+{e}"))
                             .unwrap_or_default(),
-                        COMMENT_COUNT.get().expect("Comment count uninitialzed")
                     ))
                     .expect("Failed to parse Url"),
                 )
@@ -115,13 +116,12 @@ impl RedditClient {
             if !post_subreddits.is_empty() {
                 Some(
                     Url::parse(&format!(
-                        "{}/r/{}/new/?limit={}",
+                        "{}/r/{}/new",
                         REDDIT_OAUTH_URL,
                         post_subreddits
                             .into_iter()
                             .reduce(|a, e| format!("{a}+{e}"))
                             .unwrap_or_default(),
-                        COMMENT_COUNT.get().expect("Comment count uninitialzed")
                     ))
                     .expect("Failed to parse Url"),
                 )
@@ -130,12 +130,8 @@ impl RedditClient {
             }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
-            Url::parse(&format!(
-                "{}/message/mentions/?limit={}",
-                REDDIT_OAUTH_URL,
-                COMMENT_COUNT.get().expect("Comment count uninitialzed")
-            ))
-            .expect("Failed to parse Url")
+            Url::parse(&format!("{}/message/mentions", REDDIT_OAUTH_URL,))
+                .expect("Failed to parse Url")
         });
         #[cfg(not(test))]
         if self.is_token_expired() {
@@ -148,25 +144,52 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
+        let mut time = (f64::MAX, 0.0);
+
+        fn add_query(request: RequestBuilder, after: &String) -> RequestBuilder {
+            if after.is_empty() {
+                request.query(&[(
+                    "limit",
+                    &COMMENT_COUNT
+                        .get()
+                        .expect("Comment count uninitialzed")
+                        .to_string(),
+                )])
+            } else {
+                request.query(&[
+                    (
+                        "limit",
+                        &COMMENT_COUNT
+                            .get()
+                            .expect("Comment count uninitialized")
+                            .to_string(),
+                    ),
+                    ("before", after),
+                ])
+            }
+        }
+
         let (subs_response, posts_response, mentions_response) = join!(
             OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
-                self.client
-                    .get(subreddit_url)
-                    .bearer_auth(&self.token.access_token)
-                    .send()
+                let request = self.client.get(subreddit_url);
+                let request = add_query(request, &last_ids.0);
+                request.bearer_auth(&self.token.access_token).send()
             })),
-            OptionFuture::from(SUBREDDIT_POSTS_URL.clone().map(|subreddit_url| {
-                self.client
-                    .get(subreddit_url)
-                    .bearer_auth(&self.token.access_token)
-                    .send()
-            })),
+            OptionFuture::from(
+                check_posts
+                    .then_some(SUBREDDIT_POSTS_URL.clone())
+                    .flatten()
+                    .map(|subreddit_url| {
+                        let request = self.client.get(subreddit_url);
+                        let request = add_query(request, &last_ids.1);
+                        request.bearer_auth(&self.token.access_token).send()
+                    })
+            ),
             OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
                 |subreddit_url| {
-                    self.client
-                        .get(subreddit_url)
-                        .bearer_auth(&self.token.access_token)
-                        .send()
+                    let request = self.client.get(subreddit_url);
+                    let request = add_query(request, &last_ids.2);
+                    request.bearer_auth(&self.token.access_token).send()
                 }
             )),
         );
@@ -192,7 +215,7 @@ impl RedditClient {
             ) {
             Ok(_) => {
                 let (mentions, ids) = if let Some(mentions_response) = mentions_response {
-                    let (a, b) = RedditClient::extract_comments(
+                    let (a, b, t, id) = RedditClient::extract_comments(
                         mentions_response,
                         already_replied_to_comments,
                         true,
@@ -201,12 +224,18 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
+                    if t.0 < time.0 {
+                        time = t;
+                    }
+                    if let Some(id) = id {
+                        last_ids.2 = id;
+                    };
                     (Some(a), Some(b))
                 } else {
                     (None, None)
                 };
-                let (mut res, _) = if let Some(subs_response) = subs_response {
-                    RedditClient::extract_comments(
+                let mut res = if let Some(subs_response) = subs_response {
+                    let (a, _, t, id) = RedditClient::extract_comments(
                         subs_response,
                         already_replied_to_comments,
                         false,
@@ -214,12 +243,19 @@ impl RedditClient {
                         &HashMap::new(),
                     )
                     .await
-                    .expect("Failed to extract comments")
+                    .expect("Failed to extract comments");
+                    if t.0 < time.0 {
+                        time = t;
+                    }
+                    if let Some(id) = id {
+                        last_ids.0 = id;
+                    };
+                    a
                 } else {
-                    (Vec::new(), Vec::new())
+                    Vec::new()
                 };
                 if let Some(posts_response) = posts_response {
-                    let (posts, _) = RedditClient::extract_comments(
+                    let (posts, _, t, id) = RedditClient::extract_comments(
                         posts_response,
                         already_replied_to_comments,
                         false,
@@ -228,6 +264,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
+                    if t.0 < time.0 {
+                        time = t;
+                    }
+                    if let Some(id) = id {
+                        last_ids.1 = id;
+                    };
                     res.extend(posts);
                 }
                 if let Some(ids) = ids {
@@ -248,7 +290,7 @@ impl RedditClient {
                         .await
                         .expect("Failed to get comment");
                     if Self::check_response_status(&response).is_ok() {
-                        let (comments, _) = Self::extract_comments(
+                        let (comments, _, t, _) = Self::extract_comments(
                             response,
                             already_replied_to_comments,
                             true,
@@ -257,13 +299,16 @@ impl RedditClient {
                         )
                         .await
                         .expect("Failed to extract comments");
+                        if t.0 < time.0 {
+                            time = t;
+                        }
                         res.extend(comments);
                     }
                 }
                 if let Some(mentions) = mentions {
                     res.extend(mentions);
                 }
-                Ok(res)
+                Ok((res, time))
             }
             Err(_) => Err(()),
         }
@@ -282,7 +327,7 @@ impl RedditClient {
         &self,
         comment: RedditCommentCalculated,
         reply: &str,
-    ) -> Result<(), Error> {
+    ) -> Result<(f64, f64), Error> {
         let params = json!({
             "thing_id": comment.id,
             "text": reply
@@ -295,6 +340,22 @@ impl RedditClient {
             .form(&params)
             .send()
             .await?;
+
+        let response_headers = response.headers();
+        let remaining: f64 = response_headers
+            .get("X-Ratelimit-Remaining")
+            .expect("Missing Ratelimit header")
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let reset: f64 = response_headers
+            .get("X-Ratelimit-Reset")
+            .expect("Missing Ratelimit header")
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
 
         let response_text = &response.text().await?;
         let response_text = response_text.as_str();
@@ -317,7 +378,7 @@ impl RedditClient {
             RedditClient::get_error_message(response_json)
         );
 
-        Ok(())
+        Ok((reset, remaining))
     }
 
     fn get_error_message(response_json: Value) -> String {
@@ -453,10 +514,24 @@ impl RedditClient {
         (
             Vec<RedditCommentConstructed>,
             Vec<(String, (String, Commands, String))>,
+            (f64, f64),
+            Option<String>,
         ),
         Box<dyn std::error::Error>,
     > {
         let empty_vec = Vec::new();
+        let headers = response.headers();
+        let remaining: f64 = headers
+            .get("X-Ratelimit-Remaining")
+            .ok_or("Missing Ratelimit header")?
+            .to_str()?
+            .parse()?;
+        let reset: f64 = headers
+            .get("X-Ratelimit-Reset")
+            .ok_or("Missing Ratelimit header")?
+            .to_str()?
+            .parse()?;
+
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
             .as_array()
@@ -488,8 +563,8 @@ impl RedditClient {
                 continue;
             };
             if is_mention
-                && extracted_comment.status.no_factorial
                 && !extracted_comment.status.already_replied_or_rejected
+                && extracted_comment.status.no_factorial
             {
                 if let Some(path) = Self::extract_summon_parent_id(comment) {
                     parent_paths.push((
@@ -504,8 +579,9 @@ impl RedditClient {
             }
             comments.push(extracted_comment);
         }
+        let id = comments.first().map(|comment| comment.id.clone());
 
-        Ok((comments, parent_paths))
+        Ok((comments, parent_paths, (reset, remaining), id))
     }
     fn extract_comment(
         comment: &Value,
@@ -538,7 +614,7 @@ impl RedditClient {
                     } | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                 )
             }) else {
-                println!("Failed to construct comment!");
+                println!("Failed to construct comment {comment_id}!");
                 return None;
             };
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
@@ -581,7 +657,7 @@ impl RedditClient {
                         commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                     )
                 }) else {
-                    println!("Failed to construct comment!");
+                    println!("Failed to construct comment {post_id}!");
                     return None;
                 };
 
@@ -680,12 +756,13 @@ mod tests {
         let (status, reply_status) = join!(
             dummy_server(&[(
                 "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 32\r\n\r\ntext=I+relpy&thing_id=t1_some_id",
-                "HTTP/1.1 200 OK\n\n{\"success\": true}"
+                "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 200\n\n{\"success\": true}"
             )]),
             client.reply_to_comment(RedditComment::new_already_replied("t1_some_id", "author", "subressit").extract().calc(), "I relpy")
         );
         status.unwrap();
-        reply_status.unwrap();
+        let reply_status = reply_status.unwrap();
+        assert_eq!(reply_status, (200.0, 10.0));
     }
 
     #[tokio::test]
@@ -707,27 +784,32 @@ mod tests {
         );
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
+        let mut last_ids = (
+            "t1_m86nsre".to_owned(),
+            "t3_83us27sa".to_owned(),
+            "".to_owned(),
+        );
         let (status, comments) = join!(
             async {
                 dummy_server(&[(
-                    "GET /r/test_subreddit/comments/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
+                    "GET /r/test_subreddit/comments?limit=100&before=t1_m86nsre HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
-                    "GET /r/post_subreddit+test_subreddit/new/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[]}}"
+                    "GET /r/post_subreddit+test_subreddit/new?limit=100&before=t3_83us27sa HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
-                    "GET /message/mentions/?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
+                    "GET /message/mentions?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 7\r\nx-ratelimit-reset: 170\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
                 )]).await
             },
-            client.get_comments(&mut already_replied, true)
+            client.get_comments(&mut already_replied, true, true, &mut last_ids)
         );
         status.unwrap();
+        let (comments, rate) = comments.unwrap();
         let comments = comments
-            .unwrap()
             .into_iter()
             .map(|c| c.extract().calc())
             .collect::<Vec<_>>();
@@ -737,11 +819,12 @@ mod tests {
         assert_eq!(comments[0].notify.as_ref().unwrap(), "");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
+        assert_eq!(rate, (170.0, 7.0))
     }
 
     #[tokio::test]
     async fn test_extract_comments() {
-        let response = Response::from(http::Response::builder().status(200).body(r#"{
+        let response = Response::from(http::Response::builder().status(200).header("X-Ratelimit-Remaining", "10").header("X-Ratelimit-Reset", "350").body(r#"{
                "data": {
                    "children": [
                        {
@@ -809,11 +892,12 @@ mod tests {
             )]
         );
         println!("{:#?}", comments);
+        assert_eq!(comments.2, (350.0, 10.0));
     }
 
     #[tokio::test]
     async fn test_extract_posts() {
-        let response = Response::from(http::Response::builder().status(200).body(r#"{
+        let response = Response::from(http::Response::builder().status(200).header("X-Ratelimit-Remaining", "10").header("X-Ratelimit-Reset", "350").body(r#"{
                "data": {
                    "children": [
                        {
@@ -860,7 +944,7 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let (comments, _) = RedditClient::extract_comments(
+        let (comments, _, t, id) = RedditClient::extract_comments(
             response,
             &mut already_replied,
             false,
@@ -899,6 +983,8 @@ mod tests {
             }]
         );
         println!("{:#?}", comments);
+        assert_eq!(t, (350.0, 10.0));
+        assert_eq!(id.unwrap(), "t3_m38msum");
     }
 
     #[test]

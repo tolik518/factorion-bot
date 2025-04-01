@@ -37,12 +37,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut reddit_client = RedditClient::new().await?;
     COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
+    let mut requests_per_loop = 0.0;
+
+    let dont_reply = std::env::var("DONT_REPLY").unwrap_or_default();
+    let dont_reply = dont_reply == "true";
 
     let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
     let subreddit_commands = subreddit_commands.leak();
     let commands = subreddit_commands
         .split('+')
         .map(|s| s.split_once(':').unwrap_or((s, "")))
+        .filter(|s| s.0 != "")
         .map(|(sub, commands)| {
             (
                 sub,
@@ -61,14 +66,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
             )
         })
         .collect::<HashMap<_, _>>();
+    if !commands.is_empty() {
+        requests_per_loop += 1.0;
+        if !commands.values().all(|v| v.post_only) {
+            requests_per_loop += 1.0;
+        }
+    }
     SUBREDDIT_COMMANDS.set(commands).unwrap();
-
-    let sleep_between_requests =
-        std::env::var("SLEEP_BETWEEN_REQUESTS").expect("SLEEP_BETWEEN_REQUESTS must be set.");
-    let sleep_between_requests = sleep_between_requests.as_str().parse().unwrap();
 
     let check_mentions = std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set");
     let check_mentions = check_mentions == "true";
+    if check_mentions {
+        requests_per_loop += 1.0;
+    }
+    let check_posts = std::env::var("CHECK_POSTS").expect("CHECK_POSTS must be set");
+    let check_posts = check_posts == "true";
+
+    let posts_every = std::env::var("POSTS_EVERY").unwrap_or("1".to_owned());
+    let posts_every: u8 = posts_every.parse().expect("POSTS_EVERY is not a number");
+    let mentions_every = std::env::var("MENTIONS_EVERY").unwrap_or("1".to_owned());
+    let mentions_every: u8 = mentions_every
+        .parse()
+        .expect("MENTIONS_EVERY is not a number");
 
     // read comment_ids from the file
     let already_replied_to_comments: String =
@@ -84,9 +103,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .lines()
         .map(|s| s.to_string())
         .collect::<Vec<String>>();
+    let mut last_ids = Default::default();
 
     // Polling Reddit for new comments
-    loop {
+    for i in (0..u8::MAX).cycle() {
         let today: OffsetDateTime = SystemTime::now().into();
         println!(
             "{} - {} | Polling Reddit for new comments...",
@@ -95,8 +115,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
 
         let start = SystemTime::now();
-        let comments = reddit_client
-            .get_comments(&mut already_replied_or_rejected, check_mentions)
+        let (comments, mut rate) = reddit_client
+            .get_comments(
+                &mut already_replied_or_rejected,
+                check_mentions && i % mentions_every == 0,
+                check_posts && i % posts_every == 0,
+                &mut last_ids,
+            )
             .await
             .unwrap_or_default();
         let end = SystemTime::now();
@@ -181,23 +206,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if should_answer {
                 let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply())
                 else {
-                    eprintln!("Failed to format comment!");
+                    println!("Failed to format comment!");
                     continue;
                 };
-                match reddit_client.reply_to_comment(comment, &reply).await {
-                    Ok(_) => {
-                        influxdb::log_comment_reply(
-                            influx_client,
-                            &comment_id,
-                            &comment_author,
-                            &comment_subreddit,
-                        )
-                        .await?;
-                    }
-                    Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
-                }
                 // Sleep to not spam comments too quickly
-                sleep(Duration::from_secs(2)).await;
+                let pause = if rate.1 < 1.0 {
+                    rate.0 + 5.0
+                } else if rate.1 < 4.0 {
+                    rate.0 / rate.1 + 2.0
+                } else {
+                    2.0
+                };
+                sleep(Duration::from_secs(pause as u64)).await;
+                if !dont_reply {
+                    match reddit_client.reply_to_comment(comment, &reply).await {
+                        Ok(t) => {
+                            rate = t;
+                            influxdb::log_comment_reply(
+                                influx_client,
+                                &comment_id,
+                                &comment_author,
+                                &comment_subreddit,
+                            )
+                            .await?;
+                        }
+                        Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
+                    }
+                }
                 continue;
             }
             println!(" -> unknown");
@@ -206,7 +241,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         influxdb::log_time_consumed(influx_client, start, end, "comment_loop").await?;
 
+        let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
+            rate.0 + 1.0
+        } else {
+            (rate.0 / rate.1 * requests_per_loop).max(2.0) + 1.0
+        };
         // Sleep to avoid hitting API rate limits
-        sleep(Duration::from_secs(sleep_between_requests)).await;
+        sleep(Duration::from_secs(sleep_between_requests.ceil() as u64)).await;
     }
+    Ok(())
 }
