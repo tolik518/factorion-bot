@@ -139,6 +139,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         influxdb::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
 
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false) // This will clear the file contents if it already exists
+            .open(COMMENT_IDS_FILE_PATH)
+            .expect("Unable to open or create file");
+
+        for comment_id in already_replied_or_rejected.iter() {
+            writeln!(file, "{}", comment_id).expect("Unable to write to file");
+        }
+
         let start = SystemTime::now();
         for comment in comments {
             let comment_id = comment.id.clone();
@@ -194,17 +205,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "comment_loop").await?;
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false) // This will clear the file contents if it already exists
-            .open(COMMENT_IDS_FILE_PATH)
-            .expect("Unable to open or create file");
-
-        for comment_id in already_replied_or_rejected.iter() {
-            writeln!(file, "{}", comment_id).expect("Unable to write to file");
-        }
 
         // Sleep to avoid hitting API rate limits
         sleep(Duration::from_secs(sleep_between_requests)).await;
