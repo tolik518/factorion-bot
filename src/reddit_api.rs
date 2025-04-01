@@ -792,10 +792,10 @@ mod tests {
         let (status, comments) = join!(
             async {
                 dummy_server(&[(
-                    "GET /r/test_subreddit/comments?limit=100&after=t1_m86nsre HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "GET /r/test_subreddit/comments?limit=100&before=t1_m86nsre HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
-                    "GET /r/post_subreddit+test_subreddit/new?limit=100&after=t3_83us27sa HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "GET /r/post_subreddit+test_subreddit/new?limit=100&before=t3_83us27sa HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/mentions?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
