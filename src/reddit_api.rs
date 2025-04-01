@@ -164,7 +164,7 @@ impl RedditClient {
                             .expect("Comment count uninitialized")
                             .to_string(),
                     ),
-                    ("after", after),
+                    ("before", after),
                 ])
             }
         }
