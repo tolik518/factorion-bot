@@ -579,7 +579,7 @@ impl RedditClient {
             }
             comments.push(extracted_comment);
         }
-        let id = comments.last().map(|comment| comment.id.clone());
+        let id = comments.first().map(|comment| comment.id.clone());
 
         Ok((comments, parent_paths, (reset, remaining), id))
     }
