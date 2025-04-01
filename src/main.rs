@@ -242,11 +242,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         influxdb::log_time_consumed(influx_client, start, end, "comment_loop").await?;
 
         let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
-            rate.0 + 5.0
-        } else if rate.1 < requests_per_loop * 4.0 {
-            rate.0 / rate.1 + 5.0
+            rate.0 + 1.0
         } else {
-            (rate.0 / rate.1).max(2.0) + 1.0
+            (rate.0 / rate.1 * requests_per_loop).max(2.0) + 1.0
         };
         // Sleep to avoid hitting API rate limits
         sleep(Duration::from_secs(sleep_between_requests.ceil() as u64)).await;
