@@ -44,6 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let commands = subreddit_commands
         .split('+')
         .map(|s| s.split_once(':').unwrap_or((s, "")))
+        .filter(|s| s.0 != "")
         .map(|(sub, commands)| {
             (
                 sub,
@@ -202,7 +203,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if should_answer {
                 let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply())
                 else {
-                    eprintln!("Failed to format comment!");
+                    println!("Failed to format comment!");
                     continue;
                 };
                 // Sleep to not spam comments too quickly

@@ -69,11 +69,11 @@ cd factorion-bot
 Create a `.env` file in the project root with the following variables:
 
 ```env
-CLIENT_ID=<your_client_id>
-CLIENT_SECRET=<your_client_secret>
+APP_CLIENT_ID=<your_client_id>
+APP_SECRET=<your_client_secret>
 
-USERNAME=<reddit_app_username>
-PASSWORD=<reddit_app_password>
+REDDIT_USERNAME=<reddit_app_username>
+REDDIT_PASSWORD=<reddit_app_password>
 
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
 SUBREDDITS=<subreddits>
