@@ -240,20 +240,25 @@ impl Calculation {
                 )
             }
             CalculationResult::ApproximateDigitsTower(negative, depth, exponent) => {
-                let mut s = if self.is_too_long() || force_shorten {
+                let mut s = String::new();
+                let negative = if *negative { "-" } else { "" };
+                if *depth > 0 {
+                    let _ = write!(s, "10^(");
+                }
+                if *depth > 1 {
+                    let _ = s.push_str(&"10\\^".repeat(*depth as usize - 1));
+                    let _ = write!(s, "(");
+                }
+                s.push_str(&if self.is_too_long() || force_shorten {
                     Self::truncate(exponent, false)
                 } else {
                     exponent.to_string()
-                };
-                let negative = if *negative { "-" } else { "" };
-                for i in 0..*depth {
-                    if i == depth.saturating_sub(1) {
-                        s = format!("10^({s})");
-                    } else if i == 0 {
-                        s = format!("10\\^({s}\\)");
-                    } else {
-                        s = format!("10\\^{s}");
-                    }
+                });
+                if *depth > 1 {
+                    let _ = write!(s, "\\)");
+                }
+                if *depth > 0 {
+                    let _ = write!(s, ")");
                 }
                 write!(
                     acc,
