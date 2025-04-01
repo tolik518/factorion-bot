@@ -127,7 +127,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let start = SystemTime::now();
         let comments = comments
             .into_iter()
-            .map(RedditComment::extract)
+            .filter_map(|c| {
+                let id = c.id.clone();
+                match std::panic::catch_unwind(|| RedditComment::extract(c)) {
+                    Ok(c) => Some(c),
+                    Err(_) => {
+                        println!("Failed to calculate comment {id}!");
+                        None
+                    }
+                }
+            })
             .collect::<Vec<_>>();
         let end = SystemTime::now();
 
@@ -136,11 +145,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let start = SystemTime::now();
         let comments = comments
             .into_iter()
-            .map(RedditComment::calc)
+            .filter_map(|c| {
+                let id = c.id.clone();
+                match std::panic::catch_unwind(|| RedditComment::calc(c)) {
+                    Ok(c) => Some(c),
+                    Err(_) => {
+                        println!("Failed to calculate comment {id}!");
+                        None
+                    }
+                }
+            })
             .collect::<Vec<_>>();
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false) // This will clear the file contents if it already exists
+            .open(COMMENT_IDS_FILE_PATH)
+            .expect("Unable to open or create file");
+
+        for comment_id in already_replied_or_rejected.iter() {
+            writeln!(file, "{}", comment_id).expect("Unable to write to file");
+        }
 
         let start = SystemTime::now();
         for comment in comments {
@@ -171,7 +200,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!(" -> {:?}", comment.calculation_list);
             }
             if should_answer {
-                let reply: String = comment.get_reply();
+                let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply())
+                else {
+                    eprintln!("Failed to format comment!");
+                    continue;
+                };
                 // Sleep to not spam comments too quickly
                 let pause = if rate.1 < 1.0 {
                     rate.0 + 5.0
@@ -201,17 +234,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "comment_loop").await?;
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false) // This will clear the file contents if it already exists
-            .open(COMMENT_IDS_FILE_PATH)
-            .expect("Unable to open or create file");
-
-        for comment_id in already_replied_or_rejected.iter() {
-            writeln!(file, "{}", comment_id).expect("Unable to write to file");
-        }
 
         let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
             rate.0 + 5.0
