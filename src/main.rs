@@ -39,6 +39,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
     let mut requests_per_loop = 0.0;
 
+    let dont_reply = std::env::var("DONT_REPLY").unwrap_or_default();
+    let dont_reply = dont_reply == "true";
+
     let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
     let subreddit_commands = subreddit_commands.leak();
     let commands = subreddit_commands
@@ -215,18 +218,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     2.0
                 };
                 sleep(Duration::from_secs(pause as u64)).await;
-                match reddit_client.reply_to_comment(comment, &reply).await {
-                    Ok(t) => {
-                        rate = t;
-                        influxdb::log_comment_reply(
-                            influx_client,
-                            &comment_id,
-                            &comment_author,
-                            &comment_subreddit,
-                        )
-                        .await?;
+                if !dont_reply {
+                    match reddit_client.reply_to_comment(comment, &reply).await {
+                        Ok(t) => {
+                            rate = t;
+                            influxdb::log_comment_reply(
+                                influx_client,
+                                &comment_id,
+                                &comment_author,
+                                &comment_subreddit,
+                            )
+                            .await?;
+                        }
+                        Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                     }
-                    Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
                 }
                 continue;
             }
