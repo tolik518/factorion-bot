@@ -106,7 +106,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let start = SystemTime::now();
         let comments = comments
             .into_iter()
-            .map(RedditComment::extract)
+            .filter_map(|c| {
+                let id = c.id.clone();
+                match std::panic::catch_unwind(|| RedditComment::extract(c)) {
+                    Ok(c) => Some(c),
+                    Err(_) => {
+                        println!("Failed to calculate comment {id}!");
+                        None
+                    }
+                }
+            })
             .collect::<Vec<_>>();
         let end = SystemTime::now();
 
@@ -115,7 +124,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let start = SystemTime::now();
         let comments = comments
             .into_iter()
-            .map(RedditComment::calc)
+            .filter_map(|c| {
+                let id = c.id.clone();
+                match std::panic::catch_unwind(|| RedditComment::calc(c)) {
+                    Ok(c) => Some(c),
+                    Err(_) => {
+                        println!("Failed to calculate comment {id}!");
+                        None
+                    }
+                }
+            })
             .collect::<Vec<_>>();
         let end = SystemTime::now();
 
@@ -150,7 +168,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!(" -> {:?}", comment.calculation_list);
             }
             if should_answer {
-                let reply: String = comment.get_reply();
+                let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply())
+                else {
+                    eprintln!("Failed to format comment!");
+                    continue;
+                };
                 match reddit_client.reply_to_comment(comment, &reply).await {
                     Ok(_) => {
                         influxdb::log_comment_reply(
