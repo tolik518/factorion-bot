@@ -61,7 +61,11 @@ pub(crate) fn fractional_multifactorial(x: Float, k: i32) -> Float {
     let k = Float::with_val(FLOAT_PRECISION, k);
     let fact = fractional_factorial(x.clone() / k.clone());
     let pow = k.clone().pow(x.clone() / k.clone());
-    let t = fractional_multifactorial_product(x, _k, k);
+    let t = if _k <= 7 {
+        fractional_multifactorial_product(x, _k, k)
+    } else {
+        fractional_multifactorial_product_fast(x, _k, k)
+    };
     fact * pow * t
 }
 
@@ -69,10 +73,24 @@ fn fractional_multifactorial_product(x: Float, _k: i32, k: Float) -> Float {
     (1.._k)
         .map(|j| {
             let exp = fractional_multifactorial_sum(x.clone(), j, _k, k.clone());
-            (j.clone()
-                / k.clone().pow(j.clone() / k.clone())
-                / fractional_factorial(j.clone() / k.clone()))
-            .pow(exp)
+            (j / k.clone().pow(j / k.clone()) / fractional_factorial(j / k.clone())).pow(exp)
+        })
+        .reduce(Mul::mul)
+        .unwrap_or(Float::with_val(FLOAT_PRECISION, 1))
+}
+
+fn fractional_multifactorial_product_fast(x: Float, _k: i32, k: Float) -> Float {
+    (-3..=3)
+        .map(|n| {
+            ((x.to_integer().unwrap() + n - 1) as Integer)
+                .rem(_k - 1)
+                .to_i32()
+                .unwrap()
+                + 1
+        })
+        .map(|j| {
+            let exp = fractional_multifactorial_sum(x.clone(), j, _k, k.clone());
+            (j / k.clone().pow(j / k.clone()) / fractional_factorial(j / k.clone())).pow(exp)
         })
         .reduce(Mul::mul)
         .unwrap_or(Float::with_val(FLOAT_PRECISION, 1))
@@ -592,6 +610,18 @@ mod tests {
             fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 170), 5).to_f64(),
             1.7184810657031144e62
         );
+        assert_eq!(
+            fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 2.6), 5).to_f64(),
+            2.4698196281039353
+        );
+        assert_eq!(
+            fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 170), 50).to_f64(),
+            28560000.0
+        );
+        assert_eq!(
+            fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 170), 100).to_f64(),
+            11900.0
+        );
     }
     #[test]
     #[ignore = "future_improvement"]
@@ -639,6 +669,18 @@ mod tests {
         assert_eq!(
             fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 170), 5).to_f64(),
             1.7184810657031144e62
+        );
+        assert_eq!(
+            fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 2.6), 5).to_f64(),
+            2.4698196281039353
+        );
+        assert_eq!(
+            fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 170), 50).to_f64(),
+            28560000.0
+        );
+        assert_eq!(
+            fractional_multifactorial(Float::with_val(FLOAT_PRECISION, 170), 100).to_f64(),
+            11900.0
         );
     }
 
