@@ -614,7 +614,7 @@ impl RedditClient {
                     } | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                 )
             }) else {
-                println!("Failed to construct comment!");
+                println!("Failed to construct comment {comment_id}!");
                 return None;
             };
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
@@ -657,7 +657,7 @@ impl RedditClient {
                         commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                     )
                 }) else {
-                    println!("Failed to construct comment!");
+                    println!("Failed to construct comment {post_id}!");
                     return None;
                 };
 

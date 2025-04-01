@@ -289,11 +289,17 @@ impl Calculation {
     }
 
     fn truncate(number: &Integer, add_roughly: bool) -> String {
-        let length = (Float::with_val(FLOAT_PRECISION, number).ln() / &*LN10)
+        if number == &0 {
+            return number.to_string();
+        }
+        let negative = number.is_negative();
+        let orig_number = number;
+        let number = number.clone().abs();
+        let length = (Float::with_val(FLOAT_PRECISION, &number).ln() / &*LN10)
             .to_integer_round(rug::float::Round::Down)
             .unwrap()
             .0;
-        let truncated_number: Integer = number
+        let truncated_number: Integer = &number
             / (Float::with_val(FLOAT_PRECISION, 10)
                 .pow((length.clone() - NUMBER_DECIMALS_SCIENTIFIC - 1u8).max(Integer::ZERO))
                 .to_integer()
@@ -315,6 +321,9 @@ impl Calculation {
         if truncated_number.len() > 1 {
             truncated_number.insert(1, '.'); // Decimal point
         }
+        if negative {
+            truncated_number.insert(0, '-');
+        }
         if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
             format!(
                 "{}{} × 10^{}",
@@ -323,7 +332,7 @@ impl Calculation {
                 length
             )
         } else {
-            number.to_string()
+            orig_number.to_string()
         }
     }
 
@@ -468,6 +477,39 @@ mod tests {
             "quinquadragintuple-"
         );
         assert_eq!(Calculation::get_factorial_level_string(50), "50-");
+    }
+
+    #[test]
+    fn test_truncate() {
+        assert_eq!(
+            Calculation::truncate(&Integer::from_str("0").unwrap(), false),
+            "0"
+        );
+        assert_eq!(
+            Calculation::truncate(&Integer::from_str("-1").unwrap(), false),
+            "-1"
+        );
+        assert_eq!(
+            Calculation::truncate(
+                &Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
+                false
+            ),
+            "1 × 10^300"
+        );
+        assert_eq!(
+            Calculation::truncate(
+                &-Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
+                false
+            ),
+            "-1 × 10^300"
+        );
+        assert_eq!(
+            Calculation::truncate(
+                &Integer::from_str(&format!("1{}", "0".repeat(2000000))).unwrap(),
+                false
+            ),
+            "1 × 10^2000000"
+        );
     }
 
     #[test]
