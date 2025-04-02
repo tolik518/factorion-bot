@@ -324,10 +324,21 @@ impl RedditClient {
     /// # Panic
     /// May panic on a malformed response is recieved from the api.
     pub(crate) async fn reply_to_comment(
-        &self,
+        &mut self,
         comment: RedditCommentCalculated,
         reply: &str,
     ) -> Result<(f64, f64), Error> {
+        #[cfg(not(test))]
+        if self.is_token_expired() {
+            println!("Token expired, getting new token");
+            self.token = RedditClient::get_reddit_token(
+                std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set."),
+                std::env::var("APP_SECRET").expect("APP_SECRET must be set."),
+            )
+            .await
+            .expect("Failed to get token");
+        }
+
         let params = json!({
             "thing_id": comment.id,
             "text": reply
@@ -750,7 +761,7 @@ mod tests {
     #[tokio::test]
     async fn test_reply_to_comment() {
         let _lock = sequential();
-        let client = RedditClient {
+        let mut client = RedditClient {
             client: Client::new(),
             token: Token {
                 access_token: "token".to_string(),
