@@ -130,7 +130,7 @@ impl RedditClient {
             }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
-            Url::parse(&format!("{}/message/mentions", REDDIT_OAUTH_URL,))
+            Url::parse(&format!("{}/message/inbox", REDDIT_OAUTH_URL,))
                 .expect("Failed to parse Url")
         });
         #[cfg(not(test))]
@@ -224,8 +224,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if t.0 < time.0 {
-                        time = t;
+                    if let Some(t) = t {
+                        if t.0 < time.0 {
+                            time = t;
+                        }
+                    } else {
+                        println!("Missing ratelimit")
                     }
                     if let Some(id) = id {
                         last_ids.2 = id;
@@ -244,8 +248,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if t.0 < time.0 {
-                        time = t;
+                    if let Some(t) = t {
+                        if t.0 < time.0 {
+                            time = t;
+                        }
+                    } else {
+                        println!("Missing ratelimit");
                     }
                     if let Some(id) = id {
                         last_ids.0 = id;
@@ -264,8 +272,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if t.0 < time.0 {
-                        time = t;
+                    if let Some(t) = t {
+                        if t.0 < time.0 {
+                            time = t;
+                        }
+                    } else {
+                        println!("Missing ratelimit");
                     }
                     if let Some(id) = id {
                         last_ids.1 = id;
@@ -299,8 +311,12 @@ impl RedditClient {
                         )
                         .await
                         .expect("Failed to extract comments");
-                        if t.0 < time.0 {
-                            time = t;
+                        if let Some(t) = t {
+                            if t.0 < time.0 {
+                                time = t;
+                            }
+                        } else {
+                            println!("Missing ratelimit");
                         }
                         res.extend(comments);
                     }
@@ -324,10 +340,21 @@ impl RedditClient {
     /// # Panic
     /// May panic on a malformed response is recieved from the api.
     pub(crate) async fn reply_to_comment(
-        &self,
+        &mut self,
         comment: RedditCommentCalculated,
         reply: &str,
-    ) -> Result<(f64, f64), Error> {
+    ) -> Result<Option<(f64, f64)>, Error> {
+        #[cfg(not(test))]
+        if self.is_token_expired() {
+            println!("Token expired, getting new token");
+            self.token = RedditClient::get_reddit_token(
+                std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set."),
+                std::env::var("APP_SECRET").expect("APP_SECRET must be set."),
+            )
+            .await
+            .expect("Failed to get token");
+        }
+
         let params = json!({
             "thing_id": comment.id,
             "text": reply
@@ -342,20 +369,12 @@ impl RedditClient {
             .await?;
 
         let response_headers = response.headers();
-        let remaining: f64 = response_headers
+        let remaining: Option<f64> = response_headers
             .get("X-Ratelimit-Remaining")
-            .expect("Missing Ratelimit header")
-            .to_str()
-            .unwrap()
-            .parse()
-            .unwrap();
-        let reset: f64 = response_headers
+            .map(|x| x.to_str().unwrap().parse().unwrap());
+        let reset: Option<f64> = response_headers
             .get("X-Ratelimit-Reset")
-            .expect("Missing Ratelimit header")
-            .to_str()
-            .unwrap()
-            .parse()
-            .unwrap();
+            .map(|x| x.to_str().unwrap().parse().unwrap());
 
         let response_text = &response.text().await?;
         let response_text = response_text.as_str();
@@ -378,7 +397,7 @@ impl RedditClient {
             RedditClient::get_error_message(response_json)
         );
 
-        Ok((reset, remaining))
+        Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))))
     }
 
     fn get_error_message(response_json: Value) -> String {
@@ -514,23 +533,19 @@ impl RedditClient {
         (
             Vec<RedditCommentConstructed>,
             Vec<(String, (String, Commands, String))>,
-            (f64, f64),
+            Option<(f64, f64)>,
             Option<String>,
         ),
         Box<dyn std::error::Error>,
     > {
         let empty_vec = Vec::new();
         let headers = response.headers();
-        let remaining: f64 = headers
+        let remaining: Option<f64> = headers
             .get("X-Ratelimit-Remaining")
-            .ok_or("Missing Ratelimit header")?
-            .to_str()?
-            .parse()?;
-        let reset: f64 = headers
+            .map(|x| x.to_str().unwrap().parse().unwrap());
+        let reset: Option<f64> = headers
             .get("X-Ratelimit-Reset")
-            .ok_or("Missing Ratelimit header")?
-            .to_str()?
-            .parse()?;
+            .map(|x| x.to_str().unwrap().parse().unwrap());
 
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
@@ -551,6 +566,7 @@ impl RedditClient {
                     mention_map,
                 ),
                 "t3" => Self::extract_post(comment, already_replied_to_comments, commands),
+                "t4" => Self::extract_message(comment, already_replied_to_comments, commands),
                 e => {
                     println!(
                         "Encountered unknown kind: {e} at id {}",
@@ -563,6 +579,7 @@ impl RedditClient {
                 continue;
             };
             if is_mention
+                && kind == "t1"
                 && !extracted_comment.status.already_replied_or_rejected
                 && extracted_comment.status.no_factorial
             {
@@ -579,9 +596,18 @@ impl RedditClient {
             }
             comments.push(extracted_comment);
         }
-        let id = comments.first().map(|comment| comment.id.clone());
+        let id = if comments.is_empty() {
+            Some(String::new())
+        } else {
+            comments.get(1).map(|comment| comment.id.clone())
+        };
 
-        Ok((comments, parent_paths, (reset, remaining), id))
+        Ok((
+            comments,
+            parent_paths,
+            reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))),
+            id,
+        ))
     }
     fn extract_comment(
         comment: &Value,
@@ -623,6 +649,40 @@ impl RedditClient {
                 comment.notify = Some(author.to_string());
                 comment.author = mention_author.clone();
             }
+
+            comment.add_status(Status::NOT_REPLIED);
+
+            Some(comment)
+        }
+    }
+    fn extract_message(
+        message: &Value,
+        already_replied_to_comments: &mut Vec<String>,
+        commands: &HashMap<&str, Commands>,
+    ) -> Option<RedditCommentConstructed> {
+        let message_text = message["data"]["body"].as_str().unwrap_or("");
+        let author = message["data"]["author"].as_str().unwrap_or("");
+        let subreddit = message["data"]["subreddit"].as_str().unwrap_or("");
+        let comment_id = message["data"]["name"].as_str().unwrap_or_default();
+
+        if already_replied_to_comments.contains(&comment_id.to_string()) {
+            Some(RedditComment::new_already_replied(
+                comment_id, author, subreddit,
+            ))
+        } else {
+            already_replied_to_comments.push(comment_id.to_string());
+            let Ok(mut comment) = std::panic::catch_unwind(|| {
+                RedditComment::new(
+                    message_text,
+                    comment_id,
+                    author,
+                    subreddit,
+                    Commands::TERMIAL | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
+                )
+            }) else {
+                println!("Failed to construct comment {comment_id}!");
+                return None;
+            };
 
             comment.add_status(Status::NOT_REPLIED);
 
@@ -746,7 +806,7 @@ mod tests {
     #[tokio::test]
     async fn test_reply_to_comment() {
         let _lock = sequential();
-        let client = RedditClient {
+        let mut client = RedditClient {
             client: Client::new(),
             token: Token {
                 access_token: "token".to_string(),
@@ -762,7 +822,7 @@ mod tests {
         );
         status.unwrap();
         let reply_status = reply_status.unwrap();
-        assert_eq!(reply_status, (200.0, 10.0));
+        assert_eq!(reply_status, Some((200.0, 10.0)));
     }
 
     #[tokio::test]
@@ -798,7 +858,7 @@ mod tests {
                     "GET /r/post_subreddit+test_subreddit/new?limit=100&before=t3_83us27sa HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
-                    "GET /message/mentions?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
+                    "GET /message/inbox?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
@@ -892,7 +952,7 @@ mod tests {
             )]
         );
         println!("{:#?}", comments);
-        assert_eq!(comments.2, (350.0, 10.0));
+        assert_eq!(comments.2, Some((350.0, 10.0)));
     }
 
     #[tokio::test]
@@ -983,8 +1043,8 @@ mod tests {
             }]
         );
         println!("{:#?}", comments);
-        assert_eq!(t, (350.0, 10.0));
-        assert_eq!(id.unwrap(), "t3_m38msum");
+        assert_eq!(t, Some((350.0, 10.0)));
+        assert_eq!(id.unwrap(), "t3_m38msug");
     }
 
     #[test]
