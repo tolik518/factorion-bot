@@ -130,7 +130,7 @@ impl RedditClient {
             }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
-            Url::parse(&format!("{}/message/mentions", REDDIT_OAUTH_URL,))
+            Url::parse(&format!("{}/message/inbox", REDDIT_OAUTH_URL,))
                 .expect("Failed to parse Url")
         });
         #[cfg(not(test))]
@@ -562,6 +562,7 @@ impl RedditClient {
                     mention_map,
                 ),
                 "t3" => Self::extract_post(comment, already_replied_to_comments, commands),
+                "t4" => Self::extract_message(comment, already_replied_to_comments, commands),
                 e => {
                     println!(
                         "Encountered unknown kind: {e} at id {}",
@@ -574,6 +575,7 @@ impl RedditClient {
                 continue;
             };
             if is_mention
+                && kind == "t1"
                 && !extracted_comment.status.already_replied_or_rejected
                 && extracted_comment.status.no_factorial
             {
@@ -638,6 +640,40 @@ impl RedditClient {
                 comment.notify = Some(author.to_string());
                 comment.author = mention_author.clone();
             }
+
+            comment.add_status(Status::NOT_REPLIED);
+
+            Some(comment)
+        }
+    }
+    fn extract_message(
+        message: &Value,
+        already_replied_to_comments: &mut Vec<String>,
+        commands: &HashMap<&str, Commands>,
+    ) -> Option<RedditCommentConstructed> {
+        let message_text = message["data"]["body"].as_str().unwrap_or("");
+        let author = message["data"]["author"].as_str().unwrap_or("");
+        let subreddit = message["data"]["subreddit"].as_str().unwrap_or("");
+        let comment_id = message["data"]["name"].as_str().unwrap_or_default();
+
+        if already_replied_to_comments.contains(&comment_id.to_string()) {
+            Some(RedditComment::new_already_replied(
+                comment_id, author, subreddit,
+            ))
+        } else {
+            already_replied_to_comments.push(comment_id.to_string());
+            let Ok(mut comment) = std::panic::catch_unwind(|| {
+                RedditComment::new(
+                    message_text,
+                    comment_id,
+                    author,
+                    subreddit,
+                    Commands::TERMIAL | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
+                )
+            }) else {
+                println!("Failed to construct comment {comment_id}!");
+                return None;
+            };
 
             comment.add_status(Status::NOT_REPLIED);
 
