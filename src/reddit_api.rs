@@ -224,8 +224,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if t.0 < time.0 {
-                        time = t;
+                    if let Some(t) = t {
+                        if t.0 < time.0 {
+                            time = t;
+                        }
+                    } else {
+                        println!("Missing ratelimit")
                     }
                     if let Some(id) = id {
                         last_ids.2 = id;
@@ -244,8 +248,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if t.0 < time.0 {
-                        time = t;
+                    if let Some(t) = t {
+                        if t.0 < time.0 {
+                            time = t;
+                        }
+                    } else {
+                        println!("Missing ratelimit");
                     }
                     if let Some(id) = id {
                         last_ids.0 = id;
@@ -264,8 +272,12 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if t.0 < time.0 {
-                        time = t;
+                    if let Some(t) = t {
+                        if t.0 < time.0 {
+                            time = t;
+                        }
+                    } else {
+                        println!("Missing ratelimit");
                     }
                     if let Some(id) = id {
                         last_ids.1 = id;
@@ -299,8 +311,12 @@ impl RedditClient {
                         )
                         .await
                         .expect("Failed to extract comments");
-                        if t.0 < time.0 {
-                            time = t;
+                        if let Some(t) = t {
+                            if t.0 < time.0 {
+                                time = t;
+                            }
+                        } else {
+                            println!("Missing ratelimit");
                         }
                         res.extend(comments);
                     }
@@ -327,7 +343,7 @@ impl RedditClient {
         &mut self,
         comment: RedditCommentCalculated,
         reply: &str,
-    ) -> Result<(f64, f64), Error> {
+    ) -> Result<Option<(f64, f64)>, Error> {
         #[cfg(not(test))]
         if self.is_token_expired() {
             println!("Token expired, getting new token");
@@ -353,20 +369,12 @@ impl RedditClient {
             .await?;
 
         let response_headers = response.headers();
-        let remaining: f64 = response_headers
+        let remaining: Option<f64> = response_headers
             .get("X-Ratelimit-Remaining")
-            .expect("Missing Ratelimit header")
-            .to_str()
-            .unwrap()
-            .parse()
-            .unwrap();
-        let reset: f64 = response_headers
+            .map(|x| x.to_str().unwrap().parse().unwrap());
+        let reset: Option<f64> = response_headers
             .get("X-Ratelimit-Reset")
-            .expect("Missing Ratelimit header")
-            .to_str()
-            .unwrap()
-            .parse()
-            .unwrap();
+            .map(|x| x.to_str().unwrap().parse().unwrap());
 
         let response_text = &response.text().await?;
         let response_text = response_text.as_str();
@@ -389,7 +397,7 @@ impl RedditClient {
             RedditClient::get_error_message(response_json)
         );
 
-        Ok((reset, remaining))
+        Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))))
     }
 
     fn get_error_message(response_json: Value) -> String {
@@ -525,23 +533,19 @@ impl RedditClient {
         (
             Vec<RedditCommentConstructed>,
             Vec<(String, (String, Commands, String))>,
-            (f64, f64),
+            Option<(f64, f64)>,
             Option<String>,
         ),
         Box<dyn std::error::Error>,
     > {
         let empty_vec = Vec::new();
         let headers = response.headers();
-        let remaining: f64 = headers
+        let remaining: Option<f64> = headers
             .get("X-Ratelimit-Remaining")
-            .ok_or("Missing Ratelimit header")?
-            .to_str()?
-            .parse()?;
-        let reset: f64 = headers
+            .map(|x| x.to_str().unwrap().parse().unwrap());
+        let reset: Option<f64> = headers
             .get("X-Ratelimit-Reset")
-            .ok_or("Missing Ratelimit header")?
-            .to_str()?
-            .parse()?;
+            .map(|x| x.to_str().unwrap().parse().unwrap());
 
         let response_json = response.json::<Value>().await?;
         let comments_json = response_json["data"]["children"]
@@ -598,7 +602,12 @@ impl RedditClient {
             comments.get(1).map(|comment| comment.id.clone())
         };
 
-        Ok((comments, parent_paths, (reset, remaining), id))
+        Ok((
+            comments,
+            parent_paths,
+            reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))),
+            id,
+        ))
     }
     fn extract_comment(
         comment: &Value,
@@ -813,7 +822,7 @@ mod tests {
         );
         status.unwrap();
         let reply_status = reply_status.unwrap();
-        assert_eq!(reply_status, (200.0, 10.0));
+        assert_eq!(reply_status, Some((200.0, 10.0)));
     }
 
     #[tokio::test]
@@ -943,7 +952,7 @@ mod tests {
             )]
         );
         println!("{:#?}", comments);
-        assert_eq!(comments.2, (350.0, 10.0));
+        assert_eq!(comments.2, Some((350.0, 10.0)));
     }
 
     #[tokio::test]
@@ -1034,7 +1043,7 @@ mod tests {
             }]
         );
         println!("{:#?}", comments);
-        assert_eq!(t, (350.0, 10.0));
+        assert_eq!(t, Some((350.0, 10.0)));
         assert_eq!(id.unwrap(), "t3_m38msug");
     }
 

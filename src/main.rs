@@ -221,7 +221,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 if !dont_reply {
                     match reddit_client.reply_to_comment(comment, &reply).await {
                         Ok(t) => {
-                            rate = t;
+                            if let Some(t) = t {
+                                rate = t;
+                            } else {
+                                println!("Missing ratelimit");
+                            }
                             influxdb::log_comment_reply(
                                 influx_client,
                                 &comment_id,
