@@ -557,6 +557,7 @@ impl RedditClient {
         let mut parent_paths = Vec::new();
         for comment in comments_json {
             let kind = comment["kind"].as_str().unwrap_or_default();
+            let msg_type = comment["data"]["type"].as_str().unwrap_or_default();
             let extracted_comment = match kind {
                 "t1" => Self::extract_comment(
                     comment,
@@ -580,6 +581,7 @@ impl RedditClient {
             };
             if is_mention
                 && kind == "t1"
+                && msg_type == "username_mention"
                 && !extracted_comment.status.already_replied_or_rejected
                 && extracted_comment.status.no_factorial
             {
@@ -859,7 +861,7 @@ mod tests {
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/inbox?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\": \"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"parent_id\":\"t1_m38msum\"}}]}}"
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\":\"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"type\":\"username_mention\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 7\r\nx-ratelimit-reset: 170\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
@@ -919,6 +921,7 @@ mod tests {
                                "body": "u/factorion-bot !termial",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
                                "name": "t1_m38msun",
+                               "type": "username_mention",
                                "parent_id": "t1_m38msum",
                                "context": "/r/some_sub/8msu32a/some_post/m38msun/?context=3"
                            }
