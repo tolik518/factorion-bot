@@ -769,7 +769,9 @@ mod tests {
     fn sequential<'a>() -> std::sync::MutexGuard<'a, ()> {
         loop {
             SEQUENTIAL_LOCK.clear_poison();
-            if let Ok(lock) = SEQUENTIAL_LOCK.lock() { return lock }
+            if let Ok(lock) = SEQUENTIAL_LOCK.lock() {
+                return lock;
+            }
         }
     }
 
