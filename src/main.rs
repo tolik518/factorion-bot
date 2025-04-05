@@ -26,37 +26,7 @@ static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    dotenv().ok();
-
-    env_logger::builder()
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "{} | {} | {} | {}",
-                record.level(),
-                env!("CARGO_PKG_NAME"),
-                buf.timestamp(),
-                record.args()
-            )
-        })
-        .init();
-
-    // panic hook to log panics with the env_logger
-    panic::set_hook(Box::new(|panic_info| {
-        let location = panic_info
-            .location()
-            .map(|l| format!("{}:{}", l.file(), l.line()))
-            .unwrap_or_else(|| "unknown location".to_string());
-
-        let message = panic_info
-            .payload()
-            .downcast_ref::<&str>()
-            .map(|s| s.to_string())
-            .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| format!("Unknown panic payload: {:?}", panic_info));
-
-        error!("Thread panicked at {} with message: {}", location, message);
-    }));
+    init();
 
     let influx_client = &*INFLUX_CLIENT;
 
@@ -190,16 +160,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         influxdb::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
 
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false) // This will clear the file contents if it already exists
-            .open(COMMENT_IDS_FILE_PATH)
-            .expect("Unable to open or create file");
-
-        for comment_id in already_replied_or_rejected.iter() {
-            writeln!(file, "{}", comment_id).expect("Unable to write to file");
-        }
+        write_comment_ids(&already_replied_or_rejected)?;
 
         let start = SystemTime::now();
         for comment in comments {
@@ -267,6 +228,52 @@ async fn main() -> Result<(), Box<dyn Error>> {
         };
         // Sleep to avoid hitting API rate limits
         sleep(Duration::from_secs(sleep_between_requests.ceil() as u64)).await;
+    }
+    Ok(())
+}
+
+fn init() {
+    dotenv().ok();
+    env_logger::builder()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} | {} | {} | {}",
+                record.level(),
+                env!("CARGO_PKG_NAME"),
+                buf.timestamp(),
+                record.args()
+            )
+        })
+        .init();
+
+    panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info
+            .location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+
+        let message = panic_info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| format!("Unknown panic payload: {:?}", panic_info));
+
+        error!("Thread panicked at {} with message: {}", location, message);
+    }));
+}
+
+fn write_comment_ids(already_replied_or_rejected: &[String]) -> Result<(), Box<dyn Error>> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(COMMENT_IDS_FILE_PATH)
+        .expect("Unable to open or create file");
+
+    for comment_id in already_replied_or_rejected.iter() {
+        writeln!(file, "{}", comment_id).expect("Unable to write to file");
     }
     Ok(())
 }
