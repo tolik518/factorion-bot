@@ -1,4 +1,4 @@
-use core::panic;
+use std::panic;
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use reddit_api::RedditClient;
@@ -10,6 +10,7 @@ use std::io::Write;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 use time::OffsetDateTime;
+use log::{error, info, warn};
 use tokio::time::{sleep, Duration};
 
 mod calculation_results;
@@ -27,12 +28,36 @@ static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
+
+    env_logger::builder()
+        .format(|buf, record| {
+            writeln!(buf, "{} | {} | {} | {}", record.level(), record.target(), buf.timestamp(), record.args())
+        })
+        .format_level(true)
+        .init();
+
+    // panic hook to log panics with the env_logger
+    panic::set_hook(Box::new(|panic_info| {
+        let location = panic_info.location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+
+        let message = panic_info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| format!("Unknown panic payload: {:?}", panic_info));
+
+        error!("Thread panicked at {} with message: {}", location, message);
+    }));
+
     let influx_client = &*INFLUX_CLIENT;
 
     if influx_client.is_none() {
-        eprintln!("InfluxDB client not configured. No influxdb metrics will be logged.");
+        warn!("InfluxDB client not configured. No influxdb metrics will be logged.");
     } else {
-        println!("InfluxDB client configured. Metrics will be logged.");
+        info!("InfluxDB client configured. Metrics will be logged.");
     }
 
     let mut reddit_client = RedditClient::new().await?;
@@ -94,9 +119,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fs::read_to_string(COMMENT_IDS_FILE_PATH).unwrap_or("".to_string());
 
     if already_replied_to_comments.is_empty() {
-        println!("No comment_ids found in the file");
+        info!("No comment_ids found in the file");
     } else {
-        println!("Found comment_ids in the file");
+        info!("Found comment_ids in the file");
     }
 
     let mut already_replied_or_rejected: Vec<String> = already_replied_to_comments
@@ -107,12 +132,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Polling Reddit for new comments
     for i in (0..u8::MAX).cycle() {
-        let today: OffsetDateTime = SystemTime::now().into();
-        println!(
-            "{} - {} | Polling Reddit for new comments...",
-            today.date(),
-            today.time()
-        );
+        info!("Polling Reddit for new comments...");
 
         let start = SystemTime::now();
         let (comments, mut rate) = reddit_client
@@ -136,7 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match std::panic::catch_unwind(|| RedditComment::extract(c)) {
                     Ok(c) => Some(c),
                     Err(_) => {
-                        println!("Failed to calculate comment {id}!");
+                        error!("Failed to calculate comment {id}!");
                         None
                     }
                 }
@@ -154,7 +174,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match std::panic::catch_unwind(|| RedditComment::calc(c)) {
                     Ok(c) => Some(c),
                     Err(_) => {
-                        println!("Failed to calculate comment {id}!");
+                        error!("Failed to calculate comment {id}!");
                         None
                     }
                 }
@@ -188,25 +208,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
 
-            print!("Comment ID {} -> {:?}", comment.id, comment.status);
-
-            if status.number_too_big_to_calculate {
-                println!(" -> number too big to calculate");
-                continue;
-            }
-
-            if status.already_replied_or_rejected {
-                println!(" -> already replied or rejected");
-                continue;
-            }
-
             if status.factorials_found {
-                println!(" -> {:?}", comment.calculation_list);
+                info!("Comment -> {:?}", comment);
             }
+
             if should_answer {
                 let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply())
                 else {
-                    println!("Failed to format comment!");
+                    error!("Failed to format comment!");
                     continue;
                 };
                 // Sleep to not spam comments too quickly
@@ -224,7 +233,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             if let Some(t) = t {
                                 rate = t;
                             } else {
-                                println!("Missing ratelimit");
+                                error!("Missing ratelimit");
                             }
                             influxdb::log_comment_reply(
                                 influx_client,
@@ -234,12 +243,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             )
                             .await?;
                         }
-                        Err(e) => eprintln!("Failed to reply to comment: {:?}", e),
+                        Err(e) => error!("Failed to reply to comment: {:?}", e),
                     }
                 }
                 continue;
             }
-            println!(" -> unknown");
+            info!(" -> unknown");
         }
         let end = SystemTime::now();
 

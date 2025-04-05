@@ -13,6 +13,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
+use log::{error, info, warn};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
@@ -135,7 +136,7 @@ impl RedditClient {
         });
         #[cfg(not(test))]
         if self.is_token_expired() {
-            println!("Token expired, getting new token");
+            info!("Token expired, getting new token");
             self.token = RedditClient::get_reddit_token(
                 std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set."),
                 std::env::var("APP_SECRET").expect("APP_SECRET must be set."),
@@ -229,7 +230,7 @@ impl RedditClient {
                             time = t;
                         }
                     } else {
-                        println!("Missing ratelimit")
+                        warn!("Missing ratelimit")
                     }
                     if let Some(id) = id {
                         last_ids.2 = id;
@@ -253,7 +254,7 @@ impl RedditClient {
                             time = t;
                         }
                     } else {
-                        println!("Missing ratelimit");
+                        warn!("Missing ratelimit");
                     }
                     if let Some(id) = id {
                         last_ids.0 = id;
@@ -277,7 +278,7 @@ impl RedditClient {
                             time = t;
                         }
                     } else {
-                        println!("Missing ratelimit");
+                        warn!("Missing ratelimit");
                     }
                     if let Some(id) = id {
                         last_ids.1 = id;
@@ -316,7 +317,7 @@ impl RedditClient {
                                 time = t;
                             }
                         } else {
-                            println!("Missing ratelimit");
+                            warn!("Missing ratelimit");
                         }
                         res.extend(comments);
                     }
@@ -346,7 +347,7 @@ impl RedditClient {
     ) -> Result<Option<(f64, f64)>, Error> {
         #[cfg(not(test))]
         if self.is_token_expired() {
-            println!("Token expired, getting new token");
+            info!("Token expired, getting new token");
             self.token = RedditClient::get_reddit_token(
                 std::env::var("APP_CLIENT_ID").expect("APP_CLIENT_ID must be set."),
                 std::env::var("APP_SECRET").expect("APP_SECRET must be set."),
@@ -383,15 +384,17 @@ impl RedditClient {
         let response_status_err = !RedditClient::is_success(response_text);
 
         if response_status_err {
-            eprintln!(
-                "Comment ID {} -> Status FAILED: {:#?}",
+            error!(
+                "Comment ID {} by {} in {} -> Status FAILED: {:#?}",
                 comment.id,
+                comment.author,
+                comment.subreddit,
                 RedditClient::get_error_message(response_json)
             );
             return Err(anyhow!("Failed to reply to comment"));
         }
 
-        println!(
+        info!(
             "Comment ID {} -> Status OK: {:#?}",
             comment.id,
             RedditClient::get_error_message(response_json)
@@ -459,7 +462,7 @@ impl RedditClient {
             .await?;
 
         if !response.status().is_success() {
-            println!("Failed to get token: {:#?}", response);
+            error!("Failed to get token: {:#?}", response);
             return Err("Failed to get token".into());
         }
 
@@ -467,14 +470,8 @@ impl RedditClient {
 
         let token_expiration_time = Self::get_expiration_time_from_jwt(&response.access_token);
 
-        println!(
+        info!(
             "Fetched new token. Will expire: {:#?}",
-            token_expiration_time
-        );
-
-        println!(
-            "Now: {:#?} | Expiration time: {:#?}",
-            Utc::now(),
             token_expiration_time
         );
 
@@ -508,7 +505,7 @@ impl RedditClient {
 
     fn check_response_status(response: &Response) -> Result<(), ()> {
         if !response.status().is_success() {
-            println!(
+            error!(
                 "Failed to get comments. Statuscode: {:#?}. Response: {:#?}",
                 response.status(),
                 response
@@ -569,7 +566,7 @@ impl RedditClient {
                 "t3" => Self::extract_post(comment, already_replied_to_comments, commands),
                 "t4" => Self::extract_message(comment, already_replied_to_comments, commands),
                 e => {
-                    println!(
+                    error!(
                         "Encountered unknown kind: {e} at id {}",
                         comment["data"]["id"].as_str().unwrap_or_default()
                     );
@@ -642,7 +639,7 @@ impl RedditClient {
                     } | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                 )
             }) else {
-                println!("Failed to construct comment {comment_id}!");
+                error!("Failed to construct comment {comment_id}!");
                 return None;
             };
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
@@ -682,7 +679,7 @@ impl RedditClient {
                     Commands::TERMIAL | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                 )
             }) else {
-                println!("Failed to construct comment {comment_id}!");
+                error!("Failed to construct comment {comment_id}!");
                 return None;
             };
 
@@ -719,7 +716,7 @@ impl RedditClient {
                         commands.get(subreddit).copied().unwrap_or(Commands::NONE),
                     )
                 }) else {
-                    println!("Failed to construct comment {post_id}!");
+                    error!("Failed to construct comment {post_id}!");
                     return None;
                 };
 

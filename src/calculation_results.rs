@@ -8,10 +8,40 @@ use rug::integer::IntegerExt64;
 use rug::ops::Pow;
 use rug::{Complete, Float, Integer};
 use std::borrow::Cow;
+use std::fmt;
 use std::fmt::Write;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+impl fmt::Debug for CalculationResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Helper function to truncate a value's Debug representation.
+        fn truncate<T: fmt::Debug>(val: &T) -> String {
+            let s = format!("{:?}", val);
+            if s.len() > 25 {
+                format!("{}...", &s[..20])
+            } else {
+                s
+            }
+        }
+
+        match self {
+            CalculationResult::Exact(n) => write!(f, "Exact({})", truncate(n)),
+            CalculationResult::Approximate(of, int) => {
+                write!(f, "Approximate({:?}, {})", of, truncate(int))
+            }
+            CalculationResult::ApproximateDigits(n) => {
+                write!(f, "ApproximateDigits({})", truncate(n))
+            }
+            CalculationResult::ApproximateDigitsTower(b, u, n) => {
+                write!(f, "ApproximateDigitsTower({}, {}, {})", b, u, truncate(n))
+            }
+            CalculationResult::Float(of) => write!(f, "Float({})", truncate(of)),
+            CalculationResult::ComplexInfinity => write!(f, "ComplexInfinity"),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum CalculationResult {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
