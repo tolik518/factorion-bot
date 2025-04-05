@@ -39,7 +39,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 record.args()
             )
         })
-        .format_level(true)
         .init();
 
     // panic hook to log panics with the env_logger
