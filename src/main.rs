@@ -1,16 +1,15 @@
-use std::panic;
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
+use log::{error, info, warn};
 use reddit_api::RedditClient;
 use reddit_comment::{Commands, RedditComment, Status};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::panic;
 use std::sync::OnceLock;
 use std::time::SystemTime;
-use time::OffsetDateTime;
-use log::{error, info, warn};
 use tokio::time::{sleep, Duration};
 
 mod calculation_results;
@@ -31,14 +30,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     env_logger::builder()
         .format(|buf, record| {
-            writeln!(buf, "{} | {} | {} | {}", record.level(), record.target(), buf.timestamp(), record.args())
+            writeln!(
+                buf,
+                "{} | {} | {} | {}",
+                record.level(),
+                record.target(),
+                buf.timestamp(),
+                record.args()
+            )
         })
         .format_level(true)
         .init();
 
     // panic hook to log panics with the env_logger
     panic::set_hook(Box::new(|panic_info| {
-        let location = panic_info.location()
+        let location = panic_info
+            .location()
             .map(|l| format!("{}:{}", l.file(), l.line()))
             .unwrap_or_else(|| "unknown location".to_string());
 
@@ -72,7 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let commands = subreddit_commands
         .split('+')
         .map(|s| s.split_once(':').unwrap_or((s, "")))
-        .filter(|s| s.0 != "")
+        .filter(|s| s.0.is_empty())
         .map(|(sub, commands)| {
             (
                 sub,

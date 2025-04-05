@@ -276,7 +276,7 @@ impl Calculation {
                     let _ = write!(s, "10^(");
                 }
                 if *depth > 1 {
-                    let _ = s.push_str(&"10\\^".repeat(*depth as usize - 1));
+                    s.push_str(&"10\\^".repeat(*depth as usize - 1));
                     let _ = write!(s, "(");
                 }
                 s.push_str(&if self.is_too_long() || force_shorten {

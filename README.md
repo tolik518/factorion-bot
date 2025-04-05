@@ -86,13 +86,17 @@ POSTS_EVERY=<check_posts_every_nth_loop>
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test
 INFLUXDB_TOKEN=<token>
+
+RUST_LOG=<factorion_bot|info|debug|trace|error|warn>
 ```
 
 Replace with the values you received from the Reddit App creation.
 InfluxDB is optional and can be removed if not needed.
-The `_EVERY` variables are optional and default to "1".
+The `_EVERY` variables are optional and default to `1`.
 They control how often posts/mentions are checked compared to comments.
-Setting them to "0" will result in a crash.
+Setting them to `0` will result in a crash.
+
+Set `RUST_LOG` to `factorion_bot` to see all logs, or `error` to see only errors.
 
 ## Run the following command to install dependencies:
 
