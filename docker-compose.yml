@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  factorion-bot:
+    image: factorion-bot:${VERSION}
+    container_name: factorion-bot
+    volumes:
+      - ${SSH_PATH}:/usr/factorion
+    networks:
+      - service-network
+    restart: unless-stopped
+    command: ./run.sh
+
+networks:
+  service-network:
+    external: true

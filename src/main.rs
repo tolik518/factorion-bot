@@ -200,7 +200,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             if let Some(t) = t {
                                 rate = t;
                             } else {
-                                error!("Missing ratelimit");
+                                warn!("Missing ratelimit");
                             }
                             influxdb::log_comment_reply(
                                 influx_client,

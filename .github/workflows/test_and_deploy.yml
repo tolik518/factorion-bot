@@ -100,11 +100,7 @@ jobs:
             sleep 3 && \
             docker rm factorion-bot || true && \
             sleep 1 && \
-            docker run -d \
-              --network service-network \
-              --name factorion-bot \
-              --volume "$SSH_PATH":/usr/factorion \
-              factorion-bot:"$VERSION" ./run.sh && \
+            docker compose up -d && \
             sleep 3 && \
             if [ \$(docker ps -q -f name=factorion-bot | wc -l) -eq 0 ]; then
               echo "WARN: Container takes more time than usual to spin up" && \
