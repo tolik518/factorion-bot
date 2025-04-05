@@ -750,7 +750,7 @@ mod tests {
             let len = timeout(Duration::from_millis(300), sock.read(&mut request)).await??;
             request.truncate(len);
             let request = String::from_utf8(request).expect("Got invalid utf8");
-            if !(&request == expected_request) {
+            if &request != expected_request {
                 panic!(
                     "Wrong request: {:?}\nExpected: {:?}",
                     request, expected_request
@@ -769,10 +769,7 @@ mod tests {
     fn sequential<'a>() -> std::sync::MutexGuard<'a, ()> {
         loop {
             SEQUENTIAL_LOCK.clear_poison();
-            match SEQUENTIAL_LOCK.lock() {
-                Ok(lock) => return lock,
-                Err(_) => {}
-            }
+            if let Ok(lock) = SEQUENTIAL_LOCK.lock() { return lock }
         }
     }
 
