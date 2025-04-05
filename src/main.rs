@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let commands = subreddit_commands
         .split('+')
         .map(|s| s.split_once(':').unwrap_or((s, "")))
-        .filter(|s| s.0.is_empty())
+        .filter(|s| !s.0.is_empty())
         .map(|(sub, commands)| {
             (
                 sub,
