@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 buf,
                 "{} | {} | {} | {}",
                 record.level(),
-                record.target(),
+                env!("CARGO_PKG_NAME"),
                 buf.timestamp(),
                 record.args()
             )
