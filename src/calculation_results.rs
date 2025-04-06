@@ -26,7 +26,12 @@ impl fmt::Debug for CalculationResult {
         match self {
             CalculationResult::Exact(n) => write!(f, "Exact({})", truncate(n)),
             CalculationResult::Approximate(of, int) => {
-                write!(f, "Approximate({}, {})", truncate(&of.as_float()), truncate(int))
+                write!(
+                    f,
+                    "Approximate({}, {})",
+                    truncate(&of.as_float()),
+                    truncate(int)
+                )
             }
             CalculationResult::ApproximateDigits(n) => {
                 write!(f, "ApproximateDigits({})", truncate(n))
