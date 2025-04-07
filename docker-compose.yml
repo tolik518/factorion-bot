@@ -8,7 +8,7 @@ services:
     networks:
       - service-network
     restart: unless-stopped
-    command: sh -c "./run.sh 2>&1 | tee /var/log/docker/factorion-bot/$(hostname)/logfile.log"
+    command: sh -c "mkdir -p /var/log/docker/factorion-bot/$(hostname) && ./run.sh 2>&1 | tee /var/log/docker/factorion-bot/$(hostname)/logfile.log"
 
 networks:
   service-network:
