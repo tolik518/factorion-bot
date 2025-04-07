@@ -8,10 +8,44 @@ use rug::integer::IntegerExt64;
 use rug::ops::Pow;
 use rug::{Complete, Float, Integer};
 use std::borrow::Cow;
+use std::fmt;
 use std::fmt::Write;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+impl fmt::Debug for CalculationResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn truncate<T: fmt::Debug>(val: &T) -> String {
+            let s = format!("{:?}", val);
+            if s.len() > 25 {
+                format!("{}...", &s[..20])
+            } else {
+                s
+            }
+        }
+
+        match self {
+            CalculationResult::Exact(n) => write!(f, "Exact({})", truncate(n)),
+            CalculationResult::Approximate(of, int) => {
+                write!(
+                    f,
+                    "Approximate({}, {})",
+                    truncate(&of.as_float()),
+                    truncate(int)
+                )
+            }
+            CalculationResult::ApproximateDigits(n) => {
+                write!(f, "ApproximateDigits({})", truncate(n))
+            }
+            CalculationResult::ApproximateDigitsTower(b, u, n) => {
+                write!(f, "ApproximateDigitsTower({}, {}, {})", b, u, truncate(n))
+            }
+            CalculationResult::Float(of) => write!(f, "Float({})", truncate(&of.as_float())),
+            CalculationResult::ComplexInfinity => write!(f, "ComplexInfinity"),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum CalculationResult {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
@@ -21,7 +55,25 @@ pub(crate) enum CalculationResult {
     ComplexInfinity,
 }
 
-#[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+impl fmt::Debug for Number {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn truncate<T: fmt::Debug>(val: &T) -> String {
+            let s = format!("{:?}", val);
+            if s.len() > 25 {
+                format!("{}...", &s[..20])
+            } else {
+                s
+            }
+        }
+
+        match self {
+            Number::Float(of) => write!(f, "{}", truncate(of.as_float())),
+            Number::Int(n) => write!(f, "{}", truncate(n)),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub(crate) enum Number {
     Float(OrdFloat),
     Int(Integer),
@@ -246,7 +298,7 @@ impl Calculation {
                     let _ = write!(s, "10^(");
                 }
                 if *depth > 1 {
-                    let _ = s.push_str(&"10\\^".repeat(*depth as usize - 1));
+                    s.push_str(&"10\\^".repeat(*depth as usize - 1));
                     let _ = write!(s, "(");
                 }
                 s.push_str(&if self.is_too_long() || force_shorten {
