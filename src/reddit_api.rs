@@ -145,7 +145,7 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let mut time = (f64::MAX, 0.0);
+        let mut time = (600.0, 0.0);
 
         fn add_query(request: RequestBuilder, after: &String) -> RequestBuilder {
             if after.is_empty() {
