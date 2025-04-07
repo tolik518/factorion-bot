@@ -2,15 +2,13 @@ services:
   factorion-bot:
     image: factorion-bot:${VERSION}
     container_name: factorion-bot
-    environment:
-      - LOG_FILE=/var/log/docker/factorion-bot/$(hostname)/logfile.log
     volumes:
       - ${SSH_PATH}:/usr/factorion
-      - ${LOG_FILE}:${LOG_FILE}
+      - /var/log/docker/factorion-bot:/var/log/docker/factorion-bot
     networks:
       - service-network
     restart: unless-stopped
-    command: sh -c "./run.sh 2>&1 | tee ${LOG_FILE}"
+    command: sh -c "./run.sh 2>&1 | tee /var/log/docker/factorion-bot/$(hostname)/logfile.log"
 
 networks:
   service-network:
