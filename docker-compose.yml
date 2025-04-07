@@ -1,0 +1,15 @@
+services:
+  factorion-bot:
+    image: factorion-bot:${VERSION}
+    container_name: factorion-bot
+    volumes:
+      - ${SSH_PATH}:/usr/factorion
+      - /var/log/docker/factorion-bot:/var/log/docker/factorion-bot
+    networks:
+      - service-network
+    restart: unless-stopped
+    command: sh -c "mkdir -p /var/log/docker/factorion-bot/$(hostname) && ./run.sh 2>&1 | tee /var/log/docker/factorion-bot/$(hostname)/logfile.log"
+
+networks:
+  service-network:
+    external: true
