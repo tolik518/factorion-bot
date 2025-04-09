@@ -385,7 +385,7 @@ impl RedditClient {
 
         if response_status_err {
             error!(
-                "Comment ID {} by {} in {} -> Status FAILED: {:#?}",
+                "Comment ID {} by {} in {} -> Status FAILED: {:?}",
                 comment.id,
                 comment.author,
                 comment.subreddit,
@@ -395,7 +395,7 @@ impl RedditClient {
         }
 
         info!(
-            "Comment ID {} -> Status OK: {:#?}",
+            "Comment ID {} -> Status OK: {:?}",
             comment.id,
             RedditClient::get_error_message(response_json)
         );
@@ -462,7 +462,7 @@ impl RedditClient {
             .await?;
 
         if !response.status().is_success() {
-            error!("Failed to get token: {:#?}", response);
+            error!("Failed to get token: {:?}", response);
             return Err("Failed to get token".into());
         }
 
@@ -471,7 +471,7 @@ impl RedditClient {
         let token_expiration_time = Self::get_expiration_time_from_jwt(&response.access_token);
 
         info!(
-            "Fetched new token. Will expire: {:#?}",
+            "Fetched new token. Will expire: {:?}",
             token_expiration_time
         );
 
@@ -506,7 +506,7 @@ impl RedditClient {
     fn check_response_status(response: &Response) -> Result<(), ()> {
         if !response.status().is_success() {
             error!(
-                "Failed to get comments. Statuscode: {:#?}. Response: {:#?}",
+                "Failed to get comments. Statuscode: {:?}. Response: {:?}",
                 response.status(),
                 response
             );
@@ -950,7 +950,7 @@ mod tests {
                 )
             )]
         );
-        println!("{:#?}", comments);
+        println!("{:?}", comments);
         assert_eq!(comments.2, Some((350.0, 10.0)));
     }
 
@@ -1041,7 +1041,7 @@ mod tests {
                 result: crate::calculation_results::CalculationResult::Exact(1334961.into())
             }]
         );
-        println!("{:#?}", comments);
+        println!("{:?}", comments);
         assert_eq!(t, Some((350.0, 10.0)));
         assert_eq!(id.unwrap(), "t3_m38msug");
     }
