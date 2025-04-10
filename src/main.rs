@@ -236,9 +236,10 @@ fn init() {
     dotenv().ok();
     env_logger::builder()
         .format(|buf, record| {
+            let style = buf.default_level_style(record.level());
             writeln!(
                 buf,
-                "{} | {} | {} | {}",
+                "{style}{} | {} | {} | {}",
                 record.level(),
                 env!("CARGO_PKG_NAME"),
                 buf.timestamp(),
