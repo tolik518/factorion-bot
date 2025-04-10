@@ -241,7 +241,7 @@ fn init() {
                 buf,
                 "{style}{} | {} | {} | {}",
                 record.level(),
-                env!("CARGO_PKG_NAME"),
+                record.target(),
                 buf.timestamp(),
                 record.args()
             )
