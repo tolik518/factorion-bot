@@ -124,6 +124,10 @@ impl FromStr for Number {
         if negative {
             num *= -1;
         }
+        if num.is_integer() {
+            let num = num.to_integer().unwrap();
+            return Ok(Number::Int(num));
+        }
         Ok(Number::Float(num.into()))
     }
 }

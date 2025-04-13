@@ -973,6 +973,27 @@ mod tests {
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
     #[test]
+    fn test_comment_new_decimal_integer() {
+        let comment = RedditComment::new(
+            "This is a test comment with decimal number 0.0!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        )
+        .extract()
+        .calc();
+        assert_eq!(
+            comment.calculation_list,
+            vec![Calculation {
+                value: Number::Int(0.into()),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(1.into())
+            }]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+    #[test]
     fn test_comment_new_decimals_multifactorial() {
         let comment = RedditComment::new(
             "This is a test comment with decimal number 0.5!!",
