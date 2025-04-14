@@ -370,10 +370,10 @@ impl RedditClient {
             .await?;
 
         let response_headers = response.headers();
-        let remaining: Option<f64> = response_headers
+        let ratelimit_remaining: Option<f64> = response_headers
             .get("X-Ratelimit-Remaining")
             .map(|x| x.to_str().unwrap().parse().unwrap());
-        let reset: Option<f64> = response_headers
+        let ratelimit_reset: Option<f64> = response_headers
             .get("X-Ratelimit-Reset")
             .map(|x| x.to_str().unwrap().parse().unwrap());
 
@@ -391,7 +391,8 @@ impl RedditClient {
                     "Comment ID {} by {} in {} -> Status FAILED: {:?}",
                     comment.id, comment.author, comment.subreddit, error_message
                 );
-                return Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))));
+                return Ok(ratelimit_reset
+                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
             }
 
             if error_message.contains("error.DELETED_COMMENT") {
@@ -399,26 +400,24 @@ impl RedditClient {
                     "Comment ID {} by {} in {} -> Status FAILED: {:?}",
                     comment.id, comment.author, comment.subreddit, error_message
                 );
-                return Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))));
+                return Ok(ratelimit_reset
+                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
             }
 
             error!(
                 "Comment ID {} by {} in {} -> Status FAILED: {:?}",
-                comment.id,
-                comment.author,
-                comment.subreddit,
-                error_message
+                comment.id, comment.author, comment.subreddit, error_message
             );
             return Err(anyhow!("Failed to reply to comment"));
         }
 
         info!(
             "Comment ID {} -> Status OK: {:?}",
-            comment.id,
-            error_message
+            comment.id, error_message
         );
 
-        Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))))
+        Ok(ratelimit_reset
+            .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))))
     }
 
     fn get_error_message(response_json: Value) -> String {
