@@ -383,13 +383,31 @@ impl RedditClient {
             from_str::<Value>(response_text).expect("Failed to convert response to json");
         let response_status_err = !RedditClient::is_success(response_text);
 
+        let error_message = RedditClient::get_error_message(response_json);
+
         if response_status_err {
+            if error_message.contains("error.COMMENTER_BLOCKED_POSTER") {
+                warn!(
+                    "Comment ID {} by {} in {} -> Status FAILED: {:?}",
+                    comment.id, comment.author, comment.subreddit, error_message
+                );
+                return Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))));
+            }
+
+            if error_message.contains("error.DELETED_COMMENT") {
+                info!(
+                    "Comment ID {} by {} in {} -> Status FAILED: {:?}",
+                    comment.id, comment.author, comment.subreddit, error_message
+                );
+                return Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))));
+            }
+
             error!(
                 "Comment ID {} by {} in {} -> Status FAILED: {:?}",
                 comment.id,
                 comment.author,
                 comment.subreddit,
-                RedditClient::get_error_message(response_json)
+                error_message
             );
             return Err(anyhow!("Failed to reply to comment"));
         }
@@ -397,7 +415,7 @@ impl RedditClient {
         info!(
             "Comment ID {} -> Status OK: {:?}",
             comment.id,
-            RedditClient::get_error_message(response_json)
+            error_message
         );
 
         Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))))
