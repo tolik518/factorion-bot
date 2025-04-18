@@ -317,7 +317,7 @@ impl RedditClient {
 
     fn update_reset_timer(mut current_reset_timer: (f64, f64), t: Option<(f64, f64)>) -> (f64, f64) {
         if let Some(t) = t {
-            warn!("Update time. t.0: {:?}, time.0: {:?}", t.0, current_reset_timer.0);
+            debug!("Update time. t.0: {:?}, time.0: {:?}", t.0, current_reset_timer.0);
             if t.0 < current_reset_timer.0 {
                 current_reset_timer = t;
             }
