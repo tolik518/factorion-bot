@@ -13,7 +13,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
@@ -145,7 +145,7 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let mut time = (600.0, 0.0);
+        let mut reset_timer = (600.0, 0.0);
 
         fn add_query(request: RequestBuilder, after: &String) -> RequestBuilder {
             if after.is_empty() {
@@ -225,13 +225,9 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if let Some(t) = t {
-                        if t.0 < time.0 {
-                            time = t;
-                        }
-                    } else {
-                        warn!("Missing ratelimit")
-                    }
+
+                    reset_timer = Self::update_reset_timer(reset_timer, t);
+
                     if let Some(id) = id {
                         last_ids.2 = id;
                     };
@@ -249,13 +245,9 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if let Some(t) = t {
-                        if t.0 < time.0 {
-                            time = t;
-                        }
-                    } else {
-                        warn!("Missing ratelimit");
-                    }
+
+                    reset_timer = Self::update_reset_timer(reset_timer, t);
+
                     if let Some(id) = id {
                         last_ids.0 = id;
                     };
@@ -273,13 +265,9 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if let Some(t) = t {
-                        if t.0 < time.0 {
-                            time = t;
-                        }
-                    } else {
-                        warn!("Missing ratelimit");
-                    }
+
+                    reset_timer = Self::update_reset_timer(reset_timer, t);
+
                     if let Some(id) = id {
                         last_ids.1 = id;
                     };
@@ -312,34 +300,41 @@ impl RedditClient {
                         )
                         .await
                         .expect("Failed to extract comments");
-                        if let Some(t) = t {
-                            if t.0 < time.0 {
-                                time = t;
-                            }
-                        } else {
-                            warn!("Missing ratelimit");
-                        }
+
+                        reset_timer = Self::update_reset_timer(reset_timer, t);
+
                         res.extend(comments);
                     }
                 }
                 if let Some(mentions) = mentions {
                     res.extend(mentions);
                 }
-                Ok((res, time))
+                Ok((res, reset_timer))
             }
             Err(_) => Err(()),
         }
     }
-    #[allow(unused)]
+
+    fn update_reset_timer(mut current_reset_timer: (f64, f64), t: Option<(f64, f64)>) -> (f64, f64) {
+        if let Some(t) = t {
+            warn!("Update time. t.0: {:?}, time.0: {:?}", t.0, current_reset_timer.0);
+            if t.0 < current_reset_timer.0 {
+                current_reset_timer = t;
+            }
+        } else {
+            warn!("Missing ratelimit")
+        }
+        current_reset_timer
+    }
+
     fn is_token_expired(&self) -> bool {
         let now = Utc::now();
-
         now > self.token.expiration_time
     }
 
     /// Replies to the given `comment` with the given `reply`.
     /// # Panic
-    /// May panic on a malformed response is recieved from the api.
+    /// May panic on a malformed response is received from the api.
     pub(crate) async fn reply_to_comment(
         &mut self,
         comment: RedditCommentCalculated,
