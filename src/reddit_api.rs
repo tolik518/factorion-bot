@@ -13,7 +13,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
@@ -145,7 +145,7 @@ impl RedditClient {
             .expect("Failed to get token");
         }
 
-        let mut time = (600.0, 0.0);
+        let mut reset_timer = (600.0, 0.0);
 
         fn add_query(request: RequestBuilder, after: &String) -> RequestBuilder {
             if after.is_empty() {
@@ -225,13 +225,9 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if let Some(t) = t {
-                        if t.0 < time.0 {
-                            time = t;
-                        }
-                    } else {
-                        warn!("Missing ratelimit")
-                    }
+
+                    reset_timer = Self::update_reset_timer(reset_timer, t);
+
                     if let Some(id) = id {
                         last_ids.2 = id;
                     };
@@ -249,13 +245,9 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if let Some(t) = t {
-                        if t.0 < time.0 {
-                            time = t;
-                        }
-                    } else {
-                        warn!("Missing ratelimit");
-                    }
+
+                    reset_timer = Self::update_reset_timer(reset_timer, t);
+
                     if let Some(id) = id {
                         last_ids.0 = id;
                     };
@@ -273,13 +265,9 @@ impl RedditClient {
                     )
                     .await
                     .expect("Failed to extract comments");
-                    if let Some(t) = t {
-                        if t.0 < time.0 {
-                            time = t;
-                        }
-                    } else {
-                        warn!("Missing ratelimit");
-                    }
+
+                    reset_timer = Self::update_reset_timer(reset_timer, t);
+
                     if let Some(id) = id {
                         last_ids.1 = id;
                     };
@@ -312,34 +300,47 @@ impl RedditClient {
                         )
                         .await
                         .expect("Failed to extract comments");
-                        if let Some(t) = t {
-                            if t.0 < time.0 {
-                                time = t;
-                            }
-                        } else {
-                            warn!("Missing ratelimit");
-                        }
+
+                        reset_timer = Self::update_reset_timer(reset_timer, t);
+
                         res.extend(comments);
                     }
                 }
                 if let Some(mentions) = mentions {
                     res.extend(mentions);
                 }
-                Ok((res, time))
+                Ok((res, reset_timer))
             }
             Err(_) => Err(()),
         }
     }
-    #[allow(unused)]
+
+    fn update_reset_timer(
+        mut current_reset_timer: (f64, f64),
+        t: Option<(f64, f64)>,
+    ) -> (f64, f64) {
+        if let Some(t) = t {
+            debug!(
+                "Update time. t.0: {:?}, time.0: {:?}",
+                t.0, current_reset_timer.0
+            );
+            if t.0 < current_reset_timer.0 {
+                current_reset_timer = t;
+            }
+        } else {
+            warn!("Missing ratelimit")
+        }
+        current_reset_timer
+    }
+
     fn is_token_expired(&self) -> bool {
         let now = Utc::now();
-
         now > self.token.expiration_time
     }
 
     /// Replies to the given `comment` with the given `reply`.
     /// # Panic
-    /// May panic on a malformed response is recieved from the api.
+    /// May panic on a malformed response is received from the api.
     pub(crate) async fn reply_to_comment(
         &mut self,
         comment: RedditCommentCalculated,
@@ -370,10 +371,10 @@ impl RedditClient {
             .await?;
 
         let response_headers = response.headers();
-        let remaining: Option<f64> = response_headers
+        let ratelimit_remaining: Option<f64> = response_headers
             .get("X-Ratelimit-Remaining")
             .map(|x| x.to_str().unwrap().parse().unwrap());
-        let reset: Option<f64> = response_headers
+        let ratelimit_reset: Option<f64> = response_headers
             .get("X-Ratelimit-Reset")
             .map(|x| x.to_str().unwrap().parse().unwrap());
 
@@ -383,24 +384,41 @@ impl RedditClient {
             from_str::<Value>(response_text).expect("Failed to convert response to json");
         let response_status_err = !RedditClient::is_success(response_text);
 
+        let error_message = RedditClient::get_error_message(response_json);
+
         if response_status_err {
+            if error_message.contains("error.COMMENTER_BLOCKED_POSTER") {
+                warn!(
+                    "Comment ID {} by {} in {} -> Status FAILED: {:?}",
+                    comment.id, comment.author, comment.subreddit, error_message
+                );
+                return Ok(ratelimit_reset
+                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
+            }
+
+            if error_message.contains("error.DELETED_COMMENT") {
+                info!(
+                    "Comment ID {} by {} in {} -> Status FAILED: {:?}",
+                    comment.id, comment.author, comment.subreddit, error_message
+                );
+                return Ok(ratelimit_reset
+                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
+            }
+
             error!(
                 "Comment ID {} by {} in {} -> Status FAILED: {:?}",
-                comment.id,
-                comment.author,
-                comment.subreddit,
-                RedditClient::get_error_message(response_json)
+                comment.id, comment.author, comment.subreddit, error_message
             );
             return Err(anyhow!("Failed to reply to comment"));
         }
 
         info!(
             "Comment ID {} -> Status OK: {:?}",
-            comment.id,
-            RedditClient::get_error_message(response_json)
+            comment.id, error_message
         );
 
-        Ok(reset.and_then(|reset| remaining.map(|remaining| (reset, remaining))))
+        Ok(ratelimit_reset
+            .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))))
     }
 
     fn get_error_message(response_json: Value) -> String {
