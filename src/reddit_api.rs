@@ -678,7 +678,10 @@ impl RedditClient {
                         Commands::TERMIAL
                     } else {
                         Commands::NONE
-                    } | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
+                    } | commands
+                        .get(subreddit)
+                        .copied()
+                        .unwrap_or(commands.get("").copied().unwrap_or(Commands::NONE)),
                 )
             }) else {
                 error!("Failed to construct comment {comment_id}!");
