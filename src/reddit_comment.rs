@@ -579,7 +579,7 @@ impl RedditCommentCalculated {
             .calculation_list
             .iter()
             .fold(note.clone(), |mut acc, factorial| {
-                let _ = factorial.format(&mut acc, self.commands.shorten);
+                let _ = factorial.format(&mut acc, self.commands.shorten, false);
                 acc
             });
 
@@ -595,7 +595,7 @@ impl RedditCommentCalculated {
                 .calculation_list
                 .iter()
                 .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(&mut acc, true);
+                    let _ = factorial.format(&mut acc, true, false);
                     acc
                 });
         }
@@ -608,7 +608,7 @@ impl RedditCommentCalculated {
                 .iter()
                 .map(|fact| {
                     let mut res = String::new();
-                    let _ = fact.format(&mut res, true);
+                    let _ = fact.format(&mut res, true, false);
                     res
                 })
                 .collect();
@@ -619,6 +619,19 @@ impl RedditCommentCalculated {
                     // remove last factorial (probably the biggest)
                     factorial_list.pop();
                     if factorial_list.is_empty() {
+                        if self.calculation_list.len() == 1 {
+                            let note = "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\n";
+                            reply = self.calculation_list.iter().fold(
+                                note.to_string(),
+                                |mut acc, factorial| {
+                                    let _ = factorial.format(&mut acc, true, true);
+                                    acc
+                                },
+                            );
+                            if reply.len() <= MAX_COMMENT_LENGTH as usize {
+                                break 'drop_last;
+                            }
+                        }
                         reply = "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n".to_string();
                         break 'drop_last;
                     }
@@ -1742,6 +1755,20 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+    #[test]
+    fn test_get_reply_factorial_chain_extreme() {
+        let comment = RedditComment::new(
+            "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((9!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)!)",
+            "1234",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE
+        ).extract()
+        .calc();
+
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 has on the order of ^(575)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
