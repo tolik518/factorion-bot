@@ -91,7 +91,7 @@ impl RedditClient {
                 .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             subreddits.sort();
-            if !subreddits.is_empty() {
+            if !(subreddits.is_empty() || subreddits == [""]) {
                 Some(
                     Url::parse(&format!(
                         "{}/r/{}/comments",
@@ -115,7 +115,7 @@ impl RedditClient {
                 .map(ToString::to_string)
                 .collect::<Vec<_>>();
             post_subreddits.sort();
-            if !post_subreddits.is_empty() {
+            if !(post_subreddits.is_empty() || post_subreddits == [""]) {
                 Some(
                     Url::parse(&format!(
                         "{}/r/{}/new",
