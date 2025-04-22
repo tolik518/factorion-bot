@@ -1,5 +1,6 @@
 #![allow(deprecated)] // base64::encode is deprecated
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::LazyLock;
@@ -13,7 +14,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, log, warn};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
@@ -387,27 +388,26 @@ impl RedditClient {
         let error_message = RedditClient::get_error_message(response_json);
 
         if response_status_err {
-            if error_message.contains("error.COMMENTER_BLOCKED_POSTER") {
-                warn!(
-                    "Comment ID {} by {} in {} -> Status FAILED: {:?}",
-                    comment.id, comment.author, comment.subreddit, error_message
-                );
+            let level = if error_message.contains("error.COMMENTER_BLOCKED_POSTER") {
+                log::Level::Warn
+            } else if error_message.contains("error.DELETED_COMMENT") {
+                log::Level::Info
+            } else {
+                log::Level::Error
+            };
+
+            let log::Level::Error = level else {
                 return Ok(ratelimit_reset
                     .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
-            }
+            };
 
-            if error_message.contains("error.DELETED_COMMENT") {
-                info!(
-                    "Comment ID {} by {} in {} -> Status FAILED: {:?}",
-                    comment.id, comment.author, comment.subreddit, error_message
-                );
-                return Ok(ratelimit_reset
-                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
-            }
-
-            error!(
+            log!(
+                level,
                 "Comment ID {} by {} in {} -> Status FAILED: {:?}",
-                comment.id, comment.author, comment.subreddit, error_message
+                comment.id,
+                comment.author,
+                comment.subreddit,
+                error_message
             );
             return Err(anyhow!("Failed to reply to comment"));
         }
@@ -574,15 +574,38 @@ impl RedditClient {
             let kind = comment["kind"].as_str().unwrap_or_default();
             let msg_type = comment["data"]["type"].as_str().unwrap_or_default();
             let extracted_comment = match kind {
+                // Comment
                 "t1" => Self::extract_comment(
                     comment,
                     already_replied_to_comments,
                     is_mention,
                     commands,
                     mention_map,
+                    |comment| Cow::Borrowed(comment["data"]["body"].as_str().unwrap_or("")),
                 ),
-                "t3" => Self::extract_post(comment, already_replied_to_comments, commands),
-                "t4" => Self::extract_message(comment, already_replied_to_comments, commands),
+                // Post
+                "t3" => Self::extract_comment(
+                    comment,
+                    already_replied_to_comments,
+                    is_mention,
+                    commands,
+                    mention_map,
+                    |comment| {
+                        let post_text = comment["data"]["selftext"].as_str().unwrap_or("");
+                        let post_title = comment["data"]["title"].as_str().unwrap_or("");
+                        let post_flair = comment["data"]["link_flair_text"].as_str().unwrap_or("");
+                        Cow::Owned(format!("{post_title} {post_flair} {post_text}"))
+                    },
+                ),
+                // Message
+                "t4" => Self::extract_comment(
+                    comment,
+                    already_replied_to_comments,
+                    true,
+                    commands,
+                    mention_map,
+                    |comment| Cow::Borrowed(comment["data"]["body"].as_str().unwrap_or("")),
+                ),
                 e => {
                     error!(
                         "Encountered unknown kind: {e} at id {}",
@@ -632,11 +655,12 @@ impl RedditClient {
         do_termial: bool,
         commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
+        extract_body: impl Fn(&Value) -> Cow<str>,
     ) -> Option<RedditCommentConstructed> {
-        let comment_text = comment["data"]["body"].as_str().unwrap_or("");
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
         let comment_id = comment["data"]["name"].as_str().unwrap_or_default();
+        let body = extract_body(comment);
 
         if already_replied_to_comments.contains(&comment_id.to_string()) {
             Some(RedditComment::new_already_replied(
@@ -646,7 +670,7 @@ impl RedditClient {
             already_replied_to_comments.push(comment_id.to_string());
             let Ok(mut comment) = std::panic::catch_unwind(|| {
                 RedditComment::new(
-                    comment_text,
+                    &body,
                     comment_id,
                     author,
                     subreddit,
@@ -671,78 +695,6 @@ impl RedditClient {
 
             Some(comment)
         }
-    }
-    fn extract_message(
-        message: &Value,
-        already_replied_to_comments: &mut Vec<String>,
-        commands: &HashMap<&str, Commands>,
-    ) -> Option<RedditCommentConstructed> {
-        let message_text = message["data"]["body"].as_str().unwrap_or("");
-        let author = message["data"]["author"].as_str().unwrap_or("");
-        let subreddit = message["data"]["subreddit"].as_str().unwrap_or("");
-        let comment_id = message["data"]["name"].as_str().unwrap_or_default();
-
-        if already_replied_to_comments.contains(&comment_id.to_string()) {
-            Some(RedditComment::new_already_replied(
-                comment_id, author, subreddit,
-            ))
-        } else {
-            already_replied_to_comments.push(comment_id.to_string());
-            let Ok(mut comment) = std::panic::catch_unwind(|| {
-                RedditComment::new(
-                    message_text,
-                    comment_id,
-                    author,
-                    subreddit,
-                    Commands::TERMIAL | commands.get(subreddit).copied().unwrap_or(Commands::NONE),
-                )
-            }) else {
-                error!("Failed to construct comment {comment_id}!");
-                return None;
-            };
-
-            comment.add_status(Status::NOT_REPLIED);
-
-            Some(comment)
-        }
-    }
-    fn extract_post(
-        post: &Value,
-        already_replied_to_comments: &mut Vec<String>,
-        commands: &HashMap<&str, Commands>,
-    ) -> Option<RedditCommentConstructed> {
-        let post_text = post["data"]["selftext"].as_str().unwrap_or("");
-        let post_title = post["data"]["title"].as_str().unwrap_or("");
-        let post_flair = post["data"]["link_flair_text"].as_str().unwrap_or("");
-        let author = post["data"]["author"].as_str().unwrap_or("");
-        let subreddit = post["data"]["subreddit"].as_str().unwrap_or("");
-        let post_id = post["data"]["name"].as_str().unwrap_or_default();
-
-        let body = format!("{post_title} {post_text} {post_flair}");
-
-        Some(
-            if already_replied_to_comments.contains(&post_id.to_string()) {
-                RedditComment::new_already_replied(post_id, author, subreddit)
-            } else {
-                already_replied_to_comments.push(post_id.to_string());
-                let Ok(mut comment) = std::panic::catch_unwind(|| {
-                    RedditComment::new(
-                        &body,
-                        post_id,
-                        author,
-                        subreddit,
-                        commands.get(subreddit).copied().unwrap_or(Commands::NONE),
-                    )
-                }) else {
-                    error!("Failed to construct comment {post_id}!");
-                    return None;
-                };
-
-                comment.add_status(Status::NOT_REPLIED);
-
-                comment
-            },
-        )
     }
 }
 
