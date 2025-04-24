@@ -396,11 +396,6 @@ impl RedditClient {
                 log::Level::Error
             };
 
-            let log::Level::Error = level else {
-                return Ok(ratelimit_reset
-                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining))));
-            };
-
             log!(
                 level,
                 "Comment ID {} by {} in {} -> Status FAILED: {:?}",
@@ -409,7 +404,11 @@ impl RedditClient {
                 comment.subreddit,
                 error_message
             );
-            return Err(anyhow!("Failed to reply to comment"));
+            return match level {
+                log::Level::Error => Err(anyhow!("Failed to reply to comment")),
+                _ => Ok(ratelimit_reset
+                    .and_then(|reset| ratelimit_remaining.map(|remaining| (reset, remaining)))),
+            };
         }
 
         info!(
