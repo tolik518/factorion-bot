@@ -208,28 +208,37 @@ impl Calculation {
 }
 
 impl Calculation {
-    pub fn format(&self, acc: &mut String, force_shorten: bool) -> Result<(), std::fmt::Error> {
-        let mut factorial_string = self.steps.iter().rev().fold(String::new(), |mut a, e| {
-            let negative_str = if e.1 > 0 { "negative " } else { "" };
-            let negative_strength = if e.1 > 1 {
-                format!("{}y ", Self::get_factorial_level_string(e.1 as i32))
-            } else {
-                String::new()
-            };
-            let _ = match e.0 {
-                0 => write!(a, "the {}{}termial of ", negative_strength, negative_str),
-                1 => write!(a, "the {}{}factorial of ", negative_strength, negative_str),
-                _ => write!(
-                    a,
-                    "{}{}{}{}",
-                    negative_strength,
-                    negative_str,
-                    Self::get_factorial_level_string(e.0),
-                    PLACEHOLDER
-                ),
-            };
-            a
-        });
+    pub fn format(
+        &self,
+        acc: &mut String,
+        force_shorten: bool,
+        agressive_shorten: bool,
+    ) -> Result<(), std::fmt::Error> {
+        let mut factorial_string = if !agressive_shorten {
+            self.steps.iter().rev().fold(String::new(), |mut a, e| {
+                let negative_str = if e.1 > 0 { "negative " } else { "" };
+                let negative_strength = if e.1 > 1 {
+                    format!("{}y ", Self::get_factorial_level_string(e.1 as i32))
+                } else {
+                    String::new()
+                };
+                let _ = match e.0 {
+                    0 => write!(a, "the {}{}termial of ", negative_strength, negative_str),
+                    1 => write!(a, "the {}{}factorial of ", negative_strength, negative_str),
+                    _ => write!(
+                        a,
+                        "{}{}{}{}",
+                        negative_strength,
+                        negative_str,
+                        Self::get_factorial_level_string(e.0),
+                        PLACEHOLDER
+                    ),
+                };
+                a
+            })
+        } else {
+            "all that of ".to_string()
+        };
         factorial_string[..1].make_ascii_uppercase();
         let number = match &self.value {
             Number::Int(value) => {
@@ -298,23 +307,33 @@ impl Calculation {
             CalculationResult::ApproximateDigitsTower(negative, depth, exponent) => {
                 let mut s = String::new();
                 let negative = if *negative { "-" } else { "" };
-                if *depth > 0 {
-                    let _ = write!(s, "10^(");
-                }
-                if *depth > 1 {
-                    s.push_str(&"10\\^".repeat(*depth as usize - 1));
-                    let _ = write!(s, "(");
-                }
-                s.push_str(&if self.is_too_long() || force_shorten {
-                    Self::truncate(exponent, false)
+                if !agressive_shorten {
+                    if *depth > 0 {
+                        let _ = write!(s, "10^(");
+                    }
+                    if *depth > 1 {
+                        s.push_str(&"10\\^".repeat(*depth as usize - 1));
+                        let _ = write!(s, "(");
+                    }
+                    s.push_str(&if self.is_too_long() || force_shorten {
+                        Self::truncate(exponent, false)
+                    } else {
+                        exponent.to_string()
+                    });
+                    if *depth > 1 {
+                        let _ = write!(s, "\\)");
+                    }
+                    if *depth > 0 {
+                        let _ = write!(s, ")");
+                    }
                 } else {
-                    exponent.to_string()
-                });
-                if *depth > 1 {
-                    let _ = write!(s, "\\)");
-                }
-                if *depth > 0 {
-                    let _ = write!(s, ")");
+                    let mut extra = 0;
+                    let mut exponent = Float::with_val(FLOAT_PRECISION, exponent);
+                    while exponent >= 10 {
+                        extra += 1;
+                        exponent = exponent.log10();
+                    }
+                    let _ = write!(s, "^({})10", depth + extra);
                 }
                 write!(
                     acc,
@@ -581,7 +600,7 @@ mod tests {
             steps: vec![(1, 0)],
             result: CalculationResult::Exact(Integer::from(120)),
         };
-        factorial.format(&mut acc, false).unwrap();
+        factorial.format(&mut acc, false, false).unwrap();
         assert_eq!(acc, "The factorial of 5 is 120 \n\n");
 
         let mut acc = String::new();
@@ -590,7 +609,7 @@ mod tests {
             steps: vec![(-1, 0)],
             result: CalculationResult::Exact(Integer::from(120)),
         };
-        factorial.format(&mut acc, false).unwrap();
+        factorial.format(&mut acc, false, false).unwrap();
         assert_eq!(acc, "Subfactorial of 5 is 120 \n\n");
 
         let mut acc = String::new();
@@ -602,7 +621,7 @@ mod tests {
                 5.into(),
             ),
         };
-        factorial.format(&mut acc, false).unwrap();
+        factorial.format(&mut acc, false, false).unwrap();
         assert_eq!(acc, "The factorial of 5 is approximately 1.2 × 10^5 \n\n");
 
         let mut acc = String::new();
@@ -611,7 +630,7 @@ mod tests {
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigits(3.into()),
         };
-        factorial.format(&mut acc, false).unwrap();
+        factorial.format(&mut acc, false, false).unwrap();
         assert_eq!(acc, "The factorial of 5 has approximately 3 digits \n\n");
 
         let mut acc = String::new();
@@ -620,7 +639,7 @@ mod tests {
             steps: vec![(1, 0)],
             result: CalculationResult::Exact(Integer::from(120)),
         };
-        factorial.format(&mut acc, true).unwrap();
+        factorial.format(&mut acc, true, false).unwrap();
         assert_eq!(acc, "The factorial of 5 is 120 \n\n");
     }
 }
@@ -641,7 +660,7 @@ mod test {
             result: CalculationResult::Exact(280.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
     }
     #[test]
@@ -652,7 +671,7 @@ mod test {
             result: CalculationResult::Exact(280.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "Triple-factorial of 0.5 is approximately 280 \n\n");
     }
     #[test]
@@ -663,7 +682,7 @@ mod test {
             result: CalculationResult::Exact(280.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, true).unwrap();
+        fact.format(&mut s, true, false).unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
     }
     #[test]
@@ -676,7 +695,7 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 100 is 232019615953125000000000000000000 \n\n"
@@ -692,7 +711,7 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n"
@@ -706,7 +725,7 @@ mod test {
             result: CalculationResult::Exact(3628800.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "The factorial of triple-factorial of 5 is 3628800 \n\n");
     }
     #[test]
@@ -717,7 +736,7 @@ mod test {
             result: CalculationResult::Exact(3628800.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "The triple-y negative factorial of 0 is 3628800 \n\n");
         let fact = Calculation {
             value: 0.into(),
@@ -725,7 +744,7 @@ mod test {
             result: CalculationResult::Exact(3628800.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "The negative factorial of 0 is 3628800 \n\n");
     }
     #[test]
@@ -739,7 +758,7 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 0 is approximately 2.83947 × 10^10043 \n\n"
@@ -753,7 +772,7 @@ mod test {
             result: CalculationResult::ApproximateDigits(10043394.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has approximately 10043394 digits \n\n"
@@ -767,7 +786,7 @@ mod test {
             result: CalculationResult::ComplexInfinity,
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "The factorial of 0 is ∞\u{0303} \n\n");
     }
     #[test]
@@ -778,7 +797,7 @@ mod test {
             result: CalculationResult::ApproximateDigitsTower(false, 9, 10375.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
@@ -792,11 +811,22 @@ mod test {
             result: CalculationResult::ApproximateDigitsTower(true, 9, 10375.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has on the order of -10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
         );
+    }
+    #[test]
+    fn test_format_digits_tower_tet() {
+        let fact = Calculation {
+            value: 0.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::ApproximateDigitsTower(false, 9, 10375.into()),
+        };
+        let mut s = String::new();
+        fact.format(&mut s, false, true).unwrap();
+        assert_eq!(s, "All that of 0 has on the order of ^(10)10 digits \n\n");
     }
     #[test]
     fn test_format_gamma() {
@@ -806,7 +836,7 @@ mod test {
             result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 893.83924421).into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "The factorial of 9.2 is approximately 893.83924421 \n\n");
     }
     #[test]
@@ -821,7 +851,7 @@ mod test {
             },
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(s, "The factorial of 0 is approximately 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 \n\n");
     }
     #[test]
@@ -835,7 +865,7 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, true).unwrap();
+        fact.format(&mut s, true, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 2.018338437429423744923849374833 × 10^36 is approximately 2.8394792834 × 10^(1.009428349230489498344398410249 × 10^40) \n\n"
@@ -851,7 +881,7 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, true).unwrap();
+        fact.format(&mut s, true, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 2.313820948092579283573259490834 × 10^36 has approximately 9.842371208573508275237815084709 × 10^48 digits \n\n"
@@ -871,7 +901,7 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, true).unwrap();
+        fact.format(&mut s, true, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(7.084327410873502875032857120359 × 10^45\\)) digits \n\n"
@@ -889,7 +919,7 @@ mod test {
             }),
         };
         let mut s = String::new();
-        fact.format(&mut s, false).unwrap();
+        fact.format(&mut s, false, false).unwrap();
         assert_eq!(
             s,
             "The factorial of 0 is roughly 2.098578716467387692404358116884 × 10^323228496 \n\n"
