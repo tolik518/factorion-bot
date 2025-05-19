@@ -1898,7 +1898,7 @@ mod tests {
         .extract()
         .calc();
 
-        assert_eq!(comment.status.already_replied_or_rejected, true);
+        assert!(comment.status.already_replied_or_rejected);
     }
 
 
