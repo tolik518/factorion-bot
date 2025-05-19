@@ -1901,7 +1901,6 @@ mod tests {
         assert!(comment.status.already_replied_or_rejected);
     }
 
-
     #[test]
     fn test_get_reply_approximate_digits_from_mixed_types() {
         let comment = RedditComment {
