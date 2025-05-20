@@ -130,12 +130,15 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 base = Some(CalculationBase::Calc(Box::new(CalculationJob {
                     base: inner,
                     level,
-                    negative: step.0,
+                    negative: 0,
                 })));
                 had_op = true;
             }
             // Postfix? (5.1.)
-            let levels = parse_ops(&mut text, false, do_termial);
+            let Some(levels) = parse_ops(&mut text, false, do_termial) else {
+                base.take();
+                continue;
+            };
             if !levels.is_empty() {
                 // Prefix? (5.1.1.)
                 if step.1.is_some() {
@@ -173,7 +176,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             };
         } else if text.starts_with(PREFIX_OPS) {
             // Prefix OP (6.)
-            let Some(level) = parse_op(&mut text, true, do_termial) else {
+            let Ok(level) = parse_op(&mut text, true, do_termial) else {
                 // also skip number to prevent stuff like "!!!1!" getting through
                 parse_num(&mut text);
                 continue;
@@ -195,7 +198,9 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                     negative: current_negative,
                 })));
                 current_negative = 0;
-                let levels = parse_ops(&mut text, false, do_termial);
+                let Some(levels) = parse_ops(&mut text, false, do_termial) else {
+                    continue;
+                };
                 for level in levels {
                     // base available?
                     let Some(inner) = base.take() else {
@@ -222,7 +227,9 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 continue;
             };
             // postfix? (7.1.)
-            let levels = parse_ops(&mut text, false, do_termial);
+            let Some(levels) = parse_ops(&mut text, false, do_termial) else {
+                continue;
+            };
             if !levels.is_empty() {
                 let levels = levels.into_iter();
                 if let Some(previous) = base.take() {
@@ -277,40 +284,53 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
     jobs
 }
 
-fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Option<i32> {
-    let op = text.chars().next()?;
+enum ParseOpErr {
+    NonOp,
+    InvalidOp,
+}
+
+fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Result<i32, ParseOpErr> {
+    let op = text.chars().next().ok_or(ParseOpErr::NonOp)?;
     let end = text.find(|c| c != op).unwrap_or(text.len());
     let res = match op {
         '!' => {
             if prefix {
                 if end != 1 {
-                    None
+                    dbg!(*text);
+                    Err(ParseOpErr::InvalidOp)
                 } else {
-                    Some(-1)
+                    Ok(-1)
                 }
             } else {
-                Some(end as i32)
+                Ok(end as i32)
             }
         }
         '?' => {
-            if prefix || !do_termial {
-                None
+            if !do_termial {
+                Err(ParseOpErr::NonOp)
+            } else if prefix || end != 1 {
+                dbg!(*text);
+                Err(ParseOpErr::InvalidOp)
             } else {
-                Some(0)
+                Ok(0)
             }
         }
-        _ => return None,
+        _ => return Err(ParseOpErr::NonOp),
     };
     *text = &text[end..];
     res
 }
 
-fn parse_ops(text: &mut &str, prefix: bool, do_termial: bool) -> Vec<i32> {
+fn parse_ops(text: &mut &str, prefix: bool, do_termial: bool) -> Option<Vec<i32>> {
     let mut res = Vec::new();
-    while let Some(op) = parse_op(text, prefix, do_termial) {
-        res.push(op);
+    loop {
+        match parse_op(text, prefix, do_termial) {
+            Ok(op) => res.push(op),
+            Err(ParseOpErr::NonOp) => break,
+            Err(ParseOpErr::InvalidOp) => return None,
+        }
     }
-    res
+    Some(res)
 }
 
 fn parse_num(text: &mut &str) -> Option<Number> {
@@ -453,15 +473,8 @@ mod test {
     #[test]
     fn test_multitermial() {
         let jobs = parse("a termial 15??? actually a multi", true);
-        // QUESTION: Should this currently give anything, or should we add multitermials directly after this?
-        assert_eq!(
-            jobs,
-            [CalculationJob {
-                base: CalculationBase::Num(15.into()),
-                level: 0,
-                negative: 0
-            }]
-        );
+        // NOTE: is planned to change if multitermials are added
+        assert_eq!(jobs, []);
     }
     #[test]
     fn test_subtermial() {
