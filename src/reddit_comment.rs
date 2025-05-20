@@ -199,11 +199,6 @@ impl RedditCommentConstructed {
         subreddit: &str,
         pre_commands: Commands,
     ) -> Self {
-        //TODO: Rework that quick hack for too long comments
-        if comment_text.len() > MAX_COMMENT_LENGTH_TO_READ as usize {
-            return RedditComment::new_already_replied(id, author, subreddit);
-        }
-
         let command_overrides = Commands::overrides_from_comment_text(comment_text);
         let commands: Commands =
             (Commands::from_comment_text(comment_text) | pre_commands) & command_overrides;
@@ -1747,7 +1742,8 @@ mod tests {
         .extract()
         .calc();
 
-        assert!(comment.status.already_replied_or_rejected);
+        let reply = comment.get_reply();
+        assert_eq!(reply, "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 1 × 10^2652 has on the order of ^(9041)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
     }
 
     #[test]
