@@ -5,7 +5,7 @@ use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 
 use rug::float::OrdFloat;
 use rug::integer::IntegerExt64;
-use rug::ops::Pow;
+use rug::ops::{NegAssign, Pow};
 use rug::{Complete, Float, Integer};
 use std::borrow::Cow;
 use std::fmt;
@@ -78,6 +78,16 @@ pub(crate) enum Number {
     Float(OrdFloat),
     Int(Integer),
 }
+
+impl Number {
+    pub fn negate(&mut self) {
+        match self {
+            Self::Float(x) => x.as_float_mut().neg_assign(),
+            Self::Int(n) => n.neg_assign(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub(crate) enum ParseNumberError {

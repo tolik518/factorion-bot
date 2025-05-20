@@ -16,6 +16,7 @@ mod calculation_results;
 mod calculation_tasks;
 mod influxdb;
 mod math;
+mod parse;
 mod reddit_api;
 pub(crate) mod reddit_comment;
 
