@@ -1,13 +1,11 @@
 //! Parses comments and generates the reply.
 
-use crate::calculation_results::{Calculation, Number};
-use crate::calculation_tasks::{CalculationBase, CalculationJob};
+use crate::calculation_results::Calculation;
+use crate::calculation_tasks::CalculationJob;
+use crate::parse::parse;
 
-use fancy_regex::Regex;
-use num_traits::ToPrimitive;
 use std::fmt::Write;
 use std::ops::*;
-use std::sync::LazyLock;
 macro_rules! impl_bitwise {
     ($s_name:ident {$($s_fields:ident),*}, $t_name:ident, $fn_name:ident) => {
         impl $t_name for $s_name {
@@ -276,8 +274,7 @@ impl RedditCommentConstructed {
             mut status,
             commands,
         } = self;
-        let pending_list: Vec<CalculationJob> =
-            Self::extract_calculation_jobs(&comment_text, commands.termial);
+        let pending_list: Vec<CalculationJob> = parse(&comment_text, commands.termial);
 
         if pending_list.is_empty() {
             status.no_factorial = true;
@@ -292,105 +289,6 @@ impl RedditCommentConstructed {
             status,
             commands,
         }
-    }
-
-    fn extract_calculation_jobs(text: &str, include_termial: bool) -> Vec<CalculationJob> {
-        if !(text.contains('!') || text.contains('?') && include_termial) {
-            return vec![];
-        }
-
-        static FACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)(!+)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial regex")
-        });
-        static SUBFACTORIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)(\d+)(?![<.,\d]|&lt;|\)[!?])")
-                .expect("Invalid subfactorial regex")
-        });
-        static TERMIAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)(\?)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial regex")
-        });
-        static FACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\)(!+)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial regex")
-        });
-        static SUBFACTORIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.!?\d-]|!\()(-*)(!)\((-*\d+)\)(?![<.,\d]|&lt;|\)[!?])")
-                .expect("Invalid subfactorial regex")
-        });
-        static TERMIAL_PAREN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*|\b)\((-*\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\)(\?)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial regex")
-        });
-        static FACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*)\(([\d!?\(\)\.\-+eE]+)\)(!+)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid factorial-chain regex")
-        });
-        static SUBFACTORIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?<![,.?!\d-]|!\()(-*)(!)\(([\d!?\(\)\.\-+eE]+)\)(?![<\d]|&lt;|\)?[!?])")
-                .expect("Invalid subfactorial-chain regex")
-        });
-        static FACTORIAL_TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(
-                r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d\-+eE]*\?)(!+)(?![<\d]|&lt;|\)?[!?])",
-            )
-            .expect("Invalid factorial-chain regex")
-        });
-        static TERMIAL_CHAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(
-                r"(?<![,.?!\d-]|!\()(-*)([\(\d][!?\.\(\)\d\-+eE]*)(\?)(?![<\d]|&lt;|\)?[!?])",
-            )
-            .expect("Invalid factorial-chain regex")
-        });
-        let mut list: Vec<CalculationJob> = Vec::new();
-
-        list.extend(Self::extract_chain(
-            &SUBFACTORIAL_CHAIN_REGEX,
-            text,
-            include_termial,
-            3,
-            Err(-1),
-        ));
-        list.extend(Self::extract_chain(
-            &FACTORIAL_CHAIN_REGEX,
-            text,
-            include_termial,
-            2,
-            Ok(3),
-        ));
-        if include_termial {
-            list.extend(Self::extract_chain(
-                &FACTORIAL_TERMIAL_CHAIN_REGEX,
-                text,
-                include_termial,
-                2,
-                Ok(3),
-            ));
-            list.extend(
-                Self::extract_chain(&TERMIAL_CHAIN_REGEX, text, include_termial, 2, Err(0))
-                    .filter(|job| job.level != -1),
-            );
-        }
-        list.extend(Self::extract_base(&SUBFACTORIAL_REGEX, text, 3, Err(-1)));
-        list.extend(Self::extract_base(&FACTORIAL_REGEX, text, 2, Ok(3)));
-        if include_termial {
-            list.extend(Self::extract_base(&TERMIAL_REGEX, text, 2, Err(0)));
-        }
-        list.extend(Self::extract_base(
-            &SUBFACTORIAL_PAREN_REGEX,
-            text,
-            3,
-            Err(-1),
-        ));
-        list.extend(Self::extract_base(&FACTORIAL_PAREN_REGEX, text, 2, Ok(3)));
-        if include_termial {
-            list.extend(Self::extract_base(&TERMIAL_PAREN_REGEX, text, 2, Err(0)));
-        }
-        list.sort();
-        list.sort_by_key(|x| x.get_depth());
-        list.dedup();
-        list
     }
 
     pub(crate) fn new_already_replied(id: &str, author: &str, subreddit: &str) -> Self {
@@ -410,70 +308,6 @@ impl RedditCommentConstructed {
             status,
             commands,
         }
-    }
-    fn extract_base<'r, 't>(
-        regex: &'r Regex,
-        text: &'t str,
-        base_index: usize,
-        levels_index: Result<usize, i32>,
-    ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
-        regex.captures_iter(text).map(move |capture| {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = capture[1]
-                .len()
-                .to_u32()
-                .expect("Failed to convert negative count to u32");
-            let base = capture[base_index]
-                .parse::<Number>()
-                .expect("Failed to parse number");
-            let level = match levels_index {
-                Ok(i) => capture[i]
-                    .len()
-                    .to_i32()
-                    .expect("Failed to convert factorial count to i32"),
-                Err(l) => l,
-            };
-            CalculationJob {
-                base: CalculationBase::Num(base),
-                level,
-                negative,
-            }
-        })
-    }
-    fn extract_chain<'r, 't>(
-        regex: &'r Regex,
-        text: &'t str,
-        include_termial: bool,
-        inner_index: usize,
-        levels_index: Result<usize, i32>,
-    ) -> impl Iterator<Item = CalculationJob> + use<'r, 't> {
-        regex.captures_iter(text).filter_map(move |capture| {
-            let capture = capture.expect("Failed to capture regex");
-            let negative = capture[1]
-                .len()
-                .to_u32()
-                .expect("Failed to convert negative count to u32");
-            let text = &capture[inner_index];
-            let level = match levels_index {
-                Ok(i) => capture[i]
-                    .len()
-                    .to_i32()
-                    .expect("Failed to convert exclamation count to i32"),
-                Err(l) => l,
-            };
-            let mut inner = Self::extract_calculation_jobs(text, include_termial);
-            if inner.is_empty() {
-                return None;
-            }
-            inner.sort_by_key(|x| x.get_depth());
-            inner.reverse();
-            let inner = inner.remove(0);
-            Some(CalculationJob {
-                base: CalculationBase::Calc(Box::new(inner)),
-                level,
-                negative,
-            })
-        })
     }
 }
 impl<S> RedditComment<S> {
@@ -660,7 +494,8 @@ mod tests {
     use rug::{Float, Integer};
 
     use crate::{
-        calculation_results::CalculationResult,
+        calculation_results::{CalculationResult, Number},
+        calculation_tasks::{CalculationBase, CalculationJob},
         math::{self, FLOAT_PRECISION},
     };
 
@@ -668,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_extraction_dedup() {
-        let jobs = RedditComment::extract_calculation_jobs("24! -24! 2!? (2!?)!", true);
+        let jobs = parse("24! -24! 2!? (2!?)!", true);
         assert_eq!(
             jobs,
             [
@@ -1092,10 +927,17 @@ mod tests {
             "test_subreddit",
             Commands::NONE,
         )
-        .extract()
-        .calc();
-        assert_eq!(comment.calculation_list, []);
-        assert_eq!(comment.status, Status::NO_FACTORIAL);
+        .extract();
+        assert_eq!(
+            comment.calculation_list,
+            [CalculationJob {
+                base: CalculationBase::Num(Number::Float(
+                    Float::with_val(FLOAT_PRECISION, 0.5).into()
+                )),
+                level: 1,
+                negative: 0,
+            }]
+        );
     }
     #[test]
     fn test_comment_new_comma_decimals() {
@@ -1106,10 +948,17 @@ mod tests {
             "test_subreddit",
             Commands::NONE,
         )
-        .extract()
-        .calc();
-        assert_eq!(comment.calculation_list, vec![]);
-        assert_eq!(comment.status, Status::NO_FACTORIAL);
+        .extract();
+        assert_eq!(
+            comment.calculation_list,
+            [CalculationJob {
+                base: CalculationBase::Num(Number::Float(
+                    Float::with_val(FLOAT_PRECISION, 0.5).into()
+                )),
+                level: 1,
+                negative: 0,
+            }]
+        );
     }
 
     #[test]
@@ -1247,7 +1096,7 @@ mod tests {
         .calc();
         assert_eq!(
             comment.get_reply(),
-            "Subfactorial of 23 is 9510425471055777937262 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+            "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of subfactorial of 23 is approximately 5.973414105357603 × 10^204891707276976900386618 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
     }
 

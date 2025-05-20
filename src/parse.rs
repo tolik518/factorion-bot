@@ -224,7 +224,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             // postfix? (7.1.)
             let levels = parse_ops(&mut text, false, do_termial);
             if !levels.is_empty() {
-                let mut levels = levels.into_iter();
+                let levels = levels.into_iter();
                 if let Some(previous) = base.take() {
                     if let CalculationBase::Calc(job) = previous {
                         jobs.push(*job);
@@ -272,6 +272,8 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
     if let Some(CalculationBase::Calc(job)) = base.take() {
         jobs.push(*job);
     }
+    jobs.sort();
+    jobs.dedup();
     jobs
 }
 
