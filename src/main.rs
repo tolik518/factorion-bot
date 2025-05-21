@@ -177,7 +177,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
 
             if status.factorials_found {
-                info!("Comment -> {:?}", comment);
+                info!("Comment -> {comment:?}");
             }
 
             if should_answer {
@@ -211,7 +211,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             )
                             .await?;
                         }
-                        Err(e) => error!("Failed to reply to comment: {:?}", e),
+                        Err(e) => error!("Failed to reply to comment: {e:?}"),
                     }
                 }
                 continue;
@@ -260,9 +260,9 @@ fn init() {
             .downcast_ref::<&str>()
             .map(|s| s.to_string())
             .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
-            .unwrap_or_else(|| format!("Unknown panic payload: {:?}", panic_info));
+            .unwrap_or_else(|| format!("Unknown panic payload: {panic_info:?}"));
 
-        error!("Thread panicked at {} with message: {}", location, message);
+        error!("Thread panicked at {location} with message: {message}");
     }));
 }
 
@@ -275,7 +275,7 @@ fn write_comment_ids(already_replied_or_rejected: &[String]) -> Result<(), Box<d
         .expect("Unable to open or create file");
 
     for comment_id in already_replied_or_rejected.iter() {
-        writeln!(file, "{}", comment_id).expect("Unable to write to file");
+        writeln!(file, "{comment_id}").expect("Unable to write to file");
     }
     Ok(())
 }

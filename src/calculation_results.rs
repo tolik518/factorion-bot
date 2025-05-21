@@ -13,7 +13,7 @@ use std::fmt::Write;
 impl fmt::Debug for CalculationResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn truncate<T: fmt::Debug>(val: &T) -> String {
-            let s = format!("{:?}", val);
+            let s = format!("{val:?}");
             if s.len() > 25 {
                 format!("{}...", &s[..20])
             } else {
@@ -56,7 +56,7 @@ pub(crate) enum CalculationResult {
 impl fmt::Debug for Number {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn truncate<T: fmt::Debug>(val: &T) -> String {
-            let s = format!("{:?}", val);
+            let s = format!("{val:?}");
             if s.len() > 25 {
                 format!("{}...", &s[..20])
             } else {
@@ -177,8 +177,8 @@ impl Calculation {
                     String::new()
                 };
                 let _ = match e.0 {
-                    0 => write!(a, "the {}{}termial of ", negative_strength, negative_str),
-                    1 => write!(a, "the {}{}factorial of ", negative_strength, negative_str),
+                    0 => write!(a, "the {negative_strength}{negative_str}termial of "),
+                    1 => write!(a, "the {negative_strength}{negative_str}factorial of "),
                     _ => write!(
                         a,
                         "{}{}{}{}",
@@ -204,7 +204,7 @@ impl Calculation {
             }
             Number::Float(value) => {
                 if !value.as_float().to_f64().is_finite() {
-                    format! {"{:.30}", value.as_float()}
+                    format!("{:.30}", value.as_float())
                 } else {
                     value.as_float().to_f64().to_string()
                 }
@@ -224,8 +224,7 @@ impl Calculation {
                 };
                 write!(
                     acc,
-                    "{}{} is{} {} \n\n",
-                    factorial_string, number, approximate, factorial
+                    "{factorial_string}{number} is{approximate} {factorial} \n\n",
                 )
             }
             CalculationResult::Approximate(base, exponent) => {
@@ -236,14 +235,13 @@ impl Calculation {
                     exponent.to_string()
                 };
                 let base = if !base.to_f64().is_finite() {
-                    format! {"{:.30}", base}
+                    format!("{base:.30}")
                 } else {
                     base.to_f64().to_string()
                 };
                 write!(
                     acc,
-                    "{}{} is approximately {:.30} × 10^{} \n\n",
-                    factorial_string, number, base, exponent
+                    "{factorial_string}{number} is approximately {base:.30} × 10^{exponent} \n\n",
                 )
             }
             CalculationResult::ApproximateDigits(digits) => {
@@ -254,8 +252,7 @@ impl Calculation {
                 };
                 write!(
                     acc,
-                    "{}{} has approximately {} digits \n\n",
-                    factorial_string, number, digits
+                    "{factorial_string}{number} has approximately {digits} digits \n\n",
                 )
             }
             CalculationResult::ApproximateDigitsTower(negative, depth, exponent) => {
@@ -291,20 +288,18 @@ impl Calculation {
                 }
                 write!(
                     acc,
-                    "{}{} has on the order of {}{} digits \n\n",
-                    factorial_string, number, negative, s
+                    "{factorial_string}{number} has on the order of {negative}{s} digits \n\n",
                 )
             }
             CalculationResult::Float(gamma) => {
                 let gamma = if !gamma.as_float().to_f64().is_finite() {
-                    format! {"{:.30}", gamma.as_float()}
+                    format!("{:.30}", gamma.as_float())
                 } else {
                     gamma.as_float().to_f64().to_string()
                 };
                 write!(
                     acc,
-                    "{}{} is approximately {} \n\n",
-                    factorial_string, number, gamma,
+                    "{factorial_string}{number} is approximately {gamma} \n\n",
                 )
             }
             CalculationResult::ComplexInfinity => {
@@ -315,8 +310,7 @@ impl Calculation {
                 };
                 write!(
                     acc,
-                    "{}{} is{} ∞\u{0303} \n\n",
-                    factorial_string, number, approximate
+                    "{factorial_string}{number} is{approximate} ∞\u{0303} \n\n",
                 )
             }
         }
@@ -467,7 +461,7 @@ impl Calculation {
             45 => "quinquadragintuple-".into(),
             _ => {
                 let mut suffix = String::new();
-                write!(&mut suffix, "{}-", level).unwrap();
+                write!(&mut suffix, "{level}-").unwrap();
                 suffix.into()
             }
         }

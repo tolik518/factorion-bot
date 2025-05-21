@@ -151,9 +151,9 @@ impl Commands {
 
 impl Commands {
     fn contains_command_format(text: &str, command: &str) -> bool {
-        let pattern1 = format!("\\[{}\\]", command);
-        let pattern2 = format!("[{}]", command);
-        let pattern3 = format!("!{}", command);
+        let pattern1 = format!("\\[{command}\\]");
+        let pattern2 = format!("[{command}]");
+        let pattern3 = format!("!{command}");
         text.contains(&pattern1) || text.contains(&pattern2) || text.contains(&pattern3)
     }
 
@@ -187,7 +187,6 @@ pub(crate) const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
-pub(crate) const MAX_COMMENT_LENGTH_TO_READ: i64 = 10_000;
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 impl RedditCommentConstructed {
