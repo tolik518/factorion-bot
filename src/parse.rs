@@ -296,7 +296,6 @@ fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Result<i32, Pars
         '!' => {
             if prefix {
                 if end != 1 {
-                    dbg!(*text);
                     Err(ParseOpErr::InvalidOp)
                 } else {
                     Ok(-1)
@@ -309,7 +308,6 @@ fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Result<i32, Pars
             if !do_termial {
                 Err(ParseOpErr::NonOp)
             } else if prefix || end != 1 {
-                dbg!(*text);
                 Err(ParseOpErr::InvalidOp)
             } else {
                 Ok(0)
