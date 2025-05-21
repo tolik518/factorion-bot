@@ -48,7 +48,7 @@ pub(crate) enum CalculationResult {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
     ApproximateDigits(Integer),
-    ApproximateDigitsTower(bool, u16, Integer),
+    ApproximateDigitsTower(bool, u32, Integer),
     Float(OrdFloat),
     ComplexInfinity,
 }
