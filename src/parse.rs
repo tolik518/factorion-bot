@@ -6,8 +6,8 @@ use crate::{
     math::FLOAT_PRECISION,
 };
 
-const POI_STARTS: [char; 17] = [
-    '-', '!', '.', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '>', '&', '(', ')',
+const POI_STARTS: [char; 19] = [
+    '-', '!', '.', '\\', ':', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '>', '&', '(', ')',
 ];
 
 const PREFIX_OPS: [char; 1] = ['!'];
@@ -73,9 +73,43 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         }
         // so we can just ignore everything before
         text = &text[position_of_interest..];
-        if text.starts_with(">!") {
+        if text.starts_with("\\") {
+            // Escapes
+            text = &text[1..];
+            let end = if text.starts_with(">!") {
+                1
+            } else if text.starts_with("&gt;!") {
+                4
+            } else if text.starts_with("://") {
+                3
+            } else {
+                0
+            };
+            text = &text[end..];
+            continue;
+        } else if text.starts_with("://") {
+            // URI
+            let end = text.find(char::is_whitespace).unwrap_or(text.len());
+            text = &text[end..];
+            continue;
+        } else if text.starts_with(">!") {
             // Spoiler (2.)
-            let end = text.find("!<").unwrap_or(1);
+            let mut end = 0;
+            loop {
+                // look for next end tag
+                if let Some(e) = text[end..].find("!<") {
+                    end = e;
+                    // is escaped -> look further
+                    if text[end.saturating_sub(1)..].starts_with("\\") {
+                        continue;
+                    }
+                    break;
+                } else {
+                    // if we find none, we skip only the start (without the !)
+                    end = 0;
+                    break;
+                }
+            }
             current_negative = 0;
             text = &text[end + 1..];
             continue;
@@ -84,7 +118,22 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             text = &text[1..]
         } else if text.starts_with("&gt;!") {
             // Spoiler (html) (2.)
-            let end = text.find("!&lt;").unwrap_or(1);
+            let mut end = 0;
+            loop {
+                // look for next end tag
+                if let Some(e) = text[end..].find("!&lt;") {
+                    end = e;
+                    // is escaped -> look further
+                    if text[end.saturating_sub(1)..].starts_with("\\") {
+                        continue;
+                    }
+                    break;
+                } else {
+                    // if we find none, we skip only the start (without the !)
+                    end = 0;
+                    break;
+                }
+            }
             current_negative = 0;
             text = &text[end + 4..];
             continue;
@@ -596,6 +645,91 @@ mod test {
                 base: CalculationBase::Num((-15).into()),
                 level: 1,
                 negative: 1
+            }]
+        );
+    }
+    #[test]
+    fn test_tag() {
+        let jobs = parse(">!5 a factorial 15! !<", true);
+        assert_eq!(jobs, []);
+    }
+    #[test]
+    fn test_incomplete_tag() {
+        let jobs = parse(">!5 a factorial 15!", true);
+        assert_eq!(
+            jobs,
+            [
+                CalculationJob {
+                    base: CalculationBase::Num(5.into()),
+                    level: -1,
+                    negative: 0
+                },
+                CalculationJob {
+                    base: CalculationBase::Num(15.into()),
+                    level: 1,
+                    negative: 0
+                }
+            ]
+        );
+    }
+    #[test]
+    fn test_escaped_tag() {
+        let jobs = parse("\\>!5 a factorial 15! !<", true);
+        assert_eq!(
+            jobs,
+            [
+                CalculationJob {
+                    base: CalculationBase::Num(5.into()),
+                    level: -1,
+                    negative: 0
+                },
+                CalculationJob {
+                    base: CalculationBase::Num(15.into()),
+                    level: 1,
+                    negative: 0
+                }
+            ]
+        );
+    }
+    #[test]
+    fn test_escaped_tag2() {
+        let jobs = parse(">!5 a factorial 15! \\!<", true);
+        assert_eq!(
+            jobs,
+            [
+                CalculationJob {
+                    base: CalculationBase::Num(5.into()),
+                    level: -1,
+                    negative: 0
+                },
+                CalculationJob {
+                    base: CalculationBase::Num(15.into()),
+                    level: 1,
+                    negative: 0
+                }
+            ]
+        );
+    }
+    #[test]
+    fn test_url() {
+        let jobs = parse(
+            "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
+            true,
+        );
+        assert_eq!(jobs, []);
+    }
+    #[test]
+    fn test_escaped_url() {
+        let jobs = parse(
+            "\\://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
+            true,
+        );
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(8743.into()),
+                level: 1,
+                negative: 0
             }]
         );
     }
