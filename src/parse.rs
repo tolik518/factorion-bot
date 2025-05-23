@@ -7,8 +7,39 @@ use crate::{
 };
 
 const POI_STARTS: [char; 19] = [
-    '-', '!', '.', '\\', ':', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '>', '&', '(', ')',
+    NEGATION,
+    '!', // PREFIX_OPS
+    '.', // Decimal separators
+    ESCAPE,
+    URI_POI,
+    '0', // Digits
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    SPOILER_POI,
+    SPOILER_HTML_POI,
+    PAREN_START,
+    PAREN_END,
 ];
+
+const NEGATION: char = '-';
+const PAREN_START: char = '(';
+const PAREN_END: char = ')';
+const ESCAPE: char = '\\';
+const URI_START: &str = "://";
+const URI_POI: char = ':';
+const SPOILER_START: &str = ">!";
+const SPOILER_END: &str = "!<";
+const SPOILER_POI: char = '>';
+const SPOILER_HTML_START: &str = "&gt;!";
+const SPOILER_HTML_END: &str = "!&lt;";
+const SPOILER_HTML_POI: char = '&';
 
 const PREFIX_OPS: [char; 1] = ['!'];
 const POSTFIX_OPS: [char; 2] = ['!', '?'];
@@ -73,34 +104,34 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         }
         // so we can just ignore everything before
         text = &text[position_of_interest..];
-        if text.starts_with("\\") {
+        if text.starts_with(ESCAPE) {
             // Escapes
             text = &text[1..];
-            let end = if text.starts_with(">!") {
+            let end = if text.starts_with(SPOILER_START) {
                 1
-            } else if text.starts_with("&gt;!") {
+            } else if text.starts_with(SPOILER_HTML_START) {
                 4
-            } else if text.starts_with("://") {
+            } else if text.starts_with(URI_START) {
                 3
             } else {
                 0
             };
             text = &text[end..];
             continue;
-        } else if text.starts_with("://") {
+        } else if text.starts_with(URI_START) {
             // URI
             let end = text.find(char::is_whitespace).unwrap_or(text.len());
             text = &text[end..];
             continue;
-        } else if text.starts_with(">!") {
+        } else if text.starts_with(SPOILER_START) {
             // Spoiler (2.)
             let mut end = 0;
             loop {
                 // look for next end tag
-                if let Some(e) = text[end..].find("!<") {
+                if let Some(e) = text[end..].find(SPOILER_END) {
                     end = e;
                     // is escaped -> look further
-                    if text[end.saturating_sub(1)..].starts_with("\\") {
+                    if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
                         continue;
                     }
                     break;
@@ -113,18 +144,18 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             current_negative = 0;
             text = &text[end + 1..];
             continue;
-        } else if text.starts_with(">") {
+        } else if text.starts_with(SPOILER_POI) {
             current_negative = 0;
             text = &text[1..]
-        } else if text.starts_with("&gt;!") {
+        } else if text.starts_with(SPOILER_HTML_START) {
             // Spoiler (html) (2.)
             let mut end = 0;
             loop {
                 // look for next end tag
-                if let Some(e) = text[end..].find("!&lt;") {
+                if let Some(e) = text[end..].find(SPOILER_HTML_END) {
                     end = e;
                     // is escaped -> look further
-                    if text[end.saturating_sub(1)..].starts_with("\\") {
+                    if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
                         continue;
                     }
                     break;
@@ -137,16 +168,16 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             current_negative = 0;
             text = &text[end + 4..];
             continue;
-        } else if text.starts_with("&") {
+        } else if text.starts_with(SPOILER_HTML_POI) {
             current_negative = 0;
             text = &text[1..]
-        } else if text.starts_with("-") {
+        } else if text.starts_with(NEGATION) {
             // Negation (3.)
-            let end = text.find(|c| c != '-').unwrap_or(text.len());
+            let end = text.find(|c| c != NEGATION).unwrap_or(text.len());
             current_negative = end as u32;
             text = &text[end..];
             continue;
-        } else if text.starts_with("(") {
+        } else if text.starts_with(PAREN_START) {
             // Paren Start (without prefix op) (4.)
             paren_steps.push((current_negative, None));
             // Submit current base (we won't use it anymore)
@@ -156,7 +187,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             current_negative = 0;
             text = &text[1..];
             continue;
-        } else if text.starts_with(")") {
+        } else if text.starts_with(PAREN_END) {
             // Paren End (5.)
             text = &text[1..];
             current_negative = 0;
@@ -263,7 +294,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 }
             } else {
                 // on paren? (6.2.)
-                if text.starts_with("(") {
+                if text.starts_with(PAREN_START) {
                     paren_steps.push((current_negative, Some(level)));
                     current_negative = 0;
                     text = &text[1..];
