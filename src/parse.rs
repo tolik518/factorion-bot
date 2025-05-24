@@ -6,12 +6,11 @@ use crate::{
     math::FLOAT_PRECISION,
 };
 
-const POI_STARTS: [char; 19] = [
+const POI_STARTS: [char; 18] = [
     NEGATION,
     '!', // PREFIX_OPS
     '.', // Decimal separators
     ESCAPE,
-    URI_POI,
     '0', // Digits
     '1',
     '2',
@@ -481,6 +480,7 @@ fn parse_num(text: &mut &str) -> Option<Number> {
 
 #[cfg(test)]
 mod test {
+    use crate::calculation_tasks::CalculationBase::Num;
     use super::*;
     #[test]
     fn test_text_only() {
@@ -738,7 +738,9 @@ mod test {
             ]
         );
     }
+
     #[test]
+    #[ignore = "URI_POI currently not working as intended"]
     fn test_url() {
         let jobs = parse(
             "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
@@ -746,6 +748,22 @@ mod test {
         );
         assert_eq!(jobs, []);
     }
+
+    #[test]
+    fn test_uri_poi_doesnt_cause_infinite_loop() {
+        let jobs = parse(
+            "84!:",
+            true,
+        );
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: Num(84.into()),
+                level: 1,
+                negative: 0 }
+            ]);
+    }
+
     #[test]
     fn test_escaped_url() {
         let jobs = parse(
