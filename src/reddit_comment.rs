@@ -485,6 +485,7 @@ impl RedditCommentCalculated {
 
 #[cfg(test)]
 mod tests {
+    use arbtest::arbitrary::Arbitrary;
     use rug::{Float, Integer};
 
     use crate::{
@@ -1803,5 +1804,23 @@ mod tests {
 
         let reply = comment.get_reply();
         assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nThe factorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nThe factorial of 37923648 is approximately 1.760585629143694 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+    }
+
+    #[test]
+    fn test_arbitrary_comment() {
+        arbtest::arbtest(|u| {
+            let text = u.arbitrary()?;
+            let _ = RedditComment::new(
+                text,
+                "id",
+                "author",
+                "subreddit",
+                Commands::from_comment_text(text),
+            )
+            .extract()
+            .calc()
+            .get_reply();
+            Ok(())
+        });
     }
 }
