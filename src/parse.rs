@@ -95,7 +95,12 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
     let mut base: Option<CalculationBase> = None;
     let mut paren_steps: Vec<(u32, Option<i32>)> = Vec::new();
     let mut current_negative: u32 = 0;
+    let mut last_len = usize::MAX;
     while !text.is_empty() {
+        if last_len == text.len() {
+            panic!("Parser caught in a loop! Text: \"{text}\"")
+        }
+        last_len = text.len();
         // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
@@ -130,9 +135,13 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             loop {
                 // look for next end tag
                 if let Some(e) = text[end..].find(SPOILER_END) {
-                    end = e;
+                    if e == 0 {
+                        panic!("Parser loop Spoiler! Text \"{text}\"");
+                    }
+                    end += e;
                     // is escaped -> look further
                     if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
+                        end += 1;
                         continue;
                     }
                     break;
@@ -151,9 +160,13 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             loop {
                 // look for next end tag
                 if let Some(e) = text[end..].find(SPOILER_HTML_END) {
-                    end = e;
+                    if e == 0 {
+                        panic!("Parser loop Spoiler! Text \"{text}\"");
+                    }
+                    end += e;
                     // is escaped -> look further
                     if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
+                        end += 1;
                         continue;
                     }
                     break;
@@ -299,10 +312,10 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             let Some(num) = parse_num(&mut text) else {
                 // advance one char to avoid loop
                 let mut end = 1;
-                while !text.is_char_boundary(end) {
+                while !text.is_char_boundary(end) && end < text.len() {
                     end += 1;
                 }
-                text = &text[end..];
+                text = &text[end.min(text.len())..];
                 continue;
             };
             // postfix? (7.1.)
@@ -483,6 +496,7 @@ fn parse_num(text: &mut &str) -> Option<Number> {
 mod test {
     use super::*;
     use crate::calculation_tasks::CalculationBase::Num;
+    use arbtest::arbtest;
     #[test]
     fn test_text_only() {
         let jobs = parse("just some words of encouragement!", true);
@@ -762,7 +776,6 @@ mod test {
             }]
         );
     }
-
     #[test]
     fn test_escaped_url() {
         let jobs = parse(
@@ -777,6 +790,14 @@ mod test {
                 negative: 0
             }]
         );
+    }
+    #[test]
+    fn test_arbitrary_input() {
+        arbtest(|u| {
+            let text: &str = u.arbitrary()?;
+            let _ = parse(&text, u.arbitrary()?);
+            Ok(())
+        });
     }
 
     #[test]
