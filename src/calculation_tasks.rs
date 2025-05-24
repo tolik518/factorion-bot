@@ -358,11 +358,4 @@ impl CalculationJob {
             None
         }
     }
-
-    pub fn get_depth(&self) -> usize {
-        match &self.base {
-            CalculationBase::Num(_) => 0,
-            CalculationBase::Calc(calc) => calc.get_depth() + 1,
-        }
-    }
 }
