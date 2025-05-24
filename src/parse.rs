@@ -42,6 +42,7 @@ const SPOILER_HTML_END: &str = "!&lt;";
 const SPOILER_HTML_POI: char = '&';
 
 const PREFIX_OPS: [char; 1] = ['!'];
+#[allow(dead_code)]
 const POSTFIX_OPS: [char; 2] = ['!', '?'];
 
 const INTEGER_ONLY_OPS: [i32; 1] = [-1];
@@ -264,10 +265,8 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             // On number (6.1.)
             if let Some(num) = parse_num(&mut text) {
                 // set base (6.1.2.)
-                if let Some(previous) = base.take() {
-                    if let CalculationBase::Calc(job) = previous {
-                        jobs.push(*job);
-                    }
+                if let Some(CalculationBase::Calc(job)) = base.take() {
+                    jobs.push(*job);
                 }
                 if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
                     continue;
@@ -312,10 +311,8 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             };
             if !levels.is_empty() {
                 let levels = levels.into_iter();
-                if let Some(previous) = base.take() {
-                    if let CalculationBase::Calc(job) = previous {
-                        jobs.push(*job);
-                    }
+                if let Some(CalculationBase::Calc(job)) = base.take() {
+                    jobs.push(*job);
                 }
                 base = Some(CalculationBase::Num(num));
                 for level in levels {
@@ -342,7 +339,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                         num.negate();
                     }
 
-                    if let None = &base {
+                    if base.is_none() {
                         base = Some(CalculationBase::Num(num))
                     }
                 }

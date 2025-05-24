@@ -132,8 +132,7 @@ impl RedditClient {
             }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
-            Url::parse(&format!("{}/message/inbox", REDDIT_OAUTH_URL,))
-                .expect("Failed to parse Url")
+            Url::parse(&format!("{REDDIT_OAUTH_URL}/message/inbox")).expect("Failed to parse Url")
         });
         #[cfg(not(test))]
         if self.is_token_expired() {
@@ -479,7 +478,7 @@ impl RedditClient {
             .await?;
 
         if !response.status().is_success() {
-            error!("Failed to get token: {:?}", response);
+            error!("Failed to get token: {response:?}");
             return Err("Failed to get token".into());
         }
 
@@ -487,10 +486,7 @@ impl RedditClient {
 
         let token_expiration_time = Self::get_expiration_time_from_jwt(&response.access_token);
 
-        info!(
-            "Fetched new token. Will expire: {:?}",
-            token_expiration_time
-        );
+        info!("Fetched new token. Will expire: {token_expiration_time:?}");
 
         Ok(Token {
             access_token: response.access_token,
