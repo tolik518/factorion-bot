@@ -520,15 +520,15 @@ impl RedditClient {
         if !response.status().is_success() {
             if response.status().as_u16() == 500 {
                 error!(
-                "Failed to get comments. Statuscode: {:?}. Internal server error.",
-                response.status()
-            );
+                    "Failed to get comments. Statuscode: {:?}. Internal server error.",
+                    response.status()
+                );
             } else {
                 error!(
-                "Failed to get comments. Statuscode: {:?}. Response: {:?}",
-                response.status(),
-                response
-            );
+                    "Failed to get comments. Statuscode: {:?}. Response: {:?}",
+                    response.status(),
+                    response
+                );
             }
             return Err(());
         }
