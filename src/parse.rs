@@ -6,7 +6,7 @@ use crate::{
     math::FLOAT_PRECISION,
 };
 
-const POI_STARTS: [char; 18] = [
+const POI_STARTS: [char; 19] = [
     NEGATION,
     '!', // PREFIX_OPS
     '.', // Decimal separators
@@ -21,6 +21,7 @@ const POI_STARTS: [char; 18] = [
     '7',
     '8',
     '9',
+    URI_POI,
     SPOILER_POI,
     SPOILER_HTML_POI,
     PAREN_START,
@@ -144,9 +145,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             current_negative = 0;
             text = &text[end + 1..];
             continue;
-        } else if text.starts_with(SPOILER_POI) {
-            current_negative = 0;
-            text = &text[1..]
         } else if text.starts_with(SPOILER_HTML_START) {
             // Spoiler (html) (2.)
             let mut end = 0;
@@ -168,9 +166,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             current_negative = 0;
             text = &text[end + 4..];
             continue;
-        } else if text.starts_with(SPOILER_HTML_POI) {
-            current_negative = 0;
-            text = &text[1..]
         } else if text.starts_with(NEGATION) {
             // Negation (3.)
             let end = text.find(|c| c != NEGATION).unwrap_or(text.len());
@@ -302,6 +297,12 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         } else {
             // Number (7.)
             let Some(num) = parse_num(&mut text) else {
+                // advance one char to avoid loop
+                let mut end = 1;
+                while !text.is_char_boundary(end) {
+                    end += 1;
+                }
+                text = &text[end..];
                 continue;
             };
             // postfix? (7.1.)

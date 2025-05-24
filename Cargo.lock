@@ -259,7 +259,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot"
-version = "2.9.4"
+version = "2.9.5"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
