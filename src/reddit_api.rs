@@ -518,11 +518,18 @@ impl RedditClient {
 
     fn check_response_status(response: &Response) -> Result<(), ()> {
         if !response.status().is_success() {
-            error!(
+            if response.status().as_u16() == 500 {
+                error!(
+                "Failed to get comments. Statuscode: {:?}. Internal server error.",
+                response.status()
+            );
+            } else {
+                error!(
                 "Failed to get comments. Statuscode: {:?}. Response: {:?}",
                 response.status(),
                 response
             );
+            }
             return Err(());
         }
 
