@@ -480,8 +480,8 @@ fn parse_num(text: &mut &str) -> Option<Number> {
 
 #[cfg(test)]
 mod test {
-    use crate::calculation_tasks::CalculationBase::Num;
     use super::*;
+    use crate::calculation_tasks::CalculationBase::Num;
     #[test]
     fn test_text_only() {
         let jobs = parse("just some words of encouragement!", true);
@@ -751,17 +751,15 @@ mod test {
 
     #[test]
     fn test_uri_poi_doesnt_cause_infinite_loop() {
-        let jobs = parse(
-            "84!:",
-            true,
-        );
+        let jobs = parse("84!:", true);
         assert_eq!(
             jobs,
             [CalculationJob {
                 base: Num(84.into()),
                 level: 1,
-                negative: 0 }
-            ]);
+                negative: 0
+            }]
+        );
     }
 
     #[test]
