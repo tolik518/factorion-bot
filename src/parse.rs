@@ -467,7 +467,9 @@ fn parse_num(text: &mut &str) -> Option<Number> {
     } else {
         0
     };
-    if exponent >= decimal_part.len() as i64 && exponent <= INTEGER_CONSTRUCTION_LIMIT {
+    if exponent >= decimal_part.len() as i64
+        && exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT
+    {
         let exponent = exponent as u64 - decimal_part.len() as u64;
         let n = format!("{integer_part}{decimal_part}")
             .parse::<Integer>()
@@ -483,11 +485,13 @@ fn parse_num(text: &mut &str) -> Option<Number> {
         ))
         .ok()?;
         let x = Float::with_val(FLOAT_PRECISION, x);
-        if x.is_integer() {
+        if x.is_integer() && exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
             let n = x.to_integer().unwrap();
             Some(Number::Int(n))
-        } else {
+        } else if x.is_finite() {
             Some(Number::Float(x.into()))
+        } else {
+            None
         }
     }
 }
@@ -837,5 +841,12 @@ mod test {
         );
         let num = parse_num(&mut "e2more !");
         assert_eq!(num, None);
+    }
+    #[test]
+    fn test_biggest_num() {
+        let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str());
+        assert!(!matches!(num, Some(Number::Int(_))));
+        let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str());
+        assert!(matches!(num, Some(_)));
     }
 }
