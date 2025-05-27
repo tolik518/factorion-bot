@@ -295,6 +295,8 @@ pub(crate) fn length(n: &Integer) -> Integer {
 }
 #[cfg(test)]
 mod tests {
+    use arbtest::arbtest;
+
     use super::*;
     use crate::calculation_tasks::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
