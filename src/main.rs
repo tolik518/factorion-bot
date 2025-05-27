@@ -278,10 +278,7 @@ fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
 fn read_comment_ids() -> Vec<DenseId> {
     let raw = std::fs::read(COMMENT_IDS_FILE_PATH).unwrap_or(Vec::new());
     const DENSE_SIZE: usize = std::mem::size_of::<DenseId>();
-    raw.as_chunks::<DENSE_SIZE>()
-        .0
-        .iter()
-        .copied()
-        .map(|bytes| DenseId::from_raw(u64::from_le_bytes(bytes)))
+    raw.chunks_exact(DENSE_SIZE)
+        .map(|bytes| DenseId::from_raw(u64::from_le_bytes(bytes.try_into().unwrap())))
         .collect()
 }
