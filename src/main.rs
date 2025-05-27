@@ -23,6 +23,7 @@ pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids";
+const MAX_ALREADY_REPLIED_LEN: usize = 1_000_000;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
@@ -154,6 +155,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
+
+        if already_replied_or_rejected.len() > MAX_ALREADY_REPLIED_LEN {
+            let extra = already_replied_or_rejected.len() - MAX_ALREADY_REPLIED_LEN;
+            for _ in 0..extra {
+                already_replied_or_rejected.remove(0);
+            }
+        }
 
         write_comment_ids(&already_replied_or_rejected);
 
