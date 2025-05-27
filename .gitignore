@@ -2,4 +2,4 @@
 /.env
 /.idea/
 cargo-test-*
-comment_ids.txt
+comment_ids

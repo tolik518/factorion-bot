@@ -14,6 +14,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use futures::future::OptionFuture;
+use id::{id_to_dense, DenseId};
 use log::{debug, error, info, log, warn};
 use reqwest::header::{HeaderMap, CONTENT_TYPE, USER_AGENT};
 use reqwest::{Client, RequestBuilder, Response, Url};
@@ -77,7 +78,7 @@ impl RedditClient {
     /// Panics if `SUBREDDITS` or `COMMENT_COUNT` is uninitialized, if the env vars APP_CLIENT_ID or APP_SECRET are unset, or if it recieves a malformed response from the api.
     pub(crate) async fn get_comments(
         &mut self,
-        already_replied_to_comments: &mut Vec<String>,
+        already_replied_to_comments: &mut Vec<DenseId>,
         check_mentions: bool,
         check_posts: bool,
         last_ids: &mut (String, String, String),
@@ -542,7 +543,7 @@ impl RedditClient {
     }
     async fn extract_comments(
         response: Response,
-        already_replied_to_comments: &mut Vec<String>,
+        already_replied_to_comments: &mut Vec<DenseId>,
         is_mention: bool,
         commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
@@ -653,7 +654,7 @@ impl RedditClient {
     }
     fn extract_comment(
         comment: &Value,
-        already_replied_to_comments: &mut Vec<String>,
+        already_replied_to_comments: &mut Vec<DenseId>,
         do_termial: bool,
         commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
@@ -662,14 +663,16 @@ impl RedditClient {
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
         let comment_id = comment["data"]["name"].as_str().unwrap_or_default();
+        let dense_id =
+            id_to_dense(comment_id).expect(&format!("Malformed comment id {comment_id}"));
         let body = extract_body(comment);
 
-        if already_replied_to_comments.contains(&comment_id.to_string()) {
+        if dense_id.slice_contains_rev(&already_replied_to_comments) {
             Some(RedditComment::new_already_replied(
                 comment_id, author, subreddit,
             ))
         } else {
-            already_replied_to_comments.push(comment_id.to_string());
+            already_replied_to_comments.push(dense_id);
             let Ok(mut comment) = std::panic::catch_unwind(|| {
                 RedditComment::new(
                     &body,
@@ -700,6 +703,72 @@ impl RedditClient {
 
             Some(comment)
         }
+    }
+}
+
+pub mod id {
+    use std::num::NonZeroU64;
+
+    /// A dense representation of reddit fullnames (ids)
+    ///
+    /// Uses a u64 underneath, utilising the top 3 bits for the tag and the rest for the id.
+    /// This means, that there may be upto 2^61 ids in reddits sequential id system, which will never be reached.
+    #[repr(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct DenseId(u64);
+    impl DenseId {
+        pub fn raw(&self) -> u64 {
+            self.0.into()
+        }
+        pub fn from_raw(v: u64) -> Self {
+            Self(v)
+        }
+        /// Stolen from the contains implementation for ints, just reverse order
+        #[inline]
+        pub fn slice_contains_rev(&self, arr: &[Self]) -> bool {
+            // Make our LANE_COUNT 4x the normal lane count (aiming for 128 bit vectors).
+            // The compiler will nicely unroll it.
+            const LANE_COUNT: usize = 4 * (128 / (size_of::<DenseId>() * 8));
+            // SIMD
+            let mut chunks = arr.rchunks_exact(LANE_COUNT);
+            for chunk in &mut chunks {
+                if chunk.iter().rev().fold(false, |acc, x| acc | (*x == *self)) {
+                    return true;
+                }
+            }
+            // Scalar remainder
+            return chunks.remainder().iter().rev().any(|x| *x == *self);
+        }
+    }
+    impl TryFrom<&str> for DenseId {
+        type Error = ParseIdErr;
+        fn try_from(value: &str) -> Result<Self, Self::Error> {
+            id_to_dense(value)
+        }
+    }
+    #[derive(Debug, Clone)]
+    pub enum ParseIdErr {
+        InvalidTag,
+        ParseIntErr(std::num::ParseIntError),
+    }
+    pub fn id_to_dense(id: &str) -> Result<DenseId, ParseIdErr> {
+        let tag: u64 = match &id[..3] {
+            // Message
+            "t1_" => 1,
+            "t2_" => 2,
+            // Post
+            "t3_" => 3,
+            // Comment
+            "t4_" => 4,
+            "t5_" => 5,
+            "t6_" => 6,
+            _ => Err(ParseIdErr::InvalidTag)?,
+        };
+        let id = u64::from_str_radix(&id[3..], 36).map_err(ParseIdErr::ParseIntErr)?;
+        // Pack it
+        let tag = tag << 61;
+        let packed = tag | id;
+        Ok(DenseId(packed))
     }
 }
 
@@ -832,7 +901,7 @@ mod tests {
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/inbox?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\":\"t1\",\"data\":{\"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"type\":\"username_mention\",\"parent_id\":\"t1_m38msum\"}}]}}"
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\":\"t1\",\"data\":{\"name\": \"t1_m38msug\", \"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"type\":\"username_mention\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 7\r\nx-ratelimit-reset: 170\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
@@ -847,7 +916,7 @@ mod tests {
             .map(|c| c.extract().calc())
             .collect::<Vec<_>>();
         assert_eq!(comments.len(), 2);
-        assert_eq!(comments[0].id, "");
+        assert_eq!(comments[0].id, "t1_m38msug");
         assert_eq!(comments[0].author, "mentioner");
         assert_eq!(comments[0].notify.as_ref().unwrap(), "");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
