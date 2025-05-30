@@ -158,9 +158,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         if already_replied_or_rejected.len() > MAX_ALREADY_REPLIED_LEN {
             let extra = already_replied_or_rejected.len() - MAX_ALREADY_REPLIED_LEN;
-            for _ in 0..extra {
-                already_replied_or_rejected.remove(0);
-            }
+            already_replied_or_rejected.drain(..extra);
         }
 
         write_comment_ids(&already_replied_or_rejected);
@@ -286,6 +284,7 @@ fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
 fn read_comment_ids() -> Vec<DenseId> {
     let raw = std::fs::read(COMMENT_IDS_FILE_PATH).unwrap_or(Vec::new());
     const DENSE_SIZE: usize = std::mem::size_of::<DenseId>();
+    // TODO(optimize): use `as_chunks` if available (1.88.0 and up)
     raw.chunks_exact(DENSE_SIZE)
         .map(|bytes| DenseId::from_raw(u64::from_le_bytes(bytes.try_into().unwrap())))
         .collect()
