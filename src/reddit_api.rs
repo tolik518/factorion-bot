@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use crate::reddit_comment::{
     Commands, RedditComment, RedditCommentCalculated, RedditCommentConstructed, Status,
 };
-use crate::{COMMENT_COUNT, SUBREDDIT_COMMANDS};
+use crate::{COMMENT_COUNT, MAX_ALREADY_REPLIED_LEN, SUBREDDIT_COMMANDS};
 use anyhow::{anyhow, Error};
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -667,7 +667,16 @@ impl RedditClient {
             id_to_dense(comment_id).expect(&format!("Malformed comment id {comment_id}"));
         let body = extract_body(comment);
 
-        if dense_id.slice_contains_rev(&already_replied_to_comments) {
+        if let Some(i) = dense_id.slice_contains_rev(&already_replied_to_comments) {
+            // Check if we might lose this id (causing double reply)
+            if let Some(min) = already_replied_to_comments
+                .len()
+                .checked_sub(MAX_ALREADY_REPLIED_LEN / 5 * 4)
+            {
+                if i < min {
+                    already_replied_to_comments.push(dense_id);
+                }
+            }
             Some(RedditComment::new_already_replied(
                 comment_id, author, subreddit,
             ))
@@ -725,19 +734,32 @@ pub mod id {
         }
         /// Stolen from the contains implementation for ints, just reverse order
         #[inline]
-        pub fn slice_contains_rev(&self, arr: &[Self]) -> bool {
+        pub fn slice_contains_rev(&self, arr: &[Self]) -> Option<usize> {
             // Make our LANE_COUNT 4x the normal lane count (aiming for 128 bit vectors).
             // The compiler will nicely unroll it.
             const LANE_COUNT: usize = 4 * (128 / (size_of::<DenseId>() * 8));
             // SIMD
             let mut chunks = arr.rchunks_exact(LANE_COUNT);
-            for chunk in &mut chunks {
-                if chunk.iter().rev().fold(false, |acc, x| acc | (*x == *self)) {
-                    return true;
+            for (c, chunk) in (&mut chunks).into_iter().enumerate() {
+                if let Some(i) = chunk
+                    .iter()
+                    .rev()
+                    .enumerate()
+                    .find_map(|(i, x)| (*x == *self).then_some(i))
+                {
+                    return Some(arr.len() - (c * LANE_COUNT + i) - 1);
                 }
             }
             // Scalar remainder
-            return chunks.remainder().iter().rev().any(|x| *x == *self);
+            let l = chunks.remainder().len();
+
+            return chunks
+                .remainder()
+                .iter()
+                .rev()
+                .enumerate()
+                .find(|(_, x)| **x == *self)
+                .map(|(i, _)| l - i - 1);
         }
     }
     impl TryFrom<&str> for DenseId {

@@ -23,7 +23,7 @@ pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const COMMENT_IDS_FILE_PATH: &str = "comment_ids";
-const MAX_ALREADY_REPLIED_LEN: usize = 1_000_000;
+const MAX_ALREADY_REPLIED_LEN: usize = 100_000;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
@@ -107,6 +107,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         info!("Polling Reddit for new comments...");
 
         let start = SystemTime::now();
+        // force checking of "old" messages ca. every 15 minutes
+        if i == 0 {
+            last_ids = Default::default();
+        }
         let (comments, mut rate) = reddit_client
             .get_comments(
                 &mut already_replied_or_rejected,
@@ -270,7 +274,7 @@ fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
-        .truncate(false)
+        .truncate(true)
         .open(COMMENT_IDS_FILE_PATH)
         .expect("Unable to open or create file");
 
