@@ -5,120 +5,134 @@ We use the library `rug` (`gmp`).
 We use the library `rug` (`gmp`).
 ## Exact Termial
 Termials are triangular numbers, they can be calculated with the well-known formula:
-```
-n? = (n*(n+1))/2
+```math
+n? = \frac{n(n+1)}{2}
 ```
 ## Exact Subfactorial
 As the most efficient common definition, that only uses integers, we use the formula:
-```
-!0 = 1
-!n = n*!(n-1)+(-1)^n 
+```math
+\begin{aligned}
+!0 &= 1 \\
+!n &= n \cdot !(n-1)+(-1)^n
+\end{aligned}
 ```
 ## Approximate Factorial
 Factorials can be approximated with sterlings formula:
-```
-n! ~= sqrt(2pi*n) * A(n) * (n/e)^n
+```math
+n! \approx \sqrt{2 \pi n} \cdot A(n) \cdot (\frac{n}{e})^n
 ```
 Which can be brought into a calculable form with separate order of magnitude like so:
-```
-n! ~= sqrt(2pi*n) * A(n) * (n/e)^n |Stirling's Approximation (A(n) only contains negative powers of n, not in exponents)
-   ~= sqrt(2pi*n) * A(n) * (n/e)^m * 10^k |factoring out the 10 exponent (k)
-   ~= sqrt(2pi*n) * A(n) * (n/e)^(m + ln(10)/ln(n/e)*k) |factoring it back in (to calculate it)
-
-n  = m + log_(n/e)(10)*k |got out of exponents
-n ~= log_(n/e)(10)*k |m should be small
-k  = floor(n / log_(n/e)(10)) |calculate k which is an integer (floor becaus otherwhise m < 0)
-m  = n - log_(n/e)(10)*k |calculate the exponent for the calculation
+```math
+\begin{aligned}
+n! &\approx \sqrt{2 \pi n} \cdot A(n) \cdot (\frac{n}{e})^n \text{ | Stirling's Approximation (A(n) only contains negative powers of n, not in exponents)} \\
+   &\approx \sqrt{2 \pi n} \cdot A(n) \cdot (\frac{n}{e})^m \cdot 10^k \text{ | factoring out the 10 exponent (k)} \\
+   &\approx \sqrt{2 \pi n} \cdot A(n) \cdot (\frac{n}{e})^{m + \frac{ln(10)}{ln(\frac{n}{e})} k} \text{ | factoring it back in (to calculate it)} \\
+\\
+n &= m + log_{\frac{n}{e}}(10) \cdot k \text{ | got out of exponents} \\
+n &\approx log_{\frac{n}{e}}(10) \cdot k \text{ | m should be small} \\
+k &= \lfloor n / log_{\frac{n}{e}}(10) \rfloor \text{ | calculate k which is an integer (floor becaus otherwhise m < 0)} \\
+m &= n - log_{\frac{n}{e}}(10) \cdot k \text{ | calculate the exponent for the calculation}
+\end{aligned}
 ```
 ## Approximate Multifactorial
+We can bring the [continuation](#float-multifactorial) into a calculable form (the major part) like so:
+```math
+\begin{aligned}
+z!_k &= k^{\frac{z}{k}} \cdot \frac{z}{k}! \cdot T_k(z) \text{ | we already have implementations for z! and T_k(z)} \\
+\\
+k^{\frac{z}{k}} &= k^m \cdot 10^n$ \
+10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \text{ | log_{10}} \\
+log_{10}(k) \cdot \frac{z}{k} &= log_{10}(k) \cdot m + n \text{ | n should be as large as possible} \\
+\\
+n &= \lfloor log_{10}(k) \cdot \frac{z}{k} \rfloor \\
 
-```
-z!_k = k^(z/k) * (z/k)! * T_k(z) | we already have implementations for z! and T_k(z)
-
-k^(z/k)             = k^m * 10^n
-10^(log10(k) * z/k) = 10^(log10(k)*m) * 10^n | log10
-log10(k) * z/k      = log10(k)*m + n | n should be as large as possible
-
-n = floor(log10(k) * z/k)
-
-m*log10(k) = log10(k) * z/k - n | /log10(k)
-m          = z/k - n/log10(k)
+m \cdot log_{10}(k) &= log_{10}(k) \cdot \frac{z}{k} - n$ | $\div log_{10}(k) \\
+m &= \frac{z}{k} - \frac{n}{log_{10}(k)}
+\end{aligned}
 ```
 ## Approximate Termial
 Termials have a simple formula:
-```
-n? = (n*(n+1))/2
+```math
+n? = \frac{n(n+1)}{2}
 ```
 Which can be brought into a calculable form with separate order of magnitude like so:
-```
-n? = n*(n+1)/2
-
-m = floor(log10(n))
-
-n? = k*l/2 * 10^2m
-n? = k*10^m * l*10^m/2
-
-k*10^m = n
-k = n/10^m
-l = (n+1)/10^m
+```math
+\begin{aligned}
+n? &= \frac{n(n+1)}{2} \\
+\\
+m &= \lfloor log_{10}(n) \rfloor \\
+\\
+n? &= k \frac{l}{2} 10^{2m} \\
+n? &= k 10^m \cdot l \frac{10^m}{2} \\
+\\
+k 10^m &= n \\
+k &= \frac{n}{10^m} \\
+l &= \frac{n+1}{10^m} \\
+\end{aligned}
 ```
 ## Approximate Subfactorial
 A subfactorial is approximatly proportional to the factorial:
-```
-!n ~= floor(n!/e)
+```math
+!n \approx \lfloor \frac{n!}{e} \rfloor
 ```
 ## Approximate Factorial Digits
 Factorials can be approximated with sterlings formula:
-```
-n! ~= sqrt(2pi*n) * A(n) * (n/e)^n
+```math
+n! \approx \sqrt{2 \pi n} \cdot A(n) \cdot (\frac{n}{e})^n
 ```
 Its log_10 can be roughly approximated like so:
-```
-log_10(n!) ~= log_10(sqrt(2pi*n) * (n/e)^n) |Sterling's Approximation
-           ~= 1/2*log_10(2pi*n) + n*log_10(n/e) |splitting up, taking exponents out
-           ~= 1/2*log_10(2pi) + 1/2*log_10(n) + n*log_10(n) - n*log_10(e) |splitting further
-digits     ~= floor((1/2+n)*log_10(n) + 1/2*log_10(2pi) - n/ln(10))+1 |combining log_10(n) and turning into number of digits
+```math
+\begin{aligned}
+log_{10}(n!) &\approx log_{10}(\sqrt{2 \pi n} \cdot (\frac{n}{e})^n) \text{ | Sterling's Approximation} \\
+           &\approx \frac{1}{2} log_{10}(2 \pi n) + n \cdot log_{10}(\frac{n}{e}) \text{ |splitting up, taking exponents out} \\
+           &\approx \frac{1}{2} log_{10}(2 \pi) + \frac{1}{2} log_{10}(n) + n \cdot log_{10}(n) - n \cdot log_{10}(e) \text{ |splitting furthe} \\
+\text{digits} &\approx \lfloor (\frac{1}{2}+n) log_{10}(n) + \frac{1}{2} log_{10}(2 \pi) - \frac{n}{ln(10)} \rfloor +1 \text{ |combining log_10(n) and turning into number of digits}
+\end{aligned}
 ```
 ## Approximate Multifactorial Digits
 A k-factorial very roughly is the k-th root of the factorial, while not exact enough for approximations, the number of digits is correct.
 ## Approximate Termial Digits
 Termials have a simple formula:
-```
-n? = (n*(n+1))/2
+```math
+n? = \frac{n(n+1)}{2}
 ```
 Its log_10 can be roughly approximated like so:
-```
-log10(n?)  = log10((n*(n+1))/2)
-           = log10(n^2+n) - log10(2) | drop inconsequential n
-          ~= 2*log10(n) - log10(2)
+```math
+\begin{aligned}
+log_{10}(n?) &= log_{10}(\frac{n(n+1)}{2}) \\
+           &= log_{10}(n^2+n) - log_{10}(2) \text{ | drop inconsequential n} \\
+          &\approx 2 log_{10}(n) - log_{10}(2)
+\end{aligned}
 ```
 ## Approximate Subfactorial Digits
 A subfactorial is approximatly proportional to the factorial, less than an order of magnitude (just `e`) apart.
 The number of digits does not significantly differ.
 ## Float Factorial
 The analytical continuation of factorials is the gamma function, which we use through `rug` (`gmp`):
-```
-x! = gamma(x+1)
+```math
+x! = \gamma(x+1)
 ```
 ## Float Multifactorial
 There is an analytical continuation of any k-factorial [here](https://math.stackexchange.com/questions/3488791/define-the-triple-factorial-n-as-a-continuous-function-for-n-in-mathbb/3488935#3488935): 
-```
-x!_(k) = T_k(x) * k^(x/k) * (x/k)!
-where
-T_k(x) = prod^k_(j=1)(j * k^(-j/k) / (j/k)!)^E_(k,j)(x)
-where
-E_(k,j)(x) = 1/k * sum^k_(l=1)(cos(2*pi*l*(x-j)/k))
+```math
+\begin{aligned}
+x!_k &= T_k(x) \cdot k^{\frac{x}{k}} \cdot (\frac{x}{k})! \\
+\text{where} \\
+T_k(x) &= \prod^k_{j=1}(k^{-\frac{j}{k}} j \cdot (\frac{j}{k})!^{-1})^{E_{k,j}(x)} \\
+\text{where} \\
+E_{k,j}(x) &= \frac{1}{k} \sum^k_{l=1}(cos(2 \pi l \frac{x-j}{k})
+\end{aligned}
 ```
 However this does not match the commonly (WolframAlpha) used Doublefactorial continuation.
 To make it match we have to set:
-```
-E_(k,j)(x) = prod^(k-1)_(l=0)(1 - cos(2/k*pi*(x-l)) * (l!=j))/prod^(k-1)_(l=0)(1 - cos(-2/k*pi*l))
+```math
+E_{k,j}(x) = \frac{\prod^{k-1}_{l=0}(1 - cos(\frac{2}{k} \pi (x-l)) \cdot (l \neq j))}{\prod^{k-1}_{l=0}(1 - cos(-\frac{2}{k} \pi l))}
 ```
 Which preserves the trait, of equaling 1 for one j, while being zero for all others if x is an integer.
 
 To improve performance, we only include those j near x.
 ## Float Termial
 The termial formula is compatible with floats:
-```
-n? = (n*(n+1))/2
+```math
+n? = \frac{n(n+1)}{2}
 ```
