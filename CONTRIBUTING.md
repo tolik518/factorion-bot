@@ -11,7 +11,7 @@ If you want to work on an issue, just fork the repo and start.
 Don't be intimidated by the size, if you are not able to write a part of a feature (be it the parsing, the math or anything else) or only bale to write one part, that's ok.
 Someone else can continue your work.
 
-If you are confused, where in the code to work, [[#Code Structure]] has an overview.
+If you are confused, where in the code to work, [Code Structure](#code-structure) has an overview.
 
 When making a pr (requesting a review), just make sure:
 1. that the code compiles (`cargo build`)
@@ -23,7 +23,7 @@ If you are not comfortable writing code, but know some math, you can still contr
 Just write a comment on the issue in question with the formula and your reasoning.
 That is in many cases already a lot of help.
 
-The math with reasoning and derivation is separately documented in [[MATH]].
+The math with reasoning and derivation is separately documented in [Math](MATH.md).
 # Code Structure
 ## Modules
 ### General server stuff and api
