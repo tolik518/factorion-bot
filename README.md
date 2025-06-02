@@ -135,4 +135,4 @@ docker compose up -d
 
 Feel free to submit issues or pull requests if you would like to contribute to this project.
 Help with ideas, math, code, documentation, etc. is greatly appreciated.
-If you are unsure about how to start, visit [[CONTRIBUTING]]
+If you are unsure about how to start, visit [Contributing](CONTRIBUTING.md)
