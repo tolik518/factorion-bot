@@ -6,7 +6,7 @@ labels: enhancement, proposal
 assignees:
 ---
 ## Description
-**What do you wan't to have added? (in detail)**
+**What do you want to have added? (in detail)**
 ## Reasoning
 **Why should this be added to factorion?**
 ## Resources
