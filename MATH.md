@@ -123,7 +123,7 @@ T_k(x) &= \prod^k_{j=1}\left(k^{-\frac{j}{k}} j \cdot \left(\frac{j}{k}\right)!^
 E_{k,j}(x) &= \frac{1}{k} \sum^k_{l=1}\left(cos(2 \pi l \frac{x-j}{k}\right)
 \end{aligned}
 ```
-However this does not match the commonly (WolframAlpha) used Doublefactorial continuation.
+However this does not match the commonly used double factorial continuation.
 To make it match, we have to set:
 ```math
 E_{k,j}(x) = \frac{\prod^{k-1}_{l=0}\left(1 - cos\left(\frac{2}{k} \pi (x-l)\right) \cdot (l \neq j)\right)}{\prod^{k-1}_{l=0}\left(1 - cos\left(-\frac{2}{k} \pi l\right)\right)}
