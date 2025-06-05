@@ -121,7 +121,7 @@ pub(crate) fn fractional_termial(x: Float) -> Float {
 /// Returns a float with the digits, and an int containing the extra base 10 exponent.
 ///
 /// # Panic
-/// Will panic if `n` is `0`.
+/// Will panic if `n <= 0`.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_factorial(n: Integer) -> (Float, Integer) {
@@ -133,7 +133,7 @@ fn approximate_factorial_inner(n: Float) -> (Float, Integer) {
     let ten_in_base = &*LN10 / base.clone().ln();
     let (extra, _) = (n.clone() / ten_in_base.clone())
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, n is likely 0");
+        .expect("Got non-finite number, n is likely non-positive");
     let exponent = n.clone() - ten_in_base * Float::with_val(FLOAT_PRECISION, extra.clone());
     let factorial = base.pow(exponent)
         * (Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi)
@@ -195,8 +195,9 @@ fn approximate_factorial_inner(n: Float) -> (Float, Integer) {
 /// using the sterling aproximation and the fractional multifactorial algorithm.
 ///
 /// # Panic
-/// Will panic if either k or n are 0.
+/// Will panic if either k or n are non-positive.
 pub fn approximate_multifactorial(n: Integer, k: i32) -> (Float, Integer) {
+    assert!(k > 0, "k must be positive");
     let n = Float::with_val(FLOAT_PRECISION, n);
     let k = Float::with_val(FLOAT_PRECISION, k);
     let fact = approximate_factorial_inner(n.clone() / k.clone());
@@ -248,17 +249,18 @@ pub fn approximate_approx_termial((x, e): (Float, Integer)) -> (Float, Integer) 
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
 /// # Panic
-/// Will panic if either `n` or `k` are `0`.
+/// Will panic if either `n` or `k` are non-positive.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
+    assert!(k > 0, "k must be positive");
     let n = Float::with_val(FLOAT_PRECISION, n);
     let k = Float::with_val(FLOAT_PRECISION, k);
     let ln10 = &*LN10;
     let base = n.clone().ln() / ln10;
     ((Float::with_val(FLOAT_PRECISION, 0.5) + n.clone() / k.clone()) * base - n / k / ln10)
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, n or k is likely 0")
+        .expect("Got non-finite number, n is likely non-positive")
         .0
         + Integer::ONE
 }
