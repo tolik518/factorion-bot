@@ -22,7 +22,7 @@ mod reddit_api;
 pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
-const COMMENT_IDS_FILE_PATH: &str = "comment_ids";
+const ALREADY_REPLIED_IDS_FILE_PATH: &str = "already_replied_ids.dat";
 const MAX_ALREADY_REPLIED_LEN: usize = 100_000;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
@@ -275,7 +275,7 @@ fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
         .create(true)
         .write(true)
         .truncate(true)
-        .open(COMMENT_IDS_FILE_PATH)
+        .open(ALREADY_REPLIED_IDS_FILE_PATH)
         .expect("Unable to open or create file");
 
     let raw = already_replied_or_rejected
@@ -286,7 +286,7 @@ fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
     file.write_all(&raw).expect("Unable to write to file");
 }
 fn read_comment_ids() -> Vec<DenseId> {
-    let raw = std::fs::read(COMMENT_IDS_FILE_PATH).unwrap_or(Vec::new());
+    let raw = std::fs::read(ALREADY_REPLIED_IDS_FILE_PATH).unwrap_or(Vec::new());
     const DENSE_SIZE: usize = std::mem::size_of::<DenseId>();
     // TODO(optimize): use `as_chunks` if available (1.88.0 and up)
     raw.chunks_exact(DENSE_SIZE)
