@@ -1,6 +1,7 @@
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
+use reddit_api::id::DenseId;
 use reddit_api::RedditClient;
 use reddit_comment::{Commands, RedditComment, Status};
 use std::collections::HashMap;
@@ -21,7 +22,8 @@ mod reddit_api;
 pub(crate) mod reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
-const COMMENT_IDS_FILE_PATH: &str = "comment_ids.txt";
+const ALREADY_REPLIED_IDS_FILE_PATH: &str = "already_replied_ids.dat";
+const MAX_ALREADY_REPLIED_LEN: usize = 100_000;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 
@@ -92,19 +94,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .expect("MENTIONS_EVERY is not a number");
 
     // read comment_ids from the file
-    let already_replied_to_comments: String =
-        fs::read_to_string(COMMENT_IDS_FILE_PATH).unwrap_or("".to_string());
-
-    if already_replied_to_comments.is_empty() {
+    let mut already_replied_or_rejected: Vec<DenseId> = read_comment_ids();
+    if already_replied_or_rejected.is_empty() {
         info!("No comment_ids found in the file");
     } else {
         info!("Found comment_ids in the file");
     }
-
-    let mut already_replied_or_rejected: Vec<String> = already_replied_to_comments
-        .lines()
-        .map(|s| s.to_string())
-        .collect::<Vec<String>>();
     let mut last_ids = Default::default();
 
     // Polling Reddit for new comments
@@ -112,6 +107,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         info!("Polling Reddit for new comments...");
 
         let start = SystemTime::now();
+        // force checking of "old" messages ca. every 15 minutes
+        if i == 0 {
+            last_ids = Default::default();
+        }
         let (comments, mut rate) = reddit_client
             .get_comments(
                 &mut already_replied_or_rejected,
@@ -161,7 +160,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         influxdb::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
 
-        write_comment_ids(&already_replied_or_rejected)?;
+        if already_replied_or_rejected.len() > MAX_ALREADY_REPLIED_LEN {
+            let extra = already_replied_or_rejected.len() - MAX_ALREADY_REPLIED_LEN;
+            already_replied_or_rejected.drain(..extra);
+        }
+
+        write_comment_ids(&already_replied_or_rejected);
 
         let start = SystemTime::now();
         for comment in comments {
@@ -266,16 +270,26 @@ fn init() {
     }));
 }
 
-fn write_comment_ids(already_replied_or_rejected: &[String]) -> Result<(), Box<dyn Error>> {
+fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
-        .truncate(false)
-        .open(COMMENT_IDS_FILE_PATH)
+        .truncate(true)
+        .open(ALREADY_REPLIED_IDS_FILE_PATH)
         .expect("Unable to open or create file");
 
-    for comment_id in already_replied_or_rejected.iter() {
-        writeln!(file, "{comment_id}").expect("Unable to write to file");
-    }
-    Ok(())
+    let raw = already_replied_or_rejected
+        .iter()
+        .flat_map(|id| id.raw().to_le_bytes())
+        .collect::<Vec<_>>();
+
+    file.write_all(&raw).expect("Unable to write to file");
+}
+fn read_comment_ids() -> Vec<DenseId> {
+    let raw = std::fs::read(ALREADY_REPLIED_IDS_FILE_PATH).unwrap_or(Vec::new());
+    const DENSE_SIZE: usize = std::mem::size_of::<DenseId>();
+    // TODO(optimize): use `as_chunks` if available (1.88.0 and up)
+    raw.chunks_exact(DENSE_SIZE)
+        .map(|bytes| DenseId::from_raw(u64::from_le_bytes(bytes.try_into().unwrap())))
+        .collect()
 }
