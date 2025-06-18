@@ -351,7 +351,7 @@ impl CalculationJob {
                     result: CalculationResult::ApproximateDigits(termial),
                 }
             } else if calc_num > *UPPER_TERMIAL_LIMIT {
-                let termial = math::approximate_termial(calc_num);
+                let termial = math::approximate_termial(calc_num, 1);
                 Calculation {
                     value: num,
                     steps: vec![(0, negative)],
