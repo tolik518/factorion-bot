@@ -1,4 +1,4 @@
-use rug::{integer::IntegerExt64, Complete, Float, Integer};
+use rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::{
     calculation_results::Number,
@@ -799,7 +799,7 @@ mod test {
     fn test_arbitrary_input() {
         arbtest(|u| {
             let text: &str = u.arbitrary()?;
-            let _ = parse(&text, u.arbitrary()?);
+            let _ = parse(text, u.arbitrary()?);
             Ok(())
         });
     }
@@ -842,11 +842,12 @@ mod test {
         let num = parse_num(&mut "e2more !");
         assert_eq!(num, None);
     }
+    #[allow(clippy::uninlined_format_args)]
     #[test]
     fn test_biggest_num() {
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str());
         assert!(!matches!(num, Some(Number::Int(_))));
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str());
-        assert!(matches!(num, Some(_)));
+        assert!(num.is_some());
     }
 }

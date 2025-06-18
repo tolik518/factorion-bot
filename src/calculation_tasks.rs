@@ -7,7 +7,7 @@ use crate::{
     math,
 };
 
-use rug::{ops::Pow, Float, Integer};
+use rug::{Float, Integer, ops::Pow};
 use std::{str::FromStr, sync::LazyLock};
 
 // Limit for exact calculation, set to limit calculation time
