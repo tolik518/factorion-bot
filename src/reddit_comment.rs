@@ -485,7 +485,6 @@ impl RedditCommentCalculated {
 
 #[cfg(test)]
 mod tests {
-    use arbtest::arbitrary::Arbitrary;
     use rug::{Float, Integer};
 
     use crate::{
@@ -1242,7 +1241,10 @@ mod tests {
         ).extract()
         .calc();
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of the factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of the factorial of the factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of the factorial of the factorial of the factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 9 is 362880 \n\nThe factorial of the factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nThe factorial of the factorial of the factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nThe factorial of the factorial of the factorial of the factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1275,7 +1277,10 @@ mod tests {
         .calc();
         comment.notify = Some("notified".to_string());
         let reply = comment.get_reply();
-        assert_eq!(reply, "Hey u/notified! \n\nThe factorial of 2 is 2 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Hey u/notified! \n\nThe factorial of 2 is 2 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1314,7 +1319,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Triple-factorial of 10 is 280 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Triple-factorial of 10 is 280 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1334,7 +1342,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Subfactorial of 5 is 44 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Subfactorial of 5 is 44 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
     #[test]
     fn test_get_reply_for_big_subfactorial() {
@@ -1353,7 +1364,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nSubfactorial of 5000 is roughly 1.555606884589543595233339289773 × 10^16325 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nSubfactorial of 5000 is roughly 1.555606884589543595233339289773 × 10^16325 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1373,7 +1387,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "46-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "46-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1400,7 +1417,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of 5 is 120 \n\nThe factorial of 6 is 720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of 5 is 120 \n\nThe factorial of 6 is 720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1432,7 +1452,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-factorial of 5 is 60 \n\nThe factorial of 6 is 720 \n\nThe factorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "If I post the whole numbers, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn them into scientific notation.\n\nDouble-factorial of 5 is 60 \n\nThe factorial of 6 is 720 \n\nThe factorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1448,7 +1471,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nThe factorial of 4000 is roughly 1.828801951514065013314743175574 × 10^12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nThe factorial of 4000 is roughly 1.828801951514065013314743175574 × 10^12673 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1464,7 +1490,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nTriple-factorial of 9000 is roughly 9.588379914654826764034139164855 × 10^10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nTriple-factorial of 9000 is roughly 9.588379914654826764034139164855 × 10^10561 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1480,7 +1509,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nThe factorial of 3250 is roughly 2.084009748689879459762331298493 × 10^10004 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "If I post the whole number, the comment would get too long, as reddit only allows up to 10k characters. So I had to turn it into scientific notation.\n\nThe factorial of 3250 is roughly 2.084009748689879459762331298493 × 10^10004 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1496,7 +1528,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1489232 is approximately 2.120259616630154 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1489232 is approximately 2.120259616630154 × 10^8546211 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1512,7 +1547,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1000002 is approximately 8.263956480142832 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 1000002 is approximately 8.263956480142832 × 10^5565720 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1528,7 +1566,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1543,7 +1584,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 20446522215564236275041062436291735585615770688497033688635992348006569652526624848770315740147437774149118209115411567314791976403856295878031859754864941032834352021489210979065405760855940731542907166075497068156426030767735126902058810271396007949529366379073139457637180014292606643575007577178264993 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 20446522215564236275041062436291735585615770688497033688635992348006569652526624848770315740147437774149118209115411567314791976403856295878031859754864941032834352021489210979065405760855940731542907166075497068156426030767735126902058810271396007949529366379073139457637180014292606643575007577178264993 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1558,7 +1602,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 5111630553891059068760265609072933896403942672124258422158998087001642413131656212192578935036859443537279552278852891828697994100964073969507964938716235258208588005372302744766351440213985182885726791518874267039106507691933781725514702567849001987382341594768284864409295003573151660893751894294566362 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 5111630553891059068760265609072933896403942672124258422158998087001642413131656212192578935036859443537279552278852891828697994100964073969507964938716235258208588005372302744766351440213985182885726791518874267039106507691933781725514702567849001987382341594768284864409295003573151660893751894294566362 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1573,7 +1620,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 has approximately 3005657055180967481723488710810833949177056029941963334338855462168341353507911292252707750506615682516812938932552336962663583207128410360934307789353371877341478729134313296704066291303411733116688363922615094857155651333231353413914864438517876512346564565642682746164377718604396951353347633904460774 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 has approximately 3005657055180967481723488710810833949177056029941963334338855462168341353507911292252707750506615682516812938932552336962663583207128410360934307789353371877341478729134313296704066291303411733116688363922615094857155651333231353413914864438517876512346564565642682746164377718604396951353347633904460774 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1589,7 +1639,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1604,7 +1657,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nThe factorial of 5 is 120 \n\nThe factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of the factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
     #[test]
     fn test_get_reply_factorial_chain_extreme() {
@@ -1618,7 +1674,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 has on the order of ^(575)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 has on the order of ^(575)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1634,7 +1693,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of subfactorial of triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of subfactorial of triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain2() {
@@ -1649,7 +1711,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of the factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nThe factorial of the factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain3() {
@@ -1664,7 +1729,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of the termial of the factorial of the factorial of the termial of double-factorial of the termial of subfactorial of 5 has on the order of 10^(10\\^(2.107567304411394574160420056681 × 10^2542\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of the termial of the factorial of the factorial of the termial of double-factorial of the termial of subfactorial of 5 has on the order of 10^(10\\^(2.107567304411394574160420056681 × 10^2542\\)) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
     #[test]
     fn test_get_reply_mixed_factorial_chain4() {
@@ -1679,7 +1747,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Negative subfactorial of the negative termial of the factorial of the factorial of the termial of double-factorial of the termial of negative subfactorial of -5 is ∞\u{303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Negative subfactorial of the negative termial of the factorial of the factorial of the termial of double-factorial of the termial of negative subfactorial of -5 is ∞\u{303} \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1695,7 +1766,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1711,7 +1785,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "The factorial of the factorial of the factorial of the factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "The factorial of the factorial of the factorial of the factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1727,7 +1804,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of the factorial of the factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nThe factorial of the factorial of the factorial of the factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1743,7 +1823,10 @@ mod tests {
         .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 1 × 10^2652 has on the order of ^(9041)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 1 × 10^2652 has on the order of ^(9041)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1761,7 +1844,10 @@ mod tests {
             .calc();
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 × 10^99 has on the order of ^(20000)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 × 10^99 has on the order of ^(20000)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
@@ -1803,7 +1889,10 @@ mod tests {
         };
 
         let reply = comment.get_reply();
-        assert_eq!(reply, "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nThe factorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nThe factorial of 37923648 is approximately 1.760585629143694 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+        assert_eq!(
+            reply,
+            "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nThe factorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nThe factorial of 37923648 is approximately 1.760585629143694 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]

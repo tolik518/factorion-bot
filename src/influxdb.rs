@@ -35,13 +35,15 @@ pub async fn log_comment_reply(
 ) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
-            .query(vec![CommentMeasurement {
-                time: Utc::now(),
-                comment_id: comment_id.to_string(),
-                author: author.to_string(),
-                subreddit: subreddit.to_string(),
-            }
-            .into_query("replied_to_comment")])
+            .query(vec![
+                CommentMeasurement {
+                    time: Utc::now(),
+                    comment_id: comment_id.to_string(),
+                    author: author.to_string(),
+                    subreddit: subreddit.to_string(),
+                }
+                .into_query("replied_to_comment"),
+            ])
             .await?;
     }
     Ok(())
@@ -55,11 +57,13 @@ pub async fn log_time_consumed(
 ) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
-            .query(vec![TimeMeasurement {
-                time: Utc::now(),
-                time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
-            }
-            .into_query(metric_name)])
+            .query(vec![
+                TimeMeasurement {
+                    time: Utc::now(),
+                    time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
+                }
+                .into_query(metric_name),
+            ])
             .await?;
     }
     Ok(())

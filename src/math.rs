@@ -297,8 +297,6 @@ pub(crate) fn length(n: &Integer) -> Integer {
 }
 #[cfg(test)]
 mod tests {
-    use arbtest::arbtest;
-
     use super::*;
     use crate::calculation_tasks::UPPER_CALCULATION_LIMIT;
     use crate::math::approximate_factorial;
@@ -869,7 +867,8 @@ mod tests {
         );
         assert_eq!(
             format_approximate(approximate_multifactorial(
-                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),2
+                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
+                2
             )),
             // NOTE: Only the first 5 decimals are correct
             "2.4030665584107203 × 10^149782852759048374086174435540541697458852801497098166716942773108417067675395564612635387525330784125840646946627616848133179160356420518046715389467668593867073936456715664835203314565170586655834418196130754742857782566661567670695743221925893825617328228282134137308218885930219847567667381695223181"
@@ -924,7 +923,8 @@ mod tests {
         );
         assert_eq!(
             format_approximate(approximate_multifactorial(
-                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),2
+                Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
+                2
             )),
             "2.4030683314272798 × 10^149782852759048374086174435540541697458852801497098166716942773108417067675395564612635387525330784125840646946627616848133179160356420518046715389467668593867073936456715664835203314565170586655834418196130754742857782566661567670695743221925893825617328228282134137308218885930219847567667381695223181"
         );

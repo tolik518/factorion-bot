@@ -1,17 +1,17 @@
 use dotenvy::dotenv;
 use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
-use reddit_api::id::DenseId;
 use reddit_api::RedditClient;
+use reddit_api::id::DenseId;
 use reddit_comment::{Commands, RedditComment, Status};
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::Write;
 use std::panic;
 use std::sync::OnceLock;
 use std::time::SystemTime;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 mod calculation_results;
 mod calculation_tasks;
@@ -286,7 +286,7 @@ fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
     file.write_all(&raw).expect("Unable to write to file");
 }
 fn read_comment_ids() -> Vec<DenseId> {
-    let raw = std::fs::read(ALREADY_REPLIED_IDS_FILE_PATH).unwrap_or(Vec::new());
+    let raw = std::fs::read(ALREADY_REPLIED_IDS_FILE_PATH).unwrap_or_default();
     const DENSE_SIZE: usize = std::mem::size_of::<DenseId>();
     // TODO(optimize): use `as_chunks` if available (1.88.0 and up)
     raw.chunks_exact(DENSE_SIZE)
