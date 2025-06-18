@@ -94,8 +94,10 @@ impl CalculationJob {
                         CalculationResult::Approximate(base, exponent) => {
                             let res = base.as_float()
                                 * Float::with_val(FLOAT_PRECISION, 10).pow(&exponent);
-                            match res.to_integer() {
-                                None => Err(if neg % 2 != 0 {
+                            if Float::is_finite(&(res.clone() * 4000000)) {
+                                Ok(Number::Int(res.to_integer().unwrap()))
+                            } else {
+                                Err(if neg % 2 != 0 {
                                     CalculationResult::ComplexInfinity
                                 } else if level == 0 {
                                     let termial = math::approximate_approx_termial((
@@ -109,8 +111,7 @@ impl CalculationJob {
                                         1,
                                         math::length(&exponent) + exponent,
                                     )
-                                }),
-                                Some(res) => Ok(Number::Int(res)),
+                                })
                             }
                         }
                         CalculationResult::ApproximateDigits(digits) => {
