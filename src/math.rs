@@ -272,9 +272,9 @@ pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
         + Integer::ONE
 }
 
-pub fn approximate_termial_digits(n: Integer) -> Integer {
+pub fn approximate_termial_digits(n: Integer, k: u32) -> Integer {
     let n = Float::with_val(FLOAT_PRECISION, n);
-    ((n.log10() * 2) as Float - Float::with_val(FLOAT_PRECISION, 2).log10())
+    ((n.log10() * 2) as Float - Float::with_val(FLOAT_PRECISION, 2 * k).log10())
         .to_integer_round(rug::float::Round::Down)
         .unwrap()
         .0
@@ -1379,41 +1379,64 @@ mod tests {
 
     #[test]
     fn test_approximate_termial_digits() {
-        assert_eq!(approximate_termial_digits(100_001.into()), 9);
-        assert_eq!(approximate_termial_digits(7_834_436_739u128.into()), 19);
+        assert_eq!(approximate_termial_digits(100_001.into(), 1), 9);
+        assert_eq!(approximate_termial_digits(7_834_436_739u128.into(), 1), 19);
         assert_eq!(
-            approximate_termial_digits(738_247_937_346_920u128.into()),
+            approximate_termial_digits(738_247_937_346_920u128.into(), 1),
             29
         );
         assert_eq!(
-            approximate_termial_digits(827_829_849_020_729_846u128.into()),
+            approximate_termial_digits(827_829_849_020_729_846u128.into(), 1),
             35
         );
         assert_eq!(
-            approximate_termial_digits(1_000_000_000_000_000_000u128.into()),
+            approximate_termial_digits(1_000_000_000_000_000_000u128.into(), 1),
             35
         );
         assert_eq!(
             approximate_termial_digits(
                 1_000_000_000_000_000_000_000_000_000_000_000_000u128.into(),
+                1,
             ),
             71
         );
-        assert_eq!(approximate_termial_digits(u128::MAX.into()), 76);
+        assert_eq!(approximate_termial_digits(u128::MAX.into(), 1), 76);
         assert_eq!(
             approximate_termial_digits(
                 Integer::from_str(
                     "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                 )
-                .unwrap(),
+                .unwrap(),1,
             ),
             395
         );
         assert_eq!(
             approximate_termial_digits(
-                Integer::from_str(&format!("1{}", "0".repeat(1000000))).unwrap()
+                Integer::from_str(&format!("1{}", "0".repeat(1000000))).unwrap(),
+                1
             ),
             1999999
+        );
+        assert_eq!(
+            approximate_termial_digits(
+                1_000_000_000_000_000_000_000_000_000_000_000_000u128.into(),
+                2,
+            ),
+            71
+        );
+        assert_eq!(
+            approximate_termial_digits(
+                1_000_000_000_000_000_000_000_000_000_000_000_000u128.into(),
+                10,
+            ),
+            70
+        );
+        assert_eq!(
+            approximate_termial_digits(
+                1_000_000_000_000_000_000_000_000_000_000_000_000u128.into(),
+                10000,
+            ),
+            67
         );
     }
 }

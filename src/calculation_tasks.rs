@@ -344,7 +344,7 @@ impl CalculationJob {
             })
         } else if level == 0 {
             Some(if calc_num > *UPPER_TERMIAL_APPROXIMATION_LIMIT {
-                let termial = math::approximate_termial_digits(calc_num);
+                let termial = math::approximate_termial_digits(calc_num, 1);
                 Calculation {
                     value: num,
                     steps: vec![(0, negative)],
