@@ -94,7 +94,9 @@ impl CalculationJob {
                         CalculationResult::Approximate(base, exponent) => {
                             let res = base.as_float()
                                 * Float::with_val(FLOAT_PRECISION, 10).pow(&exponent);
-                            if Float::is_finite(&(res.clone() * 4000000)) {
+                            if Float::is_finite(
+                                &(res.clone() * math::APPROX_FACT_SAFE_UPPER_BOUND_FACTOR),
+                            ) {
                                 Ok(Number::Int(res.to_integer().unwrap()))
                             } else {
                                 Err(if neg % 2 != 0 {
