@@ -1773,6 +1773,25 @@ mod tests {
     }
 
     #[test]
+    fn test_float_overflow_approximate() {
+        let comment = RedditComment::new(
+            "(44787927!)!",
+            "1234",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        )
+        .extract()
+        .calc();
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nThe factorial of the factorial of 44787927 has on the order of 10^(323228502) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
     fn test_get_reply_factorial_chain_gamma() {
         let comment = RedditComment::new(
             "This is a test with a decimal factorial chain (((0.5!)!)!)!",
