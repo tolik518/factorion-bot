@@ -8,6 +8,11 @@ Termials are triangular numbers. They can be calculated with the well-known form
 ```math
 n? = \frac{n(n+1)}{2}
 ```
+## Exact Multiermial
+Termials are triangular numbers. They can be calculated with the well-known formula:
+```math
+n?_k = k \left\lfloor\frac{n}{k}\right\rfloor? + \left\lceil\frac{n}{k}\right\rceil (n \mod k)
+```
 ## Exact Subfactorial
 As the most efficient common definition that only uses integers, we use the formula:
 ```math
@@ -50,24 +55,24 @@ m \cdot log_{10}(k) &= log_{10}(k) \cdot \frac{z}{k} - n | \div log_{10}(k) \\
 m &= \frac{z}{k} - \frac{n}{log_{10}(k)}
 \end{aligned}
 ```
-## Approximate Termial
-Termials have a simple formula:
+## Approximate Multitermial
+Multitermials have a simple formula:
 ```math
-n? = \frac{n(n+1)}{2}
+n?_k \approx \frac{n(n+k)}{2k}
 ```
 Which can be brought into a calculable form with a separate order of magnitude like so:
 ```math
 \begin{aligned}
-n? &= \frac{n(n+1)}{2} \\
+n?_k &\approx \frac{n(n+k)}{2k} \\
 \\
 m &= \left\lfloor log_{10}(n) \right\rfloor \\
 \\
-n? &= k \frac{l}{2} 10^{2m} \\
-n? &= k 10^m \cdot l \frac{10^m}{2} \\
+n?_k &\approx k \frac{l}{2k} 10^{2m} \\
+n?_k &\approx k 10^m \cdot l \frac{10^m}{2k} \\
 \\
-k 10^m &= n \\
-k &= \frac{n}{10^m} \\
-l &= \frac{n+1}{10^m} \\
+k 10^m &\approx n \\
+k &\approx \frac{n}{10^m} \\
+l &= \frac{n+k}{10^m} \\
 \end{aligned}
 ```
 ## Approximate Subfactorial
@@ -91,17 +96,17 @@ log_{10}(n!) &\approx log_{10}(\sqrt{2 \pi n} \cdot \left(\frac{n}{e})^n\right) 
 ```
 ## Approximate Multifactorial Digits
 A k-factorial very roughly is the k-th root of the factorial, while not exact enough for approximations, the number of digits is correct.
-## Approximate Termial Digits
-Termials have a simple formula:
+## Approximate Multitermial Digits
+Multitermials have a simple formula:
 ```math
-n? = \frac{n(n+1)}{2}
+n?_k \approx \frac{n(n+k)}{2k}
 ```
 Its log_10 can be roughly approximated like so:
 ```math
 \begin{aligned}
-log_{10}(n?) &= log_{10}\left(\frac{n(n+1)}{2}\right) \\
-           &= log_{10}\left(n^2+n\right) - log_{10}(2) \text{ | drop inconsequential n} \\
-          &\approx 2 log_{10}(n) - log_{10}(2)
+log_{10}(n?_k) &= log_{10}\left(\frac{n(n+k)}{2k}\right) \\
+           &= log_{10}\left(n^2+nk\right) - log_{10}(2k) \text{ | drop inconsequential n} \\
+          &\approx 2 log_{10}(n) - log_{10}(2k)
 \end{aligned}
 ```
 ## Approximate Subfactorial Digits
