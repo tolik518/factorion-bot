@@ -93,7 +93,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
     // 2. override base
     let mut jobs = Vec::new();
     let mut base: Option<CalculationBase> = None;
-    let mut paren_steps: Vec<(u32, Option<i32>)> = Vec::new();
+    let mut paren_steps: Vec<(u32, Option<i32>, bool)> = Vec::new();
     let mut current_negative: u32 = 0;
     let mut last_len = usize::MAX;
     while !text.is_empty() {
@@ -101,6 +101,11 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             panic!("Parser caught in a loop! Text: \"{text}\"")
         }
         last_len = text.len();
+
+        if text.trim().starts_with(char::is_alphabetic) && !paren_steps.is_empty() {
+            // poison paren
+            paren_steps.last_mut().unwrap().2 = true;
+        }
         // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
@@ -187,7 +192,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             continue;
         } else if text.starts_with(PAREN_START) {
             // Paren Start (without prefix op) (4.)
-            paren_steps.push((current_negative, None));
+            paren_steps.push((current_negative, None, false));
             // Submit current base (we won't use it anymore)
             if let Some(CalculationBase::Calc(job)) = base.take() {
                 jobs.push(*job);
@@ -203,6 +208,13 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             let Some(step) = paren_steps.pop() else {
                 continue;
             };
+            // poisoned paren
+            if step.2 {
+                if let Some(CalculationBase::Calc(job)) = base.take() {
+                    jobs.push(*job);
+                }
+                continue;
+            }
             let mut had_op = false;
             // Prefix? (5.2.)
             if let Some(level) = step.1 {
@@ -273,6 +285,10 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             if let Some(num) = parse_num(&mut text) {
                 // set base (6.1.2.)
                 if let Some(CalculationBase::Calc(job)) = base.take() {
+                    // multiple number, likely expression => poision paren
+                    if let Some(step) = paren_steps.last_mut() {
+                        step.2 = true;
+                    }
                     jobs.push(*job);
                 }
                 if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
@@ -301,7 +317,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             } else {
                 // on paren? (6.2.)
                 if text.starts_with(PAREN_START) {
-                    paren_steps.push((current_negative, Some(level)));
+                    paren_steps.push((current_negative, Some(level), false));
                     current_negative = 0;
                     text = &text[1..];
                 }
@@ -325,6 +341,10 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             if !levels.is_empty() {
                 let levels = levels.into_iter();
                 if let Some(CalculationBase::Calc(job)) = base.take() {
+                    // multiple number, likely expression => poision paren
+                    if let Some(step) = paren_steps.last_mut() {
+                        step.2 = true;
+                    }
                     jobs.push(*job);
                 }
                 base = Some(CalculationBase::Num(num));
@@ -354,6 +374,11 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
 
                     if base.is_none() {
                         base = Some(CalculationBase::Num(num))
+                    } else {
+                        // multiple number, likely expression => poision paren
+                        if let Some(step) = paren_steps.last_mut() {
+                            step.2 = true;
+                        }
                     }
                 }
             }
@@ -759,7 +784,6 @@ mod test {
     }
 
     #[test]
-    #[ignore = "URI_POI currently not working as intended"]
     fn test_url() {
         let jobs = parse(
             "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
@@ -794,6 +818,18 @@ mod test {
                 negative: 0
             }]
         );
+    }
+
+    #[test]
+    fn test_word_in_paren() {
+        let jobs = parse("(x-2)! (2 word)!", true);
+        assert_eq!(jobs, []);
+    }
+
+    #[test]
+    fn test_multi_number_paren() {
+        let jobs = parse("(5-2)!", true);
+        assert_eq!(jobs, []);
     }
     #[test]
     fn test_arbitrary_input() {
