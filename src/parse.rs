@@ -102,15 +102,20 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         }
         last_len = text.len();
 
-        if text.trim().starts_with(char::is_alphabetic) && !paren_steps.is_empty() {
-            // poison paren
-            paren_steps.last_mut().unwrap().2 = true;
+        text = text.trim_start();
+        if text.len() != last_len {
+            current_negative = 0;
         }
+        if text.trim().starts_with(char::is_alphabetic) && !paren_steps.is_empty() {}
         // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
         };
         if position_of_interest != 0 {
+            // poison paren
+            if let Some(step) = paren_steps.last_mut() {
+                step.2 = true;
+            }
             current_negative = 0;
         }
         // so we can just ignore everything before
@@ -213,6 +218,10 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 if let Some(CalculationBase::Calc(job)) = base.take() {
                     jobs.push(*job);
                 }
+                // no number (maybe var) => poison outer paren
+                if let Some(step) = paren_steps.last_mut() {
+                    step.2 = true;
+                }
                 continue;
             }
             let mut had_op = false;
@@ -220,6 +229,10 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             if let Some(level) = step.1 {
                 // base available?
                 let Some(inner) = base.take() else {
+                    // no number (maybe var) => poison outer paren
+                    if let Some(step) = paren_steps.last_mut() {
+                        step.2 = true;
+                    }
                     continue;
                 };
                 if let (CalculationBase::Num(Number::Float(_)), true) =
@@ -237,6 +250,10 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             // Postfix? (5.1.)
             let Some(levels) = parse_ops(&mut text, false, do_termial) else {
                 base.take();
+                // no number (maybe var) => poison outer paren
+                if let Some(step) = paren_steps.last_mut() {
+                    step.2 = true;
+                }
                 continue;
             };
             if !levels.is_empty() {
@@ -270,7 +287,12 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                         }
                     }
                     Some(CalculationBase::Calc(job)) => job.negative += step.0,
-                    None => {}
+                    None => {
+                        // no number (maybe var) => poison outer paren
+                        if let Some(step) = paren_steps.last_mut() {
+                            step.2 = true;
+                        }
+                    }
                 }
                 continue;
             };
@@ -822,7 +844,7 @@ mod test {
 
     #[test]
     fn test_word_in_paren() {
-        let jobs = parse("(x-2)! (2 word)!", true);
+        let jobs = parse("(x-2)! (2 word)! ((x/k)-3)! (,x-4)!", true);
         assert_eq!(jobs, []);
     }
 
