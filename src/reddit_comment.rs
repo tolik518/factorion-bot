@@ -517,7 +517,7 @@ mod tests {
                         level: 1,
                         negative: 0
                     })),
-                    level: 0,
+                    level: -1,
                     negative: 0
                 },
                 CalculationJob {
@@ -527,7 +527,7 @@ mod tests {
                             level: 1,
                             negative: 0
                         })),
-                        level: 0,
+                        level: -1,
                         negative: 0
                     })),
                     level: 1,
@@ -657,7 +657,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }]
         );
@@ -678,7 +678,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                steps: vec![(0, 0)],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(Integer::from(15)),
             }]
         );
@@ -701,12 +701,12 @@ mod tests {
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(-1, 1)],
-                    result: CalculationResult::Exact((-44).into())
+                    result: CalculationResult::Exact((-15).into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(0, 1)],
-                    result: CalculationResult::Exact((-15).into())
+                    result: CalculationResult::Exact((-44).into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
@@ -1331,7 +1331,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5.into(),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
@@ -1353,7 +1353,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5000.into(),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),

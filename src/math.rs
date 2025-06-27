@@ -246,10 +246,10 @@ pub fn approximate_termial(n: Integer, k: u32) -> (Float, Integer) {
     adjust_approximate(((a * b) / (2 * k), 2 * len))
 }
 
-pub fn approximate_approx_termial((x, e): (Float, Integer)) -> (Float, Integer) {
+pub fn approximate_approx_termial((x, e): (Float, Integer), k: u32) -> (Float, Integer) {
     let a = x.clone();
-    let b = x + 1;
-    adjust_approximate(((a * b) / 2, 2 * e))
+    let b = x + k;
+    adjust_approximate(((a * b) / (2 * k), 2 * e))
 }
 
 /// Calculates the approximate digits of a multifactorial.

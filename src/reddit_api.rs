@@ -944,7 +944,7 @@ mod tests {
         assert_eq!(comments[0].author, "mentioner");
         assert_eq!(comments[0].notify.as_ref().unwrap(), "");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
-        assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (0, 0)]);
+        assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (-1, 0)]);
         assert_eq!(rate, (170.0, 7.0))
     }
 
@@ -1105,7 +1105,7 @@ mod tests {
             comments[2].calculation_list,
             [Calculation {
                 value: Number::Int(10.into()),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: crate::calculation_results::CalculationResult::Exact(1334961.into())
             }]
         );
