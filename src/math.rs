@@ -198,11 +198,13 @@ fn approximate_factorial_inner(n: Float) -> (Float, Integer) {
     adjust_approximate((factorial, extra))
 }
 
+pub const APPROX_FACT_SAFE_UPPER_BOUND_FACTOR: u32 = 4_000_000;
 /// Calculates an approximation of the multifactorial
 /// using the sterling aproximation and the fractional multifactorial algorithm.
 ///
 /// # Panic
-/// Will panic if either k or n are non-positive.
+/// Will panic if either k or n are non-positive,
+/// or if the input is so large, that the output is inf, safe if n * 4_000_000 is finite.
 pub fn approximate_multifactorial(n: Integer, k: i32) -> (Float, Integer) {
     assert!(k > 0, "k must be positive");
     let n = Float::with_val(FLOAT_PRECISION, n);
@@ -256,7 +258,8 @@ pub fn approximate_approx_termial((x, e): (Float, Integer), k: u32) -> (Float, I
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
 /// # Panic
-/// Will panic if either `n` or `k` are non-positive.
+/// Will panic if either `n` or `k` are non-positive,
+/// or if `n` is `inf` as a `Float`.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
 pub fn approximate_multifactorial_digits(n: Integer, k: i32) -> Integer {
