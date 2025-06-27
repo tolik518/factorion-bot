@@ -177,9 +177,16 @@ impl Calculation {
                     String::new()
                 };
                 let _ = match e.0 {
-                    ..0 => write!(a, "the {negative_strength}{negative_str}termial of "),
+                    -1 => write!(a, "the {negative_strength}{negative_str}termial of "),
+                    ..-1 => write!(
+                        a,
+                        "{}{}{}termial of ",
+                        negative_strength,
+                        negative_str,
+                        Self::get_factorial_level_string(-e.0),
+                    ),
                     1 => write!(a, "the {negative_strength}{negative_str}factorial of "),
-                    _ => write!(
+                    0 | 2.. => write!(
                         a,
                         "{}{}{}{}",
                         negative_strength,

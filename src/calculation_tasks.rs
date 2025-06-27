@@ -195,7 +195,7 @@ impl CalculationJob {
                         num.as_float().to_integer()?
                     }
                 }
-                ..0 => {
+                ..=-1 => {
                     let res: Float = math::fractional_termial(num.as_float().clone())
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {

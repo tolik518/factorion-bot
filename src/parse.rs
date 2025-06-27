@@ -397,10 +397,10 @@ fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Result<i32, Pars
         '?' => {
             if !do_termial {
                 Err(ParseOpErr::NonOp)
-            } else if prefix || end != 1 {
+            } else if prefix {
                 Err(ParseOpErr::InvalidOp)
             } else {
-                Ok(-1)
+                Ok(-(end as i32))
             }
         }
         _ => return Err(ParseOpErr::NonOp),
@@ -567,8 +567,14 @@ mod test {
     #[test]
     fn test_multitermial() {
         let jobs = parse("a termial 15??? actually a multi", true);
-        // NOTE: is planned to change if multitermials are added
-        assert_eq!(jobs, []);
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(15.into()),
+                level: -3,
+                negative: 0
+            }]
+        );
     }
     #[test]
     fn test_subtermial() {

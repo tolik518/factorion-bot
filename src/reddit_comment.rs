@@ -684,6 +684,27 @@ mod tests {
         );
     }
     #[test]
+    fn test_comment_new_tripletermial() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment 5???",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::TERMIAL,
+        )
+        .extract()
+        .calc();
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![Calculation {
+                value: 5.into(),
+                steps: vec![(-3, 0)],
+                result: CalculationResult::Exact(Integer::from(7)),
+            }]
+        );
+    }
+    #[test]
     fn test_comment_new_negative() {
         let comment = RedditComment::new(
             "This is a spoiler comment -5? -5! -!5 --(10)!",
@@ -1345,6 +1366,50 @@ mod tests {
         assert_eq!(
             reply,
             "Subfactorial of 5 is 44 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+    #[test]
+    fn test_get_reply_for_termial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            calculation_list: vec![Calculation {
+                value: 5.into(),
+                steps: vec![(-1, 0)],
+                result: CalculationResult::Exact(Integer::from(15)),
+            }],
+            author: "test_author".to_string(),
+            notify: None,
+            subreddit: "test_subreddit".to_string(),
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The termial of 5 is 15 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+    #[test]
+    fn test_get_reply_for_multitermial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            calculation_list: vec![Calculation {
+                value: 5.into(),
+                steps: vec![(-2, 0)],
+                result: CalculationResult::Exact(Integer::from(9)),
+            }],
+            author: "test_author".to_string(),
+            notify: None,
+            subreddit: "test_subreddit".to_string(),
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "Double-termial of 5 is 9 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
     }
     #[test]
