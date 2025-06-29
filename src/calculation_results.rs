@@ -177,9 +177,16 @@ impl Calculation {
                     String::new()
                 };
                 let _ = match e.0 {
-                    0 => write!(a, "the {negative_strength}{negative_str}termial of "),
+                    -1 => write!(a, "the {negative_strength}{negative_str}termial of "),
+                    ..-1 => write!(
+                        a,
+                        "{}{}{}termial of ",
+                        negative_strength,
+                        negative_str,
+                        Self::get_factorial_level_string(-e.0),
+                    ),
                     1 => write!(a, "the {negative_strength}{negative_str}factorial of "),
-                    _ => write!(
+                    0 | 2.. => write!(
                         a,
                         "{}{}{}{}",
                         negative_strength,
@@ -413,7 +420,7 @@ impl Calculation {
 
     fn get_factorial_level_string(level: i32) -> Cow<'static, str> {
         match level {
-            -1 => "sub".into(),
+            0 => "sub".into(),
             1 => "the ".into(),
             2 => "double-".into(),
             3 => "triple-".into(),
@@ -555,7 +562,7 @@ mod tests {
         let mut acc = String::new();
         let factorial = Calculation {
             value: 5.into(),
-            steps: vec![(-1, 0)],
+            steps: vec![(0, 0)],
             result: CalculationResult::Exact(Integer::from(120)),
         };
         factorial.format(&mut acc, false, false).unwrap();

@@ -517,7 +517,7 @@ mod tests {
                         level: 1,
                         negative: 0
                     })),
-                    level: 0,
+                    level: -1,
                     negative: 0
                 },
                 CalculationJob {
@@ -527,7 +527,7 @@ mod tests {
                             level: 1,
                             negative: 0
                         })),
-                        level: 0,
+                        level: -1,
                         negative: 0
                     })),
                     level: 1,
@@ -657,7 +657,7 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }]
         );
@@ -678,8 +678,29 @@ mod tests {
             comment.calculation_list,
             vec![Calculation {
                 value: 5.into(),
-                steps: vec![(0, 0)],
+                steps: vec![(-1, 0)],
                 result: CalculationResult::Exact(Integer::from(15)),
+            }]
+        );
+    }
+    #[test]
+    fn test_comment_new_tripletermial() {
+        let comment = RedditComment::new(
+            "This is a spoiler comment 5???",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::TERMIAL,
+        )
+        .extract()
+        .calc();
+
+        assert_eq!(
+            comment.calculation_list,
+            vec![Calculation {
+                value: 5.into(),
+                steps: vec![(-3, 0)],
+                result: CalculationResult::Exact(Integer::from(7)),
             }]
         );
     }
@@ -701,12 +722,12 @@ mod tests {
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(-1, 1)],
-                    result: CalculationResult::Exact((-44).into())
+                    result: CalculationResult::Exact((-15).into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
                     steps: vec![(0, 1)],
-                    result: CalculationResult::Exact((-15).into())
+                    result: CalculationResult::Exact((-44).into())
                 },
                 Calculation {
                     value: Number::Int(5.into()),
@@ -1331,7 +1352,7 @@ mod tests {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5.into(),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(Integer::from(44)),
             }],
             author: "test_author".to_string(),
@@ -1348,12 +1369,56 @@ mod tests {
         );
     }
     #[test]
+    fn test_get_reply_for_termial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            calculation_list: vec![Calculation {
+                value: 5.into(),
+                steps: vec![(-1, 0)],
+                result: CalculationResult::Exact(Integer::from(15)),
+            }],
+            author: "test_author".to_string(),
+            notify: None,
+            subreddit: "test_subreddit".to_string(),
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The termial of 5 is 15 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+    #[test]
+    fn test_get_reply_for_multitermial() {
+        let comment = RedditComment {
+            id: "123".to_string(),
+            calculation_list: vec![Calculation {
+                value: 5.into(),
+                steps: vec![(-2, 0)],
+                result: CalculationResult::Exact(Integer::from(9)),
+            }],
+            author: "test_author".to_string(),
+            notify: None,
+            subreddit: "test_subreddit".to_string(),
+            status: Status::FACTORIALS_FOUND,
+            commands: Default::default(),
+        };
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "Double-termial of 5 is 9 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+    #[test]
     fn test_get_reply_for_big_subfactorial() {
         let comment = RedditComment {
             id: "123".to_string(),
             calculation_list: vec![Calculation {
                 value: 5000.into(),
-                steps: vec![(-1, 0)],
+                steps: vec![(0, 0)],
                 result: CalculationResult::Exact(math::subfactorial(5000)),
             }],
             author: "test_author".to_string(),

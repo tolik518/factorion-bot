@@ -45,7 +45,7 @@ const PREFIX_OPS: [char; 1] = ['!'];
 #[allow(dead_code)]
 const POSTFIX_OPS: [char; 2] = ['!', '?'];
 
-const INTEGER_ONLY_OPS: [i32; 1] = [-1];
+const INTEGER_ONLY_OPS: [i32; 1] = [0];
 
 pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
     // Parsing rules:
@@ -435,7 +435,7 @@ fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Result<i32, Pars
                 if end != 1 {
                     Err(ParseOpErr::InvalidOp)
                 } else {
-                    Ok(-1)
+                    Ok(0)
                 }
             } else {
                 Ok(end as i32)
@@ -444,10 +444,10 @@ fn parse_op(text: &mut &str, prefix: bool, do_termial: bool) -> Result<i32, Pars
         '?' => {
             if !do_termial {
                 Err(ParseOpErr::NonOp)
-            } else if prefix || end != 1 {
+            } else if prefix {
                 Err(ParseOpErr::InvalidOp)
             } else {
-                Ok(0)
+                Ok(-(end as i32))
             }
         }
         _ => return Err(ParseOpErr::NonOp),
@@ -584,7 +584,7 @@ mod test {
             jobs,
             [CalculationJob {
                 base: CalculationBase::Num(15.into()),
-                level: -1,
+                level: 0,
                 negative: 0
             }]
         );
@@ -601,7 +601,7 @@ mod test {
             jobs,
             [CalculationJob {
                 base: CalculationBase::Num(15.into()),
-                level: 0,
+                level: -1,
                 negative: 0
             }]
         );
@@ -614,8 +614,14 @@ mod test {
     #[test]
     fn test_multitermial() {
         let jobs = parse("a termial 15??? actually a multi", true);
-        // NOTE: is planned to change if multitermials are added
-        assert_eq!(jobs, []);
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(15.into()),
+                level: -3,
+                negative: 0
+            }]
+        );
     }
     #[test]
     fn test_subtermial() {
@@ -649,7 +655,7 @@ mod test {
                     level: 1,
                     negative: 0
                 })),
-                level: -1,
+                level: 0,
                 negative: 0
             }]
         );
@@ -665,7 +671,7 @@ mod test {
                     level: 1,
                     negative: 0
                 })),
-                level: 0,
+                level: -1,
                 negative: 1
             }]
         );
@@ -755,7 +761,7 @@ mod test {
             [
                 CalculationJob {
                     base: CalculationBase::Num(5.into()),
-                    level: -1,
+                    level: 0,
                     negative: 0
                 },
                 CalculationJob {
@@ -774,7 +780,7 @@ mod test {
             [
                 CalculationJob {
                     base: CalculationBase::Num(5.into()),
-                    level: -1,
+                    level: 0,
                     negative: 0
                 },
                 CalculationJob {
@@ -793,7 +799,7 @@ mod test {
             [
                 CalculationJob {
                     base: CalculationBase::Num(5.into()),
-                    level: -1,
+                    level: 0,
                     negative: 0
                 },
                 CalculationJob {
