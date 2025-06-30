@@ -185,39 +185,43 @@ impl CalculationJob {
     ) -> Option<Calculation> {
         let calc_num = match &num {
             Number::Float(num) => match level {
+                ..0 => {
+                    let res: Float = math::fractional_termial(num.as_float().clone())
+                        * if negative % 2 != 0 { -1 } else { 1 };
+                    if res.is_finite() {
+                        return Some(Calculation {
+                            value: Number::Float(num.clone()),
+                            steps: vec![(level, negative)],
+                            result: CalculationResult::Float(res.into()),
+                        });
+                    } else {
+                        num.as_float().to_integer()?
+                    }
+                }
+                0 => {
+                    // We don't support subfactorials of deciamals
+                    return None;
+                }
                 1 => {
                     let res: Float = math::fractional_factorial(num.as_float().clone())
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(Calculation {
                             value: Number::Float(num.clone()),
-                            steps: vec![(1, negative)],
+                            steps: vec![(level, negative)],
                             result: CalculationResult::Float(res.into()),
                         });
                     } else {
                         num.as_float().to_integer()?
                     }
                 }
-                ..=-1 => {
-                    let res: Float = math::fractional_termial(num.as_float().clone())
+                2.. => {
+                    let res: Float = math::fractional_multifactorial(num.as_float().clone(), level)
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(Calculation {
                             value: Number::Float(num.clone()),
-                            steps: vec![(0, negative)],
-                            result: CalculationResult::Float(res.into()),
-                        });
-                    } else {
-                        num.as_float().to_integer()?
-                    }
-                }
-                k => {
-                    let res: Float = math::fractional_multifactorial(num.as_float().clone(), k)
-                        * if negative % 2 != 0 { -1 } else { 1 };
-                    if res.is_finite() {
-                        return Some(Calculation {
-                            value: Number::Float(num.clone()),
-                            steps: vec![(k, negative)],
+                            steps: vec![(level, negative)],
                             result: CalculationResult::Float(res.into()),
                         });
                     } else {
