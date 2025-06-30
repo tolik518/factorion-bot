@@ -1935,6 +1935,25 @@ mod tests {
     }
 
     #[test]
+    fn test_subfactorial_confusion() {
+        let comment = RedditComment::new(
+            "What is the factorial of 287,491?",
+            "1234",
+            "test_author",
+            "test_subreddit",
+            Commands::TERMIAL,
+        )
+        .extract()
+        .calc();
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "The termial of 287.491 is approximately 41469.2830405 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
     fn test_get_reply_approximate_digits_from_mixed_types() {
         let comment = RedditComment {
             id: "1234".to_string(),
