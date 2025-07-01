@@ -275,8 +275,15 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 }
             }
             if !had_op {
-                if let Some(CalculationBase::Calc(job)) = &mut base {
-                    job.negative = step.0
+                match &mut base {
+                    Some(CalculationBase::Calc(job)) => job.negative += step.0,
+                    Some(CalculationBase::Num(n)) => {
+                        if step.0 % 2 != 0 {
+                            n.negate();
+                        } else {
+                        }
+                    }
+                    None => {}
                 }
             } else {
                 match &mut base {
@@ -748,11 +755,15 @@ mod test {
     }
     #[test]
     fn test_paren_negation() {
-        let jobs = parse("a factorial -(--(-15))!", true);
+        let jobs = parse("a factorial -(--(-(-(-3))!))!", true);
         assert_eq!(
             jobs,
             [CalculationJob {
-                base: CalculationBase::Num((-15).into()),
+                base: CalculationBase::Calc(Box::new(CalculationJob {
+                    base: CalculationBase::Num(3.into()),
+                    level: 1,
+                    negative: 3
+                })),
                 level: 1,
                 negative: 1
             }]
