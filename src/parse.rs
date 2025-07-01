@@ -3,7 +3,7 @@ use rug::{Complete, Float, Integer, integer::IntegerExt64};
 use crate::{
     calculation_results::Number,
     calculation_tasks::{CalculationBase, CalculationJob, INTEGER_CONSTRUCTION_LIMIT},
-    math::FLOAT_PRECISION,
+    math::{self, FLOAT_PRECISION},
 };
 
 const POI_STARTS: [char; 19] = [
@@ -106,7 +106,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         if text.len() != last_len {
             current_negative = 0;
         }
-        if text.trim().starts_with(char::is_alphabetic) && !paren_steps.is_empty() {}
         // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
@@ -524,21 +523,32 @@ fn parse_num(text: &mut &str) -> Option<Number> {
         let num = n * Integer::u64_pow_u64(10, exponent).complete();
         Some(Number::Exact(num))
     } else {
-        let x = Float::parse(format!(
-            "{integer_part}.{decimal_part}{}{}{}",
-            if !exponent_part.0.is_empty() { "e" } else { "" },
-            if exponent_part.1 { "-" } else { "" },
-            exponent_part.0
-        ))
-        .ok()?;
-        let x = Float::with_val(FLOAT_PRECISION, x);
-        if x.is_integer() && exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
-            let n = x.to_integer().unwrap();
-            Some(Number::Exact(n))
-        } else if x.is_finite() {
-            Some(Number::Float(x.into()))
+        if exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
+            let x = Float::parse(format!(
+                "{integer_part}.{decimal_part}{}{}{}",
+                if !exponent_part.0.is_empty() { "e" } else { "" },
+                if exponent_part.1 { "-" } else { "" },
+                exponent_part.0
+            ))
+            .ok()?;
+            let x = Float::with_val(FLOAT_PRECISION, x);
+            if x.is_integer() {
+                let n = x.to_integer().unwrap();
+                Some(Number::Exact(n))
+            } else if x.is_finite() {
+                Some(Number::Float(x.into()))
+            } else {
+                None
+            }
         } else {
-            None
+            let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
+            let x = Float::with_val(FLOAT_PRECISION, x);
+            if x.is_finite() {
+                let (b, e) = math::adjust_approximate((x, exponent.into()));
+                Some(Number::Approximate(b.into(), e))
+            } else {
+                None
+            }
         }
     }
 }
@@ -910,7 +920,7 @@ mod test {
     #[test]
     fn test_biggest_num() {
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str());
-        assert!(!matches!(num, Some(Number::Exact(_))));
+        assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str());
         assert!(num.is_some());
     }
