@@ -522,7 +522,7 @@ fn parse_num(text: &mut &str) -> Option<Number> {
             .parse::<Integer>()
             .ok()?;
         let num = n * Integer::u64_pow_u64(10, exponent).complete();
-        Some(Number::Int(num))
+        Some(Number::Exact(num))
     } else {
         let x = Float::parse(format!(
             "{integer_part}.{decimal_part}{}{}{}",
@@ -534,7 +534,7 @@ fn parse_num(text: &mut &str) -> Option<Number> {
         let x = Float::with_val(FLOAT_PRECISION, x);
         if x.is_integer() && exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
             let n = x.to_integer().unwrap();
-            Some(Number::Int(n))
+            Some(Number::Exact(n))
         } else if x.is_finite() {
             Some(Number::Float(x.into()))
         } else {
@@ -886,13 +886,13 @@ mod test {
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
         let num = parse_num(&mut "1more !");
-        assert_eq!(num, Some(Number::Int(1.into())));
+        assert_eq!(num, Some(1.into()));
         let num = parse_num(&mut "1.0more !");
-        assert_eq!(num, Some(Number::Int(1.into())));
+        assert_eq!(num, Some(1.into()));
         let num = parse_num(&mut "1.5e2more !");
-        assert_eq!(num, Some(Number::Int(150.into())));
+        assert_eq!(num, Some(150.into()));
         let num = parse_num(&mut "1e2more !");
-        assert_eq!(num, Some(Number::Int(100.into())));
+        assert_eq!(num, Some(100.into()));
         let num = parse_num(&mut "1.531e2more !");
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
@@ -910,7 +910,7 @@ mod test {
     #[test]
     fn test_biggest_num() {
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str());
-        assert!(!matches!(num, Some(Number::Int(_))));
+        assert!(!matches!(num, Some(Number::Exact(_))));
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str());
         assert!(num.is_some());
     }

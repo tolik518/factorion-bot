@@ -4,7 +4,7 @@ use crate::math::{FLOAT_PRECISION, LN10};
 use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 
 use rug::float::OrdFloat;
-use rug::ops::{NegAssign, Pow};
+use rug::ops::{NegAssign, NotAssign, Pow};
 use rug::{Float, Integer};
 use std::borrow::Cow;
 use std::fmt;
@@ -31,11 +31,18 @@ impl fmt::Debug for CalculationResult {
                     truncate(int)
                 )
             }
-            CalculationResult::ApproximateDigits(n) => {
-                write!(f, "ApproximateDigits({})", truncate(n))
+            CalculationResult::ApproximateDigits(i, n) => {
+                write!(f, "ApproximateDigits({}, {})", i, truncate(n))
             }
-            CalculationResult::ApproximateDigitsTower(b, u, n) => {
-                write!(f, "ApproximateDigitsTower({}, {}, {})", b, u, truncate(n))
+            CalculationResult::ApproximateDigitsTower(i, b, u, n) => {
+                write!(
+                    f,
+                    "ApproximateDigitsTower({}, {}, {}, {})",
+                    i,
+                    b,
+                    u,
+                    truncate(n)
+                )
             }
             CalculationResult::Float(of) => write!(f, "Float({})", truncate(&of.as_float())),
             CalculationResult::ComplexInfinity => write!(f, "ComplexInfinity"),
@@ -47,52 +54,44 @@ impl fmt::Debug for CalculationResult {
 pub(crate) enum CalculationResult {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
-    ApproximateDigits(Integer),
-    ApproximateDigitsTower(bool, u32, Integer),
+    ApproximateDigits(bool, Integer),
+    ApproximateDigitsTower(bool, bool, u32, Integer),
     Float(OrdFloat),
     ComplexInfinity,
 }
 
-impl fmt::Debug for Number {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn truncate<T: fmt::Debug>(val: &T) -> String {
-            let s = format!("{val:?}");
-            if s.len() > 25 {
-                format!("{}...", &s[..20])
-            } else {
-                s
-            }
-        }
-
-        match self {
-            Number::Float(of) => write!(f, "{}", truncate(of.as_float())),
-            Number::Int(n) => write!(f, "{}", truncate(n)),
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
-pub(crate) enum Number {
-    Float(OrdFloat),
-    Int(Integer),
-}
+pub(crate) type Number = CalculationResult;
 
 impl Number {
     pub fn negate(&mut self) {
         match self {
-            Self::Float(x) => x.as_float_mut().neg_assign(),
-            Self::Int(n) => n.neg_assign(),
+            Self::Approximate(x, _) | Self::Float(x) => x.as_float_mut().neg_assign(),
+            Self::Exact(n) => n.neg_assign(),
+            Self::ApproximateDigitsTower(n, _, _, _) | Self::ApproximateDigits(n, _) => {
+                n.not_assign()
+            }
+            Self::ComplexInfinity => {}
         }
+    }
+    pub fn is_too_long(&self) -> bool {
+        let n = match self {
+            CalculationResult::Exact(n)
+            | CalculationResult::ApproximateDigits(_, n)
+            | CalculationResult::Approximate(_, n)
+            | CalculationResult::ApproximateDigitsTower(_, _, _, n) => n,
+            CalculationResult::Float(_) | CalculationResult::ComplexInfinity => return false,
+        };
+        n > &*TOO_BIG_NUMBER
     }
 }
 impl From<Integer> for Number {
     fn from(value: Integer) -> Self {
-        Number::Int(value)
+        Number::Exact(value)
     }
 }
 impl From<i32> for Number {
     fn from(value: i32) -> Self {
-        Number::Int(value.into())
+        Number::Exact(value.into())
     }
 }
 impl From<Float> for Number {
@@ -102,9 +101,92 @@ impl From<Float> for Number {
 }
 impl std::fmt::Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Float(num) => num.as_float().fmt(f),
-            Self::Int(num) => num.fmt(f),
+        self.format(f, f.alternate(), f.sign_minus())
+    }
+}
+
+impl CalculationResult {
+    fn format(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        shorten: bool,
+        agressive: bool,
+    ) -> std::fmt::Result {
+        use std::fmt::Display;
+        match &self {
+            CalculationResult::Exact(factorial) => {
+                if shorten {
+                    f.write_str(&truncate(factorial, true))
+                } else {
+                    factorial.fmt(f)
+                }
+            }
+            CalculationResult::Approximate(base, exponent) => {
+                let base = base.as_float();
+                if !base.to_f64().is_finite() {
+                    f.write_fmt(format_args!("{base:.30}"))?;
+                } else {
+                    base.to_f64().fmt(f)?;
+                };
+                f.write_str(" × 10^")?;
+                if shorten {
+                    f.write_str("(")?;
+                    f.write_str(&truncate(exponent, false))?;
+                    f.write_str(")")
+                } else {
+                    exponent.fmt(f)
+                }
+            }
+            CalculationResult::ApproximateDigits(_, digits) => {
+                if shorten {
+                    f.write_str(&truncate(digits, false))?;
+                } else {
+                    digits.fmt(f)?;
+                }
+                f.write_str(" digits")
+            }
+            CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
+                f.write_str(if *negative { "-" } else { "" })?;
+                if !agressive {
+                    if *depth > 0 {
+                        f.write_fmt(format_args!("10^("))?;
+                    }
+                    if *depth > 1 {
+                        f.write_str(&"10\\^".repeat(*depth as usize - 1))?;
+                        f.write_str("(")?;
+                    }
+                    if shorten {
+                        f.write_str(&truncate(exponent, false))?;
+                    } else {
+                        exponent.fmt(f)?;
+                    }
+                    if *depth > 1 {
+                        f.write_str("\\)")?;
+                    }
+                    if *depth > 0 {
+                        f.write_str(")")?;
+                    }
+                } else {
+                    let mut extra = 0;
+                    let mut exponent = Float::with_val(FLOAT_PRECISION, exponent);
+                    while exponent >= 10 {
+                        extra += 1;
+                        exponent = exponent.log10();
+                    }
+                    f.write_str("^(")?;
+                    (depth + extra).fmt(f)?;
+                    f.write_str(")10")?;
+                }
+                f.write_str(" digits")
+            }
+            CalculationResult::Float(gamma) => {
+                if !gamma.as_float().to_f64().is_finite() {
+                    f.write_fmt(format_args!("{:.30}", gamma.as_float()))
+                } else {
+                    gamma.as_float().to_f64().fmt(f)
+                }
+            }
+            CalculationResult::ComplexInfinity => f.write_str("∞\u{0303}"),
         }
     }
 }
@@ -121,7 +203,7 @@ impl Calculation {
         matches!(
             self,
             Calculation {
-                result: CalculationResult::ApproximateDigitsTower(_, _, _),
+                result: CalculationResult::ApproximateDigitsTower(_, _, _, _),
                 ..
             }
         )
@@ -130,7 +212,7 @@ impl Calculation {
         matches!(
             self,
             Calculation {
-                result: CalculationResult::ApproximateDigits(_),
+                result: CalculationResult::ApproximateDigits(_, _),
                 ..
             }
         )
@@ -158,6 +240,9 @@ impl Calculation {
                 ..
             }
         )
+    }
+    pub(crate) fn is_too_long(&self) -> bool {
+        self.result.is_too_long() || self.value.is_too_long()
     }
 }
 
@@ -201,221 +286,41 @@ impl Calculation {
             "all that of ".to_string()
         };
         factorial_string[..1].make_ascii_uppercase();
-        let number = match &self.value {
-            Number::Int(value) => {
-                if value > &*TOO_BIG_NUMBER || force_shorten {
-                    Self::truncate(value, false)
-                } else {
-                    value.to_string()
-                }
-            }
-            Number::Float(value) => {
-                if !value.as_float().to_f64().is_finite() {
-                    format!("{:.30}", value.as_float())
-                } else {
-                    value.as_float().to_f64().to_string()
-                }
-            }
-        };
-        match &self.result {
-            CalculationResult::Exact(factorial) => {
-                let factorial = if self.is_too_long() || force_shorten {
-                    Self::truncate(factorial, true)
-                } else {
-                    factorial.to_string()
-                };
-                let approximate = if let Number::Float(_) = &self.value {
-                    " approximately"
-                } else {
-                    ""
-                };
-                write!(
-                    acc,
-                    "{factorial_string}{number} is{approximate} {factorial} \n\n",
-                )
-            }
-            CalculationResult::Approximate(base, exponent) => {
-                let (base, exponent) = (base.as_float().clone(), exponent.clone());
-                let exponent = if self.is_too_long() || force_shorten {
-                    format!("({})", Self::truncate(&exponent, false))
-                } else {
-                    exponent.to_string()
-                };
-                let base = if !base.to_f64().is_finite() {
-                    format!("{base:.30}")
-                } else {
-                    base.to_f64().to_string()
-                };
-                write!(
-                    acc,
-                    "{factorial_string}{number} is approximately {base:.30} × 10^{exponent} \n\n",
-                )
-            }
-            CalculationResult::ApproximateDigits(digits) => {
-                let digits = if self.is_too_long() || force_shorten {
-                    Self::truncate(digits, false)
-                } else {
-                    digits.to_string()
-                };
-                write!(
-                    acc,
-                    "{factorial_string}{number} has approximately {digits} digits \n\n",
-                )
-            }
-            CalculationResult::ApproximateDigitsTower(negative, depth, exponent) => {
-                let mut s = String::new();
-                let negative = if *negative { "-" } else { "" };
-                if !agressive_shorten {
-                    if *depth > 0 {
-                        let _ = write!(s, "10^(");
-                    }
-                    if *depth > 1 {
-                        s.push_str(&"10\\^".repeat(*depth as usize - 1));
-                        let _ = write!(s, "(");
-                    }
-                    s.push_str(&if self.is_too_long() || force_shorten {
-                        Self::truncate(exponent, false)
-                    } else {
-                        exponent.to_string()
-                    });
-                    if *depth > 1 {
-                        let _ = write!(s, "\\)");
-                    }
-                    if *depth > 0 {
-                        let _ = write!(s, ")");
-                    }
-                } else {
-                    let mut extra = 0;
-                    let mut exponent = Float::with_val(FLOAT_PRECISION, exponent);
-                    while exponent >= 10 {
-                        extra += 1;
-                        exponent = exponent.log10();
-                    }
-                    let _ = write!(s, "^({})10", depth + extra);
-                }
-                write!(
-                    acc,
-                    "{factorial_string}{number} has on the order of {negative}{s} digits \n\n",
-                )
-            }
-            CalculationResult::Float(gamma) => {
-                let gamma = if !gamma.as_float().to_f64().is_finite() {
-                    format!("{:.30}", gamma.as_float())
-                } else {
-                    gamma.as_float().to_f64().to_string()
-                };
-                write!(
-                    acc,
-                    "{factorial_string}{number} is approximately {gamma} \n\n",
-                )
-            }
-            CalculationResult::ComplexInfinity => {
-                let approximate = if let Number::Float(_) = &self.value {
-                    " approximately"
-                } else {
-                    ""
-                };
-                write!(
-                    acc,
-                    "{factorial_string}{number} is{approximate} ∞\u{0303} \n\n",
-                )
-            }
-        }
-    }
-
-    fn truncate(number: &Integer, add_roughly: bool) -> String {
-        if number == &0 {
-            return number.to_string();
-        }
-        let negative = number.is_negative();
-        let orig_number = number;
-        let number = number.clone().abs();
-        let length = (Float::with_val(FLOAT_PRECISION, &number).ln() / &*LN10)
-            .to_integer_round(rug::float::Round::Down)
-            .unwrap()
-            .0;
-        let truncated_number: Integer = &number
-            / (Float::with_val(FLOAT_PRECISION, 10)
-                .pow((length.clone() - NUMBER_DECIMALS_SCIENTIFIC - 1u8).max(Integer::ZERO))
-                .to_integer()
-                .unwrap());
-        let mut truncated_number = truncated_number.to_string();
-        if truncated_number.len() > NUMBER_DECIMALS_SCIENTIFIC {
-            Self::round(&mut truncated_number);
-        }
-        if let Some(mut digit) = truncated_number.pop() {
-            while digit == '0' {
-                digit = match truncated_number.pop() {
-                    Some(x) => x,
-                    None => break,
-                }
-            }
-            truncated_number.push(digit);
-        }
-        // Only add decimal if we have more than one digit
-        if truncated_number.len() > 1 {
-            truncated_number.insert(1, '.'); // Decimal point
-        }
-        if negative {
-            truncated_number.insert(0, '-');
-        }
-        if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
-            format!(
-                "{}{} × 10^{}",
-                if add_roughly { "roughly " } else { "" },
-                truncated_number,
-                length
-            )
+        let number = &self.value;
+        let is = if matches!(
+            self.result,
+            CalculationResult::ApproximateDigits(_, _)
+                | CalculationResult::ApproximateDigitsTower(_, _, _, _)
+        ) {
+            "has"
         } else {
-            orig_number.to_string()
-        }
-    }
-
-    /// Rounds a base 10 number string.
-    /// Uses the last digit to decide the rounding direction.
-    /// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
-    /// If the input is all 9s, this will round to 10.
-    ///
-    /// # Panic
-    /// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
-    fn round(number: &mut String) {
-        // Check additional digit if we need to round
-        if let Some(digit) = number
-            .pop()
-            .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-        {
-            if digit >= 5 {
-                let mut last_digit = number
-                    .pop()
-                    .and_then(|n| n.to_digit(10))
-                    .expect("Not a base 10 number");
-                // Carry over at 9s
-                while last_digit == 9 {
-                    let Some(digit) = number
-                        .pop()
-                        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-                    else {
-                        // If we reached the end we get 10
-                        number.push_str("10");
-                        return;
-                    };
-                    last_digit = digit;
-                }
-                // Round up
-                let _ = write!(number, "{}", last_digit + 1);
-            }
-        }
-    }
-
-    pub fn is_too_long(&self) -> bool {
-        let n = match &self.result {
-            CalculationResult::Exact(n)
-            | CalculationResult::ApproximateDigits(n)
-            | CalculationResult::Approximate(_, n)
-            | CalculationResult::ApproximateDigitsTower(_, _, n) => n,
-            CalculationResult::Float(_) | CalculationResult::ComplexInfinity => return false,
+            "is"
         };
-        n > &*TOO_BIG_NUMBER
+        use CalculationResult as Cr;
+        let approximate = match (&self.result, &self.value) {
+            (Cr::ApproximateDigitsTower(_, _, _, _), _) => " on the order of",
+            (Cr::Approximate(_, _) | Cr::ApproximateDigits(_, _) | Cr::Float(_), _)
+            | (_, Number::Float(_)) => " approximately",
+            _ => "",
+        };
+        let factorial = &self.result;
+        write!(acc, "{factorial_string}")?;
+        if agressive_shorten {
+            write!(acc, "{number:-#}")?
+        } else if number.is_too_long() || force_shorten {
+            write!(acc, "{number:#}")?
+        } else {
+            write!(acc, "{number}")?
+        }
+        write!(acc, " {is}{approximate} ")?;
+        if agressive_shorten {
+            write!(acc, "{factorial:-#}")?
+        } else if factorial.is_too_long() || force_shorten {
+            write!(acc, "{factorial:#}")?
+        } else {
+            write!(acc, "{factorial}")?
+        }
+        write!(acc, " \n\n")
     }
 
     fn get_factorial_level_string(level: i32) -> Cow<'static, str> {
@@ -474,7 +379,88 @@ impl Calculation {
         }
     }
 }
-
+/// Rounds a base 10 number string.
+/// Uses the last digit to decide the rounding direction.
+/// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
+/// If the input is all 9s, this will round to 10.
+///
+/// # Panic
+/// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
+fn round(number: &mut String) {
+    // Check additional digit if we need to round
+    if let Some(digit) = number
+        .pop()
+        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+    {
+        if digit >= 5 {
+            let mut last_digit = number
+                .pop()
+                .and_then(|n| n.to_digit(10))
+                .expect("Not a base 10 number");
+            // Carry over at 9s
+            while last_digit == 9 {
+                let Some(digit) = number
+                    .pop()
+                    .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+                else {
+                    // If we reached the end we get 10
+                    number.push_str("10");
+                    return;
+                };
+                last_digit = digit;
+            }
+            // Round up
+            let _ = write!(number, "{}", last_digit + 1);
+        }
+    }
+}
+fn truncate(number: &Integer, add_roughly: bool) -> String {
+    if number == &0 {
+        return number.to_string();
+    }
+    let negative = number.is_negative();
+    let orig_number = number;
+    let number = number.clone().abs();
+    let length = (Float::with_val(FLOAT_PRECISION, &number).ln() / &*LN10)
+        .to_integer_round(rug::float::Round::Down)
+        .unwrap()
+        .0;
+    let truncated_number: Integer = &number
+        / (Float::with_val(FLOAT_PRECISION, 10)
+            .pow((length.clone() - NUMBER_DECIMALS_SCIENTIFIC - 1u8).max(Integer::ZERO))
+            .to_integer()
+            .unwrap());
+    let mut truncated_number = truncated_number.to_string();
+    if truncated_number.len() > NUMBER_DECIMALS_SCIENTIFIC {
+        round(&mut truncated_number);
+    }
+    if let Some(mut digit) = truncated_number.pop() {
+        while digit == '0' {
+            digit = match truncated_number.pop() {
+                Some(x) => x,
+                None => break,
+            }
+        }
+        truncated_number.push(digit);
+    }
+    // Only add decimal if we have more than one digit
+    if truncated_number.len() > 1 {
+        truncated_number.insert(1, '.'); // Decimal point
+    }
+    if negative {
+        truncated_number.insert(0, '-');
+    }
+    if length > NUMBER_DECIMALS_SCIENTIFIC + 1 {
+        format!(
+            "{}{} × 10^{}",
+            if add_roughly { "roughly " } else { "" },
+            truncated_number,
+            length
+        )
+    } else {
+        orig_number.to_string()
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -485,21 +471,21 @@ mod tests {
     #[test]
     fn test_round_down() {
         let mut number = String::from("1929472373");
-        Calculation::round(&mut number);
+        round(&mut number);
         assert_eq!(number, "192947237");
     }
 
     #[test]
     fn test_round_up() {
         let mut number = String::from("74836748625");
-        Calculation::round(&mut number);
+        round(&mut number);
         assert_eq!(number, "7483674863");
     }
 
     #[test]
     fn test_round_carry() {
         let mut number = String::from("24999999995");
-        Calculation::round(&mut number);
+        round(&mut number);
         assert_eq!(number, "25");
     }
 
@@ -517,30 +503,24 @@ mod tests {
 
     #[test]
     fn test_truncate() {
+        assert_eq!(truncate(&Integer::from_str("0").unwrap(), false), "0");
+        assert_eq!(truncate(&Integer::from_str("-1").unwrap(), false), "-1");
         assert_eq!(
-            Calculation::truncate(&Integer::from_str("0").unwrap(), false),
-            "0"
-        );
-        assert_eq!(
-            Calculation::truncate(&Integer::from_str("-1").unwrap(), false),
-            "-1"
-        );
-        assert_eq!(
-            Calculation::truncate(
+            truncate(
                 &Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
                 false
             ),
             "1 × 10^300"
         );
         assert_eq!(
-            Calculation::truncate(
+            truncate(
                 &-Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
                 false
             ),
             "-1 × 10^300"
         );
         assert_eq!(
-            Calculation::truncate(
+            truncate(
                 &Integer::from_str(&format!("1{}", "0".repeat(2000000))).unwrap(),
                 false
             ),
@@ -584,7 +564,7 @@ mod tests {
         let factorial = Calculation {
             value: 5.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::ApproximateDigits(3.into()),
+            result: CalculationResult::ApproximateDigits(false, 3.into()),
         };
         factorial.format(&mut acc, false, false).unwrap();
         assert_eq!(acc, "The factorial of 5 has approximately 3 digits \n\n");
@@ -725,7 +705,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::ApproximateDigits(10043394.into()),
+            result: CalculationResult::ApproximateDigits(false, 10043394.into()),
         };
         let mut s = String::new();
         fact.format(&mut s, false, false).unwrap();
@@ -750,7 +730,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::ApproximateDigitsTower(false, 9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, false, 9, 10375.into()),
         };
         let mut s = String::new();
         fact.format(&mut s, false, false).unwrap();
@@ -764,7 +744,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::ApproximateDigitsTower(true, 9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, true, 9, 10375.into()),
         };
         let mut s = String::new();
         fact.format(&mut s, false, false).unwrap();
@@ -778,7 +758,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::ApproximateDigitsTower(false, 9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, false, 9, 10375.into()),
         };
         let mut s = String::new();
         fact.format(&mut s, false, true).unwrap();
@@ -816,7 +796,9 @@ mod test {
     #[test]
     fn test_format_approximate_factorial_shorten() {
         let fact = Calculation {
-            value: Number::Int(Integer::from_str("2018338437429423744923849374833232131").unwrap()),
+            value: Number::Exact(
+                Integer::from_str("2018338437429423744923849374833232131").unwrap(),
+            ),
             steps: vec![(1, 0)],
             result: CalculationResult::Approximate(
                 Float::with_val(FLOAT_PRECISION, 2.8394792834).into(),
@@ -827,15 +809,18 @@ mod test {
         fact.format(&mut s, true, false).unwrap();
         assert_eq!(
             s,
-            "The factorial of 2.018338437429423744923849374833 × 10^36 is approximately 2.8394792834 × 10^(1.009428349230489498344398410249 × 10^40) \n\n"
+            "The factorial of roughly 2.018338437429423744923849374833 × 10^36 is approximately 2.8394792834 × 10^(1.009428349230489498344398410249 × 10^40) \n\n"
         );
     }
     #[test]
     fn test_format_approximate_digits_factorial_shorten() {
         let fact = Calculation {
-            value: Number::Int(Integer::from_str("2313820948092579283573259490834298719").unwrap()),
+            value: Number::Exact(
+                Integer::from_str("2313820948092579283573259490834298719").unwrap(),
+            ),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigits(
+                false,
                 Integer::from_str("9842371208573508275237815084709374240128347012847").unwrap(),
             ),
         };
@@ -843,17 +828,18 @@ mod test {
         fact.format(&mut s, true, false).unwrap();
         assert_eq!(
             s,
-            "The factorial of 2.313820948092579283573259490834 × 10^36 has approximately 9.842371208573508275237815084709 × 10^48 digits \n\n"
+            "The factorial of roughly 2.313820948092579283573259490834 × 10^36 has approximately 9.842371208573508275237815084709 × 10^48 digits \n\n"
         );
     }
     #[test]
     fn test_format_digits_tower_shorten() {
         let fact = Calculation {
-            value: Number::Int(
+            value: Number::Exact(
                 Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
             ),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigitsTower(
+                false,
                 false,
                 9,
                 Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
@@ -863,7 +849,7 @@ mod test {
         fact.format(&mut s, true, false).unwrap();
         assert_eq!(
             s,
-            "The factorial of 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(7.084327410873502875032857120359 × 10^45\\)) digits \n\n"
+            "The factorial of roughly 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(7.084327410873502875032857120359 × 10^45\\)) digits \n\n"
         );
     }
     #[test]

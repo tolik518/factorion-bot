@@ -502,18 +502,18 @@ mod tests {
             jobs,
             [
                 CalculationJob {
-                    base: CalculationBase::Num(Number::Int(24.into())),
+                    base: CalculationBase::Num(Number::Exact(24.into())),
                     level: 1,
                     negative: 0
                 },
                 CalculationJob {
-                    base: CalculationBase::Num(Number::Int(24.into())),
+                    base: CalculationBase::Num(Number::Exact(24.into())),
                     level: 1,
                     negative: 1
                 },
                 CalculationJob {
                     base: CalculationBase::Calc(Box::new(CalculationJob {
-                        base: CalculationBase::Num(Number::Int(2.into())),
+                        base: CalculationBase::Num(Number::Exact(2.into())),
                         level: 1,
                         negative: 0
                     })),
@@ -523,7 +523,7 @@ mod tests {
                 CalculationJob {
                     base: CalculationBase::Calc(Box::new(CalculationJob {
                         base: CalculationBase::Calc(Box::new(CalculationJob {
-                            base: CalculationBase::Num(Number::Int(2.into())),
+                            base: CalculationBase::Num(Number::Exact(2.into())),
                             level: 1,
                             negative: 0
                         })),
@@ -720,22 +720,22 @@ mod tests {
             comment.calculation_list,
             vec![
                 Calculation {
-                    value: Number::Int(5.into()),
+                    value: Number::Exact(5.into()),
                     steps: vec![(-1, 1)],
                     result: CalculationResult::Exact((-15).into())
                 },
                 Calculation {
-                    value: Number::Int(5.into()),
+                    value: Number::Exact(5.into()),
                     steps: vec![(0, 1)],
                     result: CalculationResult::Exact((-44).into())
                 },
                 Calculation {
-                    value: Number::Int(5.into()),
+                    value: Number::Exact(5.into()),
                     steps: vec![(1, 1)],
                     result: CalculationResult::Exact((-120).into())
                 },
                 Calculation {
-                    value: Number::Int(10.into()),
+                    value: Number::Exact(10.into()),
                     steps: vec![(1, 2)],
                     result: CalculationResult::Exact(3628800.into())
                 }
@@ -855,7 +855,7 @@ mod tests {
         assert_eq!(
             comment.calculation_list,
             vec![Calculation {
-                value: Number::Int(0.into()),
+                value: Number::Exact(0.into()),
                 steps: vec![(1, 0)],
                 result: CalculationResult::Exact(1.into())
             }]
@@ -1019,14 +1019,14 @@ mod tests {
             comment.calculation_list,
             [
                 Calculation {
+                    value: Number::Exact(10.into()),
+                    steps: vec![(1, 1)],
+                    result: CalculationResult::Exact((-3628800).into())
+                },
+                Calculation {
                     value: Number::Float(Float::with_val(FLOAT_PRECISION, Float::parse("112.342").unwrap()).into()),
                     steps: vec![(1, 0)],
                     result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, Float::parse("993525073229285436539807503113271988267318728609930136156505804196109258655775654879896155361191576205057992198378530500089998766548809286881281158234109518671597164775130317741632313.7252607309857759503328865475739439663463350416381893570704080831760770928994102217701454569735908025174055229200345933253782907").unwrap()).into())
-                },
-                Calculation {
-                    value: Number::Int(10.into()),
-                    steps: vec![(1, 1)],
-                    result: CalculationResult::Exact((-3628800).into())
                 },
             ]
         );
@@ -1909,7 +1909,7 @@ mod tests {
         let reply = comment.get_reply();
         assert_eq!(
             reply,
-            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 1 × 10^2652 has on the order of ^(9041)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of roughly 1 × 10^2652 has on the order of ^(9041)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
     }
 
@@ -1930,7 +1930,7 @@ mod tests {
         let reply = comment.get_reply();
         assert_eq!(
             reply,
-            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 × 10^99 has on the order of ^(20000)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+            "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of roughly 9 × 10^99 has on the order of ^(20000)10 digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
         );
     }
 
@@ -1980,6 +1980,7 @@ mod tests {
                     value: 283462.into(),
                     steps: vec![(2, 0)],
                     result: CalculationResult::ApproximateDigits(
+                        false,
                         math::approximate_multifactorial_digits(283462.into(), 2),
                     ),
                 },
