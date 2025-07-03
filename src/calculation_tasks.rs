@@ -64,7 +64,15 @@ impl CalculationJob {
         let mut calcs = loop {
             match base {
                 CalculationBase::Num(num) => {
-                    break vec![Self::calculate_appropriate_factorial(num, level, negative)];
+                    break vec![
+                        Self::calculate_appropriate_factorial(num.clone(), level, negative).map(
+                            |res| Calculation {
+                                value: num,
+                                steps: vec![(level, negative)],
+                                result: res,
+                            },
+                        ),
+                    ];
                 }
                 CalculationBase::Calc(calc) => {
                     steps.push((level, negative));
@@ -85,92 +93,18 @@ impl CalculationJob {
             match calc {
                 Some(Some(Calculation {
                     result: res,
-                    steps,
+                    mut steps,
                     value: number,
                 })) => {
-                    let neg = steps.last().unwrap().1;
-                    let res = match res {
-                        CalculationResult::Exact(res) => Ok(Number::Int(res)),
-                        CalculationResult::Approximate(base, exponent) => {
-                            let res = base.as_float()
-                                * Float::with_val(FLOAT_PRECISION, 10).pow(&exponent);
-                            if Float::is_finite(
-                                &(res.clone() * math::APPROX_FACT_SAFE_UPPER_BOUND_FACTOR),
-                            ) {
-                                Ok(Number::Int(res.to_integer().unwrap()))
-                            } else {
-                                Err(if neg % 2 != 0 {
-                                    CalculationResult::ComplexInfinity
-                                } else if level < 0 {
-                                    let termial = math::approximate_approx_termial(
-                                        (Float::from(base), exponent),
-                                        -level as u32,
-                                    );
-                                    CalculationResult::Approximate(termial.0.into(), termial.1)
-                                } else {
-                                    CalculationResult::ApproximateDigitsTower(
-                                        false,
-                                        1,
-                                        math::length(&exponent) + exponent,
-                                    )
-                                })
-                            }
-                        }
-                        CalculationResult::ApproximateDigits(digits) => {
-                            Err(if digits.is_negative() {
-                                CalculationResult::Float(Float::new(FLOAT_PRECISION).into())
-                            } else if neg % 2 != 0 {
-                                CalculationResult::ComplexInfinity
-                            } else if level < 0 {
-                                CalculationResult::ApproximateDigits((digits - 1) * 2 + 1)
-                            } else {
-                                CalculationResult::ApproximateDigitsTower(
-                                    false,
-                                    1,
-                                    math::length(&digits) + digits,
-                                )
-                            })
-                        }
-                        CalculationResult::ApproximateDigitsTower(negative, depth, exponent) => {
-                            Err(if negative {
-                                CalculationResult::Float(Float::new(FLOAT_PRECISION).into())
-                            } else if neg % 2 != 0 {
-                                CalculationResult::ComplexInfinity
-                            } else if level < 0 {
-                                CalculationResult::ApproximateDigitsTower(false, depth, exponent)
-                            } else {
-                                CalculationResult::ApproximateDigitsTower(
-                                    false,
-                                    depth + 1,
-                                    exponent,
-                                )
-                            })
-                        }
-                        CalculationResult::Float(gamma) => Ok(Number::Float(gamma)),
-                        CalculationResult::ComplexInfinity => {
-                            Err(CalculationResult::ComplexInfinity)
-                        }
-                    };
-                    let factorial = match res {
-                        Ok(res) => Self::calculate_appropriate_factorial(res, level, negative).map(
-                            |mut res| {
-                                let current_steps = res.steps;
-                                res.steps = steps;
-                                res.steps.extend(current_steps);
-                                res.value = number;
-                                res
-                            },
-                        ),
-                        Err(result) => {
-                            let mut steps = steps;
+                    let factorial = Self::calculate_appropriate_factorial(res, level, negative)
+                        .map(|res| {
                             steps.push((level, negative));
-                            Some(Calculation {
+                            Calculation {
                                 value: number,
                                 steps,
-                                result,
-                            })
-                        }
-                    };
+                                result: res,
+                            }
+                        });
                     calcs.push(factorial);
                 }
                 _ => return calcs,
@@ -182,18 +116,75 @@ impl CalculationJob {
         num: Number,
         level: i32,
         negative: u32,
-    ) -> Option<Calculation> {
+    ) -> Option<CalculationResult> {
         let calc_num = match &num {
+            CalculationResult::Approximate(base, exponent) => {
+                let res = base.as_float() * Float::with_val(FLOAT_PRECISION, 10).pow(exponent);
+                if Float::is_finite(&(res.clone() * math::APPROX_FACT_SAFE_UPPER_BOUND_FACTOR)) {
+                    res.to_integer().unwrap()
+                } else {
+                    return Some(if base.as_float() < &0.0 {
+                        CalculationResult::ComplexInfinity
+                    } else if level < 0 {
+                        let termial = math::approximate_approx_termial(
+                            (Float::from(base.clone()), exponent.clone()),
+                            -level as u32,
+                        );
+                        CalculationResult::Approximate(termial.0.into(), termial.1)
+                    } else {
+                        CalculationResult::ApproximateDigitsTower(
+                            false,
+                            false,
+                            1,
+                            math::length(exponent) + exponent,
+                        )
+                    });
+                }
+            }
+            CalculationResult::ApproximateDigits(was_neg, digits) => {
+                return Some(if digits.is_negative() {
+                    CalculationResult::Float(Float::new(FLOAT_PRECISION).into())
+                } else if *was_neg {
+                    CalculationResult::ComplexInfinity
+                } else if level < 0 {
+                    CalculationResult::ApproximateDigits(false, (digits.clone() - 1) * 2 + 1)
+                } else {
+                    CalculationResult::ApproximateDigitsTower(
+                        false,
+                        false,
+                        1,
+                        math::length(digits) + digits,
+                    )
+                });
+            }
+            CalculationResult::ApproximateDigitsTower(was_neg, neg, depth, exponent) => {
+                return Some(if *neg {
+                    CalculationResult::Float(Float::new(FLOAT_PRECISION).into())
+                } else if *was_neg {
+                    CalculationResult::ComplexInfinity
+                } else if level < 0 {
+                    CalculationResult::ApproximateDigitsTower(
+                        false,
+                        false,
+                        *depth,
+                        exponent.clone(),
+                    )
+                } else {
+                    CalculationResult::ApproximateDigitsTower(
+                        false,
+                        false,
+                        depth + 1,
+                        exponent.clone(),
+                    )
+                });
+            }
+            CalculationResult::ComplexInfinity => return Some(CalculationResult::ComplexInfinity),
             Number::Float(num) => match level {
                 ..0 => {
                     let res: Float = math::fractional_termial(num.as_float().clone())
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
-                        return Some(Calculation {
-                            value: Number::Float(num.clone()),
-                            steps: vec![(level, negative)],
-                            result: CalculationResult::Float(res.into()),
-                        });
+                        return Some(CalculationResult::Float(res.into()));
                     } else {
                         num.as_float().to_integer()?
                     }
@@ -206,11 +197,7 @@ impl CalculationJob {
                     let res: Float = math::fractional_factorial(num.as_float().clone())
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
-                        return Some(Calculation {
-                            value: Number::Float(num.clone()),
-                            steps: vec![(level, negative)],
-                            result: CalculationResult::Float(res.into()),
-                        });
+                        return Some(CalculationResult::Float(res.into()));
                     } else {
                         num.as_float().to_integer()?
                     }
@@ -219,36 +206,27 @@ impl CalculationJob {
                     let res: Float = math::fractional_multifactorial(num.as_float().clone(), level)
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
-                        return Some(Calculation {
-                            value: Number::Float(num.clone()),
-                            steps: vec![(level, negative)],
-                            result: CalculationResult::Float(res.into()),
-                        });
+                        return Some(CalculationResult::Float(res.into()));
                     } else {
                         num.as_float().to_integer()?
                     }
                 }
             },
-            Number::Int(num) => num.clone(),
+            Number::Exact(num) => num.clone(),
         };
         if level > 0 {
             Some(if calc_num < 0 && level == 1 {
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::ComplexInfinity,
-                }
+                CalculationResult::ComplexInfinity
             } else if calc_num < 0 {
                 let factor = math::negative_multifacorial_factor(calc_num.clone(), level);
                 match (factor, -level - 1 > calc_num) {
                     (Some(factor), true) => {
                         let mut res = Self::calculate_appropriate_factorial(
-                            Number::Int(-calc_num.clone() - level),
+                            Number::Exact(-calc_num.clone() - level),
                             level,
                             negative,
                         )?;
-                        res.value = num;
-                        res.result = match res.result {
+                        res = match res {
                             CalculationResult::Exact(n) => {
                                 let n = Float::with_val(FLOAT_PRECISION, n);
                                 CalculationResult::Float((factor / n).into())
@@ -258,12 +236,17 @@ impl CalculationJob {
                                     math::adjust_approximate((factor / Float::from(b), -e));
                                 CalculationResult::Approximate(b.into(), e)
                             }
-                            CalculationResult::ApproximateDigits(n) => {
-                                CalculationResult::ApproximateDigits(-n)
+                            CalculationResult::ApproximateDigits(wn, n) => {
+                                CalculationResult::ApproximateDigits(wn, -n)
                             }
-                            CalculationResult::ApproximateDigitsTower(negative, depth, base) => {
-                                CalculationResult::ApproximateDigitsTower(!negative, depth, base)
-                            }
+                            CalculationResult::ApproximateDigitsTower(
+                                wn,
+                                negative,
+                                depth,
+                                base,
+                            ) => CalculationResult::ApproximateDigitsTower(
+                                wn, !negative, depth, base,
+                            ),
                             CalculationResult::ComplexInfinity => {
                                 CalculationResult::Exact(0.into())
                             }
@@ -274,22 +257,14 @@ impl CalculationJob {
 
                         res
                     }
-                    (factor, _) => Calculation {
-                        value: num,
-                        steps: vec![(level, negative)],
-                        result: factor
-                            .map(CalculationResult::Exact)
-                            .unwrap_or(CalculationResult::ComplexInfinity),
-                    },
+                    (factor, _) => factor
+                        .map(CalculationResult::Exact)
+                        .unwrap_or(CalculationResult::ComplexInfinity),
                 }
                 // Check if we can approximate the number of digits
             } else if calc_num > *UPPER_APPROXIMATION_LIMIT {
                 let factorial = math::approximate_multifactorial_digits(calc_num.clone(), level);
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::ApproximateDigits(factorial),
-                }
+                CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
             // Check if the number is within a reasonable range to compute
             } else if calc_num > UPPER_CALCULATION_LIMIT {
                 let factorial = if level == 0 {
@@ -297,76 +272,44 @@ impl CalculationJob {
                 } else {
                     math::approximate_multifactorial(calc_num.clone(), level)
                 };
-                Calculation {
-                    value: Number::Int(calc_num),
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::Approximate(
-                        ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
-                        factorial.1,
-                    ),
-                }
+                CalculationResult::Approximate(
+                    ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                    factorial.1,
+                )
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
                 let factorial =
                     math::factorial(calc_num, level) * if negative % 2 != 0 { -1 } else { 1 };
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::Exact(factorial),
-                }
+                CalculationResult::Exact(factorial)
             })
         } else if level == 0 {
             Some(if calc_num < 0 {
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::ComplexInfinity,
-                }
+                CalculationResult::ComplexInfinity
             } else if calc_num > *UPPER_APPROXIMATION_LIMIT {
                 let factorial = math::approximate_multifactorial_digits(calc_num.clone(), 1);
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::ApproximateDigits(factorial),
-                }
+                CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
             } else if calc_num > UPPER_SUBFACTORIAL_LIMIT {
                 let factorial = math::approximate_subfactorial(calc_num.clone());
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::Approximate(
-                        ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
-                        factorial.1,
-                    ),
-                }
+                CalculationResult::Approximate(
+                    ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                    factorial.1,
+                )
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
                 let factorial =
                     math::subfactorial(calc_num) * if negative % 2 != 0 { -1 } else { 1 };
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::Exact(factorial),
-                }
+                CalculationResult::Exact(factorial)
             })
         } else if level < 0 {
             Some(if calc_num > *UPPER_TERMIAL_APPROXIMATION_LIMIT {
                 let termial = math::approximate_termial_digits(calc_num, -level as u32);
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::ApproximateDigits(termial),
-                }
+                CalculationResult::ApproximateDigits(negative % 2 != 0, termial)
             } else if calc_num > *UPPER_TERMIAL_LIMIT {
                 let termial = math::approximate_termial(calc_num, -level as u32);
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::Approximate(
-                        ((termial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
-                        termial.1,
-                    ),
-                }
+                CalculationResult::Approximate(
+                    ((termial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                    termial.1,
+                )
             } else {
                 let termial = if level < -1 {
                     math::multitermial(calc_num, -level as u32)
@@ -374,11 +317,7 @@ impl CalculationJob {
                     math::termial(calc_num)
                 };
                 let termial = termial * if negative % 2 != 0 { -1 } else { 1 };
-                Calculation {
-                    value: num,
-                    steps: vec![(level, negative)],
-                    result: CalculationResult::Exact(termial),
-                }
+                CalculationResult::Exact(termial)
             })
         } else {
             None

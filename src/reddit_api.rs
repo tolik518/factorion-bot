@@ -1088,7 +1088,7 @@ mod tests {
         assert_eq!(
             comments[0].calculation_list,
             [Calculation {
-                value: Number::Int(1.into()),
+                value: Number::Exact(1.into()),
                 steps: vec![(2, 0)],
                 result: crate::calculation_results::CalculationResult::Exact(1.into())
             }]
@@ -1096,7 +1096,7 @@ mod tests {
         assert_eq!(
             comments[1].calculation_list,
             [Calculation {
-                value: Number::Int(2.into()),
+                value: Number::Exact(2.into()),
                 steps: vec![(1, 0)],
                 result: crate::calculation_results::CalculationResult::Exact(2.into())
             }]
@@ -1104,7 +1104,7 @@ mod tests {
         assert_eq!(
             comments[2].calculation_list,
             [Calculation {
-                value: Number::Int(10.into()),
+                value: Number::Exact(10.into()),
                 steps: vec![(0, 0)],
                 result: crate::calculation_results::CalculationResult::Exact(1334961.into())
             }]

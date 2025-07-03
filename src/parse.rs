@@ -3,7 +3,7 @@ use rug::{Complete, Float, Integer, integer::IntegerExt64};
 use crate::{
     calculation_results::Number,
     calculation_tasks::{CalculationBase, CalculationJob, INTEGER_CONSTRUCTION_LIMIT},
-    math::FLOAT_PRECISION,
+    math::{self, FLOAT_PRECISION},
 };
 
 const POI_STARTS: [char; 19] = [
@@ -106,7 +106,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         if text.len() != last_len {
             current_negative = 0;
         }
-        if text.trim().starts_with(char::is_alphabetic) && !paren_steps.is_empty() {}
         // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
@@ -276,8 +275,15 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 }
             }
             if !had_op {
-                if let Some(CalculationBase::Calc(job)) = &mut base {
-                    job.negative = step.0
+                match &mut base {
+                    Some(CalculationBase::Calc(job)) => job.negative += step.0,
+                    Some(CalculationBase::Num(n)) => {
+                        if step.0 % 2 != 0 {
+                            n.negate();
+                        } else {
+                        }
+                    }
+                    None => {}
                 }
             } else {
                 match &mut base {
@@ -522,23 +528,34 @@ fn parse_num(text: &mut &str) -> Option<Number> {
             .parse::<Integer>()
             .ok()?;
         let num = n * Integer::u64_pow_u64(10, exponent).complete();
-        Some(Number::Int(num))
+        Some(Number::Exact(num))
     } else {
-        let x = Float::parse(format!(
-            "{integer_part}.{decimal_part}{}{}{}",
-            if !exponent_part.0.is_empty() { "e" } else { "" },
-            if exponent_part.1 { "-" } else { "" },
-            exponent_part.0
-        ))
-        .ok()?;
-        let x = Float::with_val(FLOAT_PRECISION, x);
-        if x.is_integer() && exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
-            let n = x.to_integer().unwrap();
-            Some(Number::Int(n))
-        } else if x.is_finite() {
-            Some(Number::Float(x.into()))
+        if exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
+            let x = Float::parse(format!(
+                "{integer_part}.{decimal_part}{}{}{}",
+                if !exponent_part.0.is_empty() { "e" } else { "" },
+                if exponent_part.1 { "-" } else { "" },
+                exponent_part.0
+            ))
+            .ok()?;
+            let x = Float::with_val(FLOAT_PRECISION, x);
+            if x.is_integer() {
+                let n = x.to_integer().unwrap();
+                Some(Number::Exact(n))
+            } else if x.is_finite() {
+                Some(Number::Float(x.into()))
+            } else {
+                None
+            }
         } else {
-            None
+            let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
+            let x = Float::with_val(FLOAT_PRECISION, x);
+            if x.is_finite() {
+                let (b, e) = math::adjust_approximate((x, exponent.into()));
+                Some(Number::Approximate(b.into(), e))
+            } else {
+                None
+            }
         }
     }
 }
@@ -738,11 +755,15 @@ mod test {
     }
     #[test]
     fn test_paren_negation() {
-        let jobs = parse("a factorial -(--(-15))!", true);
+        let jobs = parse("a factorial -(--(-(-(-3))!))!", true);
         assert_eq!(
             jobs,
             [CalculationJob {
-                base: CalculationBase::Num((-15).into()),
+                base: CalculationBase::Calc(Box::new(CalculationJob {
+                    base: CalculationBase::Num(3.into()),
+                    level: 1,
+                    negative: 3
+                })),
                 level: 1,
                 negative: 1
             }]
@@ -886,13 +907,13 @@ mod test {
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
         let num = parse_num(&mut "1more !");
-        assert_eq!(num, Some(Number::Int(1.into())));
+        assert_eq!(num, Some(1.into()));
         let num = parse_num(&mut "1.0more !");
-        assert_eq!(num, Some(Number::Int(1.into())));
+        assert_eq!(num, Some(1.into()));
         let num = parse_num(&mut "1.5e2more !");
-        assert_eq!(num, Some(Number::Int(150.into())));
+        assert_eq!(num, Some(150.into()));
         let num = parse_num(&mut "1e2more !");
-        assert_eq!(num, Some(Number::Int(100.into())));
+        assert_eq!(num, Some(100.into()));
         let num = parse_num(&mut "1.531e2more !");
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
@@ -910,7 +931,7 @@ mod test {
     #[test]
     fn test_biggest_num() {
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str());
-        assert!(!matches!(num, Some(Number::Int(_))));
+        assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(&mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str());
         assert!(num.is_some());
     }
