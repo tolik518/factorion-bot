@@ -280,7 +280,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                     Some(CalculationBase::Num(n)) => {
                         if step.0 % 2 != 0 {
                             n.negate();
-                        } else {
                         }
                     }
                     None => {}
@@ -512,50 +511,48 @@ fn parse_num(text: &mut &str) -> Option<Number> {
         return None;
     }
     let exponent = if !exponent_part.0.is_empty() {
-        let mut e = exponent_part.0.parse::<i64>().ok()?;
+        let mut e = exponent_part.0.parse::<Integer>().ok()?;
         if exponent_part.1 {
             e *= -1;
         }
         e
     } else {
-        0
+        0.into()
     };
     if exponent >= decimal_part.len() as i64
-        && exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT
+        && exponent <= INTEGER_CONSTRUCTION_LIMIT - integer_part.len() as i64
     {
-        let exponent = exponent as u64 - decimal_part.len() as u64;
+        let exponent = exponent - decimal_part.len();
         let n = format!("{integer_part}{decimal_part}")
             .parse::<Integer>()
             .ok()?;
-        let num = n * Integer::u64_pow_u64(10, exponent).complete();
+        let num = n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete();
         Some(Number::Exact(num))
-    } else {
-        if exponent + integer_part.len() as i64 <= INTEGER_CONSTRUCTION_LIMIT {
-            let x = Float::parse(format!(
-                "{integer_part}.{decimal_part}{}{}{}",
-                if !exponent_part.0.is_empty() { "e" } else { "" },
-                if exponent_part.1 { "-" } else { "" },
-                exponent_part.0
-            ))
-            .ok()?;
-            let x = Float::with_val(FLOAT_PRECISION, x);
-            if x.is_integer() {
-                let n = x.to_integer().unwrap();
-                Some(Number::Exact(n))
-            } else if x.is_finite() {
-                Some(Number::Float(x.into()))
-            } else {
-                None
-            }
+    } else if exponent <= INTEGER_CONSTRUCTION_LIMIT - integer_part.len() as i64 {
+        let x = Float::parse(format!(
+            "{integer_part}.{decimal_part}{}{}{}",
+            if !exponent_part.0.is_empty() { "e" } else { "" },
+            if exponent_part.1 { "-" } else { "" },
+            exponent_part.0
+        ))
+        .ok()?;
+        let x = Float::with_val(FLOAT_PRECISION, x);
+        if x.is_integer() {
+            let n = x.to_integer().unwrap();
+            Some(Number::Exact(n))
+        } else if x.is_finite() {
+            Some(Number::Float(x.into()))
         } else {
-            let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
-            let x = Float::with_val(FLOAT_PRECISION, x);
-            if x.is_finite() {
-                let (b, e) = math::adjust_approximate((x, exponent.into()));
-                Some(Number::Approximate(b.into(), e))
-            } else {
-                None
-            }
+            None
+        }
+    } else {
+        let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
+        let x = Float::with_val(FLOAT_PRECISION, x);
+        if x.is_finite() {
+            let (b, e) = math::adjust_approximate((x, exponent));
+            Some(Number::Approximate(b.into(), e))
+        } else {
+            None
         }
     }
 }
