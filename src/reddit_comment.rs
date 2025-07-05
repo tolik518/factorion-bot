@@ -1954,6 +1954,25 @@ mod tests {
     }
 
     #[test]
+    fn test_ridiculous_input() {
+        let comment = RedditComment::new(
+            "9e999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999!",
+            "1234",
+            "test-author",
+            "test-subreddit",
+            Commands::NONE,
+        )
+        .extract()
+        .calc();
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nThe factorial of 9 × 10^999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 has on the order of 10^(1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000164) digits \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
+    }
+
+    #[test]
     fn test_get_reply_approximate_digits_from_mixed_types() {
         let comment = RedditComment {
             id: "1234".to_string(),
