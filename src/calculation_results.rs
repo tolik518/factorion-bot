@@ -870,4 +870,26 @@ mod test {
             "The factorial of 0 is roughly 2.098578716467387692404358116884 × 10^323228496 \n\n"
         );
     }
+
+    #[test]
+    fn test_is_too_long() {
+        let small = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Exact(1.into()),
+        };
+        assert!(!small.is_too_long());
+        let big = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Exact((*TOO_BIG_NUMBER).clone() + 1),
+        };
+        assert!(big.is_too_long());
+        let fl = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 1.0).into()),
+        };
+        assert!(!fl.is_too_long());
+    }
 }

@@ -2035,4 +2035,38 @@ mod tests {
             Ok(())
         });
     }
+
+    #[test]
+    fn test_from_comment_text() {
+        let cmd = Commands::from_comment_text("shorten all triangle no_note");
+        assert!(!cmd.shorten);
+        assert!(!cmd.steps);
+        assert!(!cmd.termial);
+        assert!(!cmd.no_note);
+        assert!(!cmd.post_only);
+    }
+
+    #[test]
+    fn test_overrides_from_comment_text() {
+        let cmd = Commands::overrides_from_comment_text("long no_steps no_termial note");
+        assert!(cmd.shorten);
+        assert!(cmd.steps);
+        assert!(cmd.termial);
+        assert!(cmd.no_note);
+        assert!(cmd.post_only);
+    }
+
+    #[test]
+    fn test_might_have_factorial() {
+        assert!(RedditComment::might_have_factorial("5!"));
+        assert!(RedditComment::might_have_factorial("3?"));
+        assert!(!RedditComment::might_have_factorial("!?"));
+    }
+
+    #[test]
+    fn test_new_already_replied() {
+        let comment = RedditComment::new_already_replied("id5", "author5", "sub5");
+        assert_eq!(comment.calculation_list, "");
+        assert!(comment.status.already_replied_or_rejected);
+    }
 }

@@ -1442,4 +1442,54 @@ mod tests {
             67
         );
     }
+
+    #[test]
+    fn test_negative_multifacorial_factor(){
+        // rem == 0
+        assert_eq!(negative_multifacorial_factor(6.into(), 3), None);
+        // rem < k
+        assert_eq!(negative_multifacorial_factor(Integer::from(-1), 3), Some(Integer::ONE.clone()));
+        // rem == k
+        assert_eq!(negative_multifacorial_factor(5.into(), -5), None);
+        // rem > k
+        assert_eq!(negative_multifacorial_factor(1.into(), -3), Some(Integer::NEG_ONE.clone()));
+    }
+
+    #[test]
+    fn test_adjust_approximate() {
+        let input = (Float::with_val(FLOAT_PRECISION, 100.0), Integer::from(2));
+        let (x, e) = adjust_approximate(input);
+        assert_eq!(x, 1.0);
+        assert_eq!(e, 4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approximate_factorial_with_n_is_non_positive() {
+        let _ = approximate_factorial(0.into());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approximate_multifactorial_with_n_is_non_positive() {
+        let _ = approximate_multifactorial(0.into(), 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approximate_multifactorial_with_k_is_non_positive() {
+        let _ = approximate_multifactorial(1.into(), 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approximate_multifactorial_digits_with_n_is_non_positive() {
+        let _ = approximate_multifactorial_digits(0.into(), 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approximate_multifactorial_digits_with_k_is_non_positive() {
+        let _ = approximate_multifactorial_digits(1.into(), 0);
+    }
 }
