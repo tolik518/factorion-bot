@@ -873,9 +873,19 @@ mod test {
 
     #[test]
     fn test_calculation_is_approximate() {
-        let c1 = Calculation { value: 0.into(), steps: vec![], result: CalculationResult::Approximate(Float::with_val(FLOAT_PRECISION, 2.0).into(), 1.into()) };
+        let c1 = Calculation {
+            value: 0.into(),
+            steps: vec![],
+            result: CalculationResult::Approximate(
+                Float::with_val(FLOAT_PRECISION, 2.0).into(),
+                1.into())
+        };
         assert!(c1.is_approximate());
-        let c2 = Calculation { value: 0.into(), steps: vec![], result: CalculationResult::Exact(1.into()) };
+        let c2 = Calculation {
+            value: 0.into(),
+            steps: vec![],
+            result: CalculationResult::Exact(1.into())
+        };
         assert!(!c2.is_approximate());
     }
 
@@ -884,7 +894,10 @@ mod test {
         let c1 = Calculation {
             value: Number::Float(Float::with_val(FLOAT_PRECISION, 1.23).into()),
             steps: vec![],
-            result: CalculationResult::Approximate(Float::with_val(FLOAT_PRECISION, 0.0).into(), 0.into()),
+            result: CalculationResult::Approximate(
+                Float::with_val(FLOAT_PRECISION, 0.0).into(),
+                0.into()
+            ),
         };
         assert!(c1.is_rounded());
         let c2 = Calculation {
