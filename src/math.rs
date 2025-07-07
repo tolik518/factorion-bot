@@ -1444,15 +1444,21 @@ mod tests {
     }
 
     #[test]
-    fn test_negative_multifacorial_factor(){
+    fn test_negative_multifacorial_factor() {
         // rem == 0
         assert_eq!(negative_multifacorial_factor(6.into(), 3), None);
         // rem < k
-        assert_eq!(negative_multifacorial_factor(Integer::from(-1), 3), Some(Integer::ONE.clone()));
+        assert_eq!(
+            negative_multifacorial_factor(Integer::from(-1), 3),
+            Some(Integer::ONE.clone())
+        );
         // rem == k
         assert_eq!(negative_multifacorial_factor(5.into(), -5), None);
         // rem > k
-        assert_eq!(negative_multifacorial_factor(1.into(), -3), Some(Integer::NEG_ONE.clone()));
+        assert_eq!(
+            negative_multifacorial_factor(1.into(), -3),
+            Some(Integer::NEG_ONE.clone())
+        );
     }
 
     #[test]
