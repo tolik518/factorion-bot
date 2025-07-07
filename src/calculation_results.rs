@@ -878,7 +878,7 @@ mod test {
             steps: vec![],
             result: CalculationResult::Approximate(
                 Float::with_val(FLOAT_PRECISION, 2.0).into(),
-                1.into()
+                1.into(),
             ),
         };
         assert!(c1.is_approximate());
