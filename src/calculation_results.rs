@@ -870,4 +870,70 @@ mod test {
             "The factorial of 0 is roughly 2.098578716467387692404358116884 × 10^323228496 \n\n"
         );
     }
+
+    #[test]
+    fn test_calculation_is_approximate() {
+        let c1 = Calculation {
+            value: 0.into(),
+            steps: vec![],
+            result: CalculationResult::Approximate(
+                Float::with_val(FLOAT_PRECISION, 2.0).into(),
+                1.into(),
+            ),
+        };
+        assert!(c1.is_approximate());
+        let c2 = Calculation {
+            value: 0.into(),
+            steps: vec![],
+            result: CalculationResult::Exact(1.into()),
+        };
+        assert!(!c2.is_approximate());
+    }
+
+    #[test]
+    fn test_calculation_is_rounded() {
+        let c1 = Calculation {
+            value: Number::Float(Float::with_val(FLOAT_PRECISION, 1.23).into()),
+            steps: vec![],
+            result: CalculationResult::Approximate(
+                Float::with_val(FLOAT_PRECISION, 0.0).into(),
+                0.into(),
+            ),
+        };
+        assert!(c1.is_rounded());
+        let c2 = Calculation {
+            value: Number::Float(Float::with_val(FLOAT_PRECISION, 1.23).into()),
+            steps: vec![],
+            result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 1.23).into()),
+        };
+        assert!(!c2.is_rounded());
+        let c3 = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Exact(1.into()),
+        };
+        assert!(!c3.is_rounded());
+    }
+
+    #[test]
+    fn test_is_too_long() {
+        let small = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Exact(1.into()),
+        };
+        assert!(!small.is_too_long());
+        let big = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Exact((*TOO_BIG_NUMBER).clone() + 1),
+        };
+        assert!(big.is_too_long());
+        let fl = Calculation {
+            value: 1.into(),
+            steps: vec![],
+            result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 1.0).into()),
+        };
+        assert!(!fl.is_too_long());
+    }
 }

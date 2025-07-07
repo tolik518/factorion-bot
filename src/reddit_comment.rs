@@ -2035,4 +2035,57 @@ mod tests {
             Ok(())
         });
     }
+
+    #[test]
+    fn test_commands_from_comment_text() {
+        let cmd1 = Commands::from_comment_text("!shorten!all !triangle !no_note");
+        assert!(cmd1.shorten);
+        assert!(cmd1.steps);
+        assert!(cmd1.termial);
+        assert!(cmd1.no_note);
+        assert!(!cmd1.post_only);
+        let cmd2 = Commands::from_comment_text("[shorten][all] [triangle] [no_note]");
+        assert!(cmd2.shorten);
+        assert!(cmd2.steps);
+        assert!(cmd2.termial);
+        assert!(cmd2.no_note);
+        assert!(!cmd2.post_only);
+        let comment = r"\[shorten\]\[all\] \[triangle\] \[no_note\]";
+        let cmd3 = Commands::from_comment_text(comment);
+        assert!(cmd3.shorten);
+        assert!(cmd3.steps);
+        assert!(cmd3.termial);
+        assert!(cmd3.no_note);
+        assert!(!cmd3.post_only);
+        let cmd4 = Commands::from_comment_text("shorten all triangle no_note");
+        assert!(!cmd4.shorten);
+        assert!(!cmd4.steps);
+        assert!(!cmd4.termial);
+        assert!(!cmd4.no_note);
+        assert!(!cmd4.post_only);
+    }
+
+    #[test]
+    fn test_commands_overrides_from_comment_text() {
+        let cmd1 = Commands::overrides_from_comment_text("long no_steps no_termial note");
+        assert!(cmd1.shorten);
+        assert!(cmd1.steps);
+        assert!(cmd1.termial);
+        assert!(cmd1.no_note);
+        assert!(cmd1.post_only);
+    }
+
+    #[test]
+    fn test_might_have_factorial() {
+        assert!(RedditComment::might_have_factorial("5!"));
+        assert!(RedditComment::might_have_factorial("3?"));
+        assert!(!RedditComment::might_have_factorial("!?"));
+    }
+
+    #[test]
+    fn test_new_already_replied() {
+        let comment = RedditComment::new_already_replied("id5", "author5", "sub5");
+        assert_eq!(comment.calculation_list, "");
+        assert!(comment.status.already_replied_or_rejected);
+    }
 }
