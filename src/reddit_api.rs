@@ -37,7 +37,7 @@ const REDDIT_OAUTH_URL: &str = "https://oauth.reddit.com";
 #[cfg(test)]
 const REDDIT_OAUTH_URL: &str = "http://127.0.0.1:9384";
 #[cfg(not(test))]
-const REDDIT_TOKEN_URL: &str = "https://ssl.reddit.com/api/v1/access_token";
+const REDDIT_TOKEN_URL: &str = "https://www.reddit.com/api/v1/access_token";
 #[cfg(test)]
 const REDDIT_TOKEN_URL: &str = "http://127.0.0.1:9384";
 #[cfg(not(test))]
