@@ -256,10 +256,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 continue;
             };
             if !levels.is_empty() {
-                // Prefix? (5.1.1.)
-                if step.1.is_some() {
-                    continue;
-                }
                 // Set as base (5.1.2.)
                 for level in levels {
                     // base available?
