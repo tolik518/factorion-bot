@@ -144,7 +144,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         }
         let had_text = position_of_interest
             .checked_sub(1)
-            .and_then(|n| text.get(..n))
+            .and_then(|n| text.get(..=n))
             .map_or(false, |s| s.ends_with(char::is_alphabetic));
         // so we can just ignore everything before
         text = &text[position_of_interest..];
@@ -937,6 +937,12 @@ mod test {
             let _ = parse(text, u.arbitrary()?);
             Ok(())
         });
+    }
+
+    #[test]
+    fn test_constant() {
+        let jobs = parse("!espi!", true);
+        assert_eq!(jobs, []);
     }
 
     #[test]
