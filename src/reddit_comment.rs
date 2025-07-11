@@ -190,35 +190,37 @@ pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i6
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 macro_rules! contains_comb {
+    // top level (advance both separately)
     ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
         $var.contains(concat!($start, $end)) || contains_comb!($var, [$($start_rest),*], [$end,$($end_rest),*]) || contains_comb!(@inner $var, [$start,$($start_rest),*], [$($end_rest),*])
     };
+    // inner (advance only end)
     (@inner $var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
         $var.contains(concat!($start,$end)) || contains_comb!(@inner $var, [$start,$($start_rest),*], [$($end_rest),*])
     };
+    // top level (advance both separately) singular end (advance only start)
     ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt $(,)?]) => {
-        $var.contains(concat!($start, $end)) || contains_comb!($var, [$($start_rest),*], [$end,$($end_rest),*]) || contains_comb!(@inner $var, [$start,$($start_rest),*], [$($end_rest),*])
+        $var.contains(concat!($start, $end)) || contains_comb!($var, [$($start_rest),*], [$end])
     };
+    // top level (advance both separately) singular start (advance only end)
     ($var:ident, [$start:tt $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
         $var.contains(concat!($start, $end)) || contains_comb!(@inner $var, [$start], [$($end_rest),*])
     };
+    // inner (advance only end) singular end (advance only start, so nothing)
     (@inner $var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt $(,)?]) => {
         $var.contains(concat!($start,$end))
     };
+    // inner (advance only end) singular end (advance only end)
     (@inner $var:ident, [$start:tt $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
         $var.contains(concat!($start,$end)) || contains_comb!(@inner $var, [$start], [$($end_rest),*])
     };
+    // top level (advance both separately) singular start and end (no advance)
     ($var:ident, [$start:tt $(,)?], [$end:tt $(,)?]) => {
         $var.contains(concat!($start, $end))
     };
+    // inner (advance only end) singular start and end (no advance)
     (@inner $var:ident, [$start:tt $(,)?], [$end:tt $(,)?]) => {
         $var.contains(concat!($start,$end))
-    };
-    ($var:ident, [], [$($any:tt),*]) => {
-        false
-    };
-    ($var:ident, [$($any:tt),*], []) => {
-        false
     };
 }
 
@@ -1051,7 +1053,7 @@ mod tests {
     #[test]
     fn test_comment_new_constants() {
         let comment = RedditComment::new(
-            "This is a test comment with constants e! And non-constant pie!",
+            "This is a test comment with constants pi! And non-constant pie!",
             "123",
             "test_author",
             "test_subreddit",
@@ -1072,7 +1074,7 @@ mod tests {
                     _ => unreachable!("No normal factorial included"),
                 })
                 .collect::<Vec<_>>(),
-            vec![(2.718281828459045, 4.2608204763570035)]
+            vec![(std::f64::consts::PI, 7.188082728976033)]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }

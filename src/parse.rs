@@ -144,8 +144,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         }
         let had_text = position_of_interest
             .checked_sub(1)
-            .and_then(|n| text.get(..=n))
-            .map_or(false, |s| s.ends_with(char::is_alphabetic));
+            .is_some_and(|n| text[..=n].ends_with(char::is_alphabetic));
         // so we can just ignore everything before
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
