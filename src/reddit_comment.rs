@@ -189,6 +189,39 @@ const FOOTER_TEXT: &str =
 pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
 pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
+macro_rules! contains_comb {
+    ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
+        $var.contains(concat!($start, $end)) || contains_comb!($var, [$($start_rest),*], [$end,$($end_rest),*]) || contains_comb!(@inner $var, [$start,$($start_rest),*], [$($end_rest),*])
+    };
+    (@inner $var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
+        $var.contains(concat!($start,$end)) || contains_comb!(@inner $var, [$start,$($start_rest),*], [$($end_rest),*])
+    };
+    ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt $(,)?]) => {
+        $var.contains(concat!($start, $end)) || contains_comb!($var, [$($start_rest),*], [$end,$($end_rest),*]) || contains_comb!(@inner $var, [$start,$($start_rest),*], [$($end_rest),*])
+    };
+    ($var:ident, [$start:tt $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
+        $var.contains(concat!($start, $end)) || contains_comb!(@inner $var, [$start], [$($end_rest),*])
+    };
+    (@inner $var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt $(,)?]) => {
+        $var.contains(concat!($start,$end))
+    };
+    (@inner $var:ident, [$start:tt $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
+        $var.contains(concat!($start,$end)) || contains_comb!(@inner $var, [$start], [$($end_rest),*])
+    };
+    ($var:ident, [$start:tt $(,)?], [$end:tt $(,)?]) => {
+        $var.contains(concat!($start, $end))
+    };
+    (@inner $var:ident, [$start:tt $(,)?], [$end:tt $(,)?]) => {
+        $var.contains(concat!($start,$end))
+    };
+    ($var:ident, [], [$($any:tt),*]) => {
+        false
+    };
+    ($var:ident, [$($any:tt),*], []) => {
+        false
+    };
+}
+
 impl RedditCommentConstructed {
     /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [calculation_tasks](crate::calculation_tasks).
     pub(crate) fn new(
@@ -223,39 +256,21 @@ impl RedditCommentConstructed {
     }
 
     pub fn might_have_factorial(text: &str) -> bool {
-        text.contains(")!")
-            || text.contains("!(")
-            || text.contains(")?")
-            || text.contains("0!")
-            || text.contains("1!")
-            || text.contains("2!")
-            || text.contains("3!")
-            || text.contains("4!")
-            || text.contains("5!")
-            || text.contains("6!")
-            || text.contains("7!")
-            || text.contains("8!")
-            || text.contains("9!")
-            || text.contains("!0")
-            || text.contains("!1")
-            || text.contains("!2")
-            || text.contains("!3")
-            || text.contains("!4")
-            || text.contains("!5")
-            || text.contains("!6")
-            || text.contains("!7")
-            || text.contains("!8")
-            || text.contains("!9")
-            || text.contains("0?")
-            || text.contains("1?")
-            || text.contains("2?")
-            || text.contains("3?")
-            || text.contains("4?")
-            || text.contains("5?")
-            || text.contains("6?")
-            || text.contains("7?")
-            || text.contains("8?")
-            || text.contains("9?")
+        contains_comb!(
+            text,
+            [
+                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ")", "e", "pi", "phi", "tau",
+                "π", "ɸ", "τ"
+            ],
+            ["!", "?"]
+        ) || contains_comb!(
+            text,
+            ["!"],
+            [
+                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "(", "e", "pi", "phi", "tau",
+                "π", "ɸ", "τ"
+            ]
+        )
     }
 
     pub fn extract(self) -> RedditComment<Vec<CalculationJob>> {
@@ -1029,6 +1044,35 @@ mod tests {
                     result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, Float::parse("993525073229285436539807503113271988267318728609930136156505804196109258655775654879896155361191576205057992198378530500089998766548809286881281158234109518671597164775130317741632313.7252607309857759503328865475739439663463350416381893570704080831760770928994102217701454569735908025174055229200345933253782907").unwrap()).into())
                 },
             ]
+        );
+        assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+
+    #[test]
+    fn test_comment_new_constants() {
+        let comment = RedditComment::new(
+            "This is a test comment with constants e! And non-constant pie!",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        )
+        .extract()
+        .calc();
+        assert_eq!(
+            comment
+                .calculation_list
+                .into_iter()
+                .map(|calc| match calc {
+                    Calculation {
+                        value: Number::Float(number),
+                        steps: _,
+                        result: CalculationResult::Float(gamma),
+                    } => (number.as_float().to_f64(), gamma.as_float().to_f64()),
+                    _ => unreachable!("No normal factorial included"),
+                })
+                .collect::<Vec<_>>(),
+            vec![(2.718281828459045, 4.2608204763570035)]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
