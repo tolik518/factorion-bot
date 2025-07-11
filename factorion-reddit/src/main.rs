@@ -1,9 +1,9 @@
 use dotenvy::dotenv;
+use factorion_lib::comment::{Commands, RedditComment, Status};
 use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
 use reddit_api::RedditClient;
 use reddit_api::id::DenseId;
-use reddit_comment::{Commands, RedditComment, Status};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
@@ -13,13 +13,9 @@ use std::sync::OnceLock;
 use std::time::SystemTime;
 use tokio::time::{Duration, sleep};
 
-mod calculation_results;
-mod calculation_tasks;
 mod influxdb;
-mod math;
-mod parse;
 mod reddit_api;
-pub(crate) mod reddit_comment;
+use factorion_lib::comment as reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const ALREADY_REPLIED_IDS_FILE_PATH: &str = "already_replied_ids.dat";

@@ -11,31 +11,31 @@ use rug::{Float, Integer, ops::Pow};
 use std::{str::FromStr, sync::LazyLock};
 
 // Limit for exact calculation, set to limit calculation time
-pub(crate) const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
+pub const UPPER_CALCULATION_LIMIT: u64 = 1_000_000;
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
+pub static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
 // Limit for exact subfactorial calculation, set to limit calculation time
-pub(crate) const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
+pub const UPPER_SUBFACTORIAL_LIMIT: u64 = 1_000_000;
 // Limit for exact termial calculation, set to limit calculation time (absurdly high)
-pub(crate) static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
+pub static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
 // Limit for approximation, set to ensure enough accuracy (5 decimals)
-pub(crate) static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock::new(|| {
+pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Float> = LazyLock::new(|| {
     let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
     max.next_down();
     max
 });
 
-pub(crate) const INTEGER_CONSTRUCTION_LIMIT: i64 = 100_000_000;
-pub(crate) static TOO_BIG_NUMBER: LazyLock<Integer> =
+pub const INTEGER_CONSTRUCTION_LIMIT: i64 = 100_000_000;
+pub static TOO_BIG_NUMBER: LazyLock<Integer> =
     LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CalculationJob {
-    pub(crate) base: CalculationBase,
-    pub(crate) level: i32,
-    pub(crate) negative: u32,
+    pub base: CalculationBase,
+    pub level: i32,
+    pub negative: u32,
 }
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CalculationBase {

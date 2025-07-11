@@ -1,7 +1,7 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 use crate::calculation_tasks::TOO_BIG_NUMBER;
+use crate::comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 use crate::math::{FLOAT_PRECISION, LN10};
-use crate::reddit_comment::{NUMBER_DECIMALS_SCIENTIFIC, PLACEHOLDER};
 
 use rug::float::OrdFloat;
 use rug::ops::{NegAssign, NotAssign, Pow};
@@ -51,7 +51,7 @@ impl fmt::Debug for CalculationResult {
 }
 
 #[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
-pub(crate) enum CalculationResult {
+pub enum CalculationResult {
     Exact(Integer),
     Approximate(OrdFloat, Integer),
     ApproximateDigits(bool, Integer),
@@ -60,7 +60,7 @@ pub(crate) enum CalculationResult {
     ComplexInfinity,
 }
 
-pub(crate) type Number = CalculationResult;
+pub type Number = CalculationResult;
 
 impl Number {
     pub fn negate(&mut self) {
@@ -192,14 +192,14 @@ impl CalculationResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
-pub(crate) struct Calculation {
-    pub(crate) value: Number,
-    pub(crate) steps: Vec<(i32, u32)>,
-    pub(crate) result: CalculationResult,
+pub struct Calculation {
+    pub value: Number,
+    pub steps: Vec<(i32, u32)>,
+    pub result: CalculationResult,
 }
 
 impl Calculation {
-    pub(crate) fn is_digit_tower(&self) -> bool {
+    pub fn is_digit_tower(&self) -> bool {
         matches!(
             self,
             Calculation {
@@ -208,7 +208,7 @@ impl Calculation {
             }
         )
     }
-    pub(crate) fn is_aproximate_digits(&self) -> bool {
+    pub fn is_aproximate_digits(&self) -> bool {
         matches!(
             self,
             Calculation {
@@ -217,7 +217,7 @@ impl Calculation {
             }
         )
     }
-    pub(crate) fn is_approximate(&self) -> bool {
+    pub fn is_approximate(&self) -> bool {
         matches!(
             self,
             Calculation {
@@ -226,7 +226,7 @@ impl Calculation {
             }
         )
     }
-    pub(crate) fn is_rounded(&self) -> bool {
+    pub fn is_rounded(&self) -> bool {
         matches!(
             self,
             Calculation {
@@ -241,7 +241,7 @@ impl Calculation {
             }
         )
     }
-    pub(crate) fn is_too_long(&self) -> bool {
+    pub fn is_too_long(&self) -> bool {
         self.result.is_too_long() || self.value.is_too_long()
     }
 }

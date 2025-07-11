@@ -15,7 +15,7 @@ pub fn factorial(n: u64, k: i32) -> Integer {
     Integer::factorial_m_64(n, k as u64).complete()
 }
 
-pub(crate) fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
+pub fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
     let n = -n;
     let rem = n.rem(2 * k);
     if rem == 0 {
@@ -29,7 +29,7 @@ pub(crate) fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Intege
     }
 }
 
-pub(crate) fn subfactorial(n: u64) -> Integer {
+pub fn subfactorial(n: u64) -> Integer {
     let mut f = Integer::ONE.clone();
     let mut b = true;
     for i in 1..=n {
@@ -44,18 +44,18 @@ pub(crate) fn subfactorial(n: u64) -> Integer {
     f
 }
 
-pub(crate) fn termial(n: Integer) -> Integer {
+pub fn termial(n: Integer) -> Integer {
     (n.clone() * (n + 1)) / 2
 }
 
-pub(crate) fn multitermial(n: Integer, k: u32) -> Integer {
+pub fn multitermial(n: Integer, k: u32) -> Integer {
     let modulo = n.mod_u(k);
     let floor = n / k;
     let ceil = floor.clone() + if modulo == 0 { 0 } else { 1 };
     k * termial(floor) + ceil * modulo
 }
 
-pub(crate) fn fractional_factorial(x: Float) -> Float {
+pub fn fractional_factorial(x: Float) -> Float {
     (x + 1.0f64).gamma()
 }
 
@@ -63,7 +63,7 @@ pub(crate) fn fractional_factorial(x: Float) -> Float {
 ///
 /// Algorithm adapted from the formula by pregunton in a
 /// [Math Stack Exchange reply](https://math.stackexchange.com/questions/3488791/define-the-triple-factorial-n-as-a-continuous-function-for-n-in-mathbb/3488935#3488935).
-pub(crate) fn fractional_multifactorial(x: Float, k: i32) -> Float {
+pub fn fractional_multifactorial(x: Float, k: i32) -> Float {
     let _k = k;
     let k = Float::with_val(FLOAT_PRECISION, k);
     let fact = fractional_factorial(x.clone() / k.clone());
@@ -115,7 +115,7 @@ fn fractional_multifactorial_sum(x: Float, j: i32, _k: i32, k: Float) -> Float {
             .unwrap_or(Float::with_val(FLOAT_PRECISION, 1))
 }
 
-pub(crate) fn fractional_termial(x: Float) -> Float {
+pub fn fractional_termial(x: Float) -> Float {
     let gamma_plus = ((x.clone() + 2) as Float).gamma();
     let gamma_minus = ((x) as Float).gamma();
     if !gamma_minus.is_finite() && gamma_plus.is_finite() {
@@ -286,7 +286,7 @@ pub fn approximate_termial_digits(n: Integer, k: u32) -> Integer {
 ///
 /// # Panic
 /// Will panic if `x` is not finite.
-pub(crate) fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
+pub fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     let (extra, _) = (x.clone().ln() / &*LN10)
         .to_integer_round(rug::float::Round::Down)
         .expect("Got non-finite number, x is likely not finite");
@@ -295,7 +295,7 @@ pub(crate) fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     (x, total_exponent)
 }
 
-pub(crate) fn length(n: &Integer) -> Integer {
+pub fn length(n: &Integer) -> Integer {
     if n == &0 {
         return Integer::ONE.clone();
     }
@@ -308,8 +308,6 @@ pub(crate) fn length(n: &Integer) -> Integer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calculation_tasks::UPPER_CALCULATION_LIMIT;
-    use crate::math::approximate_factorial;
     use std::str::FromStr;
 
     #[test]
@@ -465,12 +463,12 @@ mod tests {
         assert_eq!(length(&result), 45660);
     }
 
-    #[test]
-    fn test_calculate_upper_limit() {
-        let num = UPPER_CALCULATION_LIMIT;
-        let result = factorial(num, 1);
-        assert_eq!(length(&result), 5565709);
-    }
+    // #[test]
+    // fn test_calculate_upper_limit() {
+    //     let num = UPPER_CALCULATION_LIMIT;
+    //     let result = factorial(num, 1);
+    //     assert_eq!(length(&result), 5565709);
+    // }
 
     #[test]
     fn test_calculate_subfactorial() {

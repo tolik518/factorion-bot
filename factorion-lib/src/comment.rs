@@ -36,27 +36,27 @@ macro_rules! impl_all_bitwise {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
-pub(crate) struct RedditComment<S> {
-    pub(crate) id: String,
-    pub(crate) calculation_list: S,
-    pub(crate) author: String,
-    pub(crate) notify: Option<String>,
-    pub(crate) subreddit: String,
-    pub(crate) status: Status,
-    pub(crate) commands: Commands,
+pub struct RedditComment<S> {
+    pub id: String,
+    pub calculation_list: S,
+    pub author: String,
+    pub notify: Option<String>,
+    pub subreddit: String,
+    pub status: Status,
+    pub commands: Commands,
 }
 pub type RedditCommentConstructed = RedditComment<String>;
 pub type RedditCommentExtracted = RedditComment<Vec<CalculationJob>>;
 pub type RedditCommentCalculated = RedditComment<Vec<Calculation>>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
-pub(crate) struct Status {
-    pub(crate) already_replied_or_rejected: bool,
-    pub(crate) not_replied: bool,
-    pub(crate) number_too_big_to_calculate: bool,
-    pub(crate) no_factorial: bool,
-    pub(crate) reply_would_be_too_long: bool,
-    pub(crate) factorials_found: bool,
+pub struct Status {
+    pub already_replied_or_rejected: bool,
+    pub not_replied: bool,
+    pub number_too_big_to_calculate: bool,
+    pub no_factorial: bool,
+    pub reply_would_be_too_long: bool,
+    pub factorials_found: bool,
 }
 
 impl_all_bitwise!(Status {
@@ -69,7 +69,7 @@ impl_all_bitwise!(Status {
 });
 #[allow(dead_code)]
 impl Status {
-    pub(crate) const NONE: Self = Self {
+    pub const NONE: Self = Self {
         already_replied_or_rejected: false,
         not_replied: false,
         number_too_big_to_calculate: false,
@@ -77,39 +77,39 @@ impl Status {
         reply_would_be_too_long: false,
         factorials_found: false,
     };
-    pub(crate) const ALREADY_REPLIED_OR_REJECTED: Self = Self {
+    pub const ALREADY_REPLIED_OR_REJECTED: Self = Self {
         already_replied_or_rejected: true,
         ..Self::NONE
     };
-    pub(crate) const NOT_REPLIED: Self = Self {
+    pub const NOT_REPLIED: Self = Self {
         not_replied: true,
         ..Self::NONE
     };
-    pub(crate) const NUMBER_TOO_BIG_TO_CALCULATE: Self = Self {
+    pub const NUMBER_TOO_BIG_TO_CALCULATE: Self = Self {
         number_too_big_to_calculate: true,
         ..Self::NONE
     };
-    pub(crate) const NO_FACTORIAL: Self = Self {
+    pub const NO_FACTORIAL: Self = Self {
         no_factorial: true,
         ..Self::NONE
     };
-    pub(crate) const REPLY_WOULD_BE_TOO_LONG: Self = Self {
+    pub const REPLY_WOULD_BE_TOO_LONG: Self = Self {
         reply_would_be_too_long: true,
         ..Self::NONE
     };
-    pub(crate) const FACTORIALS_FOUND: Self = Self {
+    pub const FACTORIALS_FOUND: Self = Self {
         factorials_found: true,
         ..Self::NONE
     };
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
-pub(crate) struct Commands {
-    pub(crate) shorten: bool,
-    pub(crate) steps: bool,
-    pub(crate) termial: bool,
-    pub(crate) no_note: bool,
-    pub(crate) post_only: bool,
+pub struct Commands {
+    pub shorten: bool,
+    pub steps: bool,
+    pub termial: bool,
+    pub no_note: bool,
+    pub post_only: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
@@ -120,30 +120,30 @@ impl_all_bitwise!(Commands {
 });
 #[allow(dead_code)]
 impl Commands {
-    pub(crate) const NONE: Self = Self {
+    pub const NONE: Self = Self {
         shorten: false,
         steps: false,
         termial: false,
         no_note: false,
         post_only: false,
     };
-    pub(crate) const SHORTEN: Self = Self {
+    pub const SHORTEN: Self = Self {
         shorten: true,
         ..Self::NONE
     };
-    pub(crate) const STEPS: Self = Self {
+    pub const STEPS: Self = Self {
         steps: true,
         ..Self::NONE
     };
-    pub(crate) const TERMIAL: Self = Self {
+    pub const TERMIAL: Self = Self {
         termial: true,
         ..Self::NONE
     };
-    pub(crate) const NO_NOTE: Self = Self {
+    pub const NO_NOTE: Self = Self {
         no_note: true,
         ..Self::NONE
     };
-    pub(crate) const POST_ONLY: Self = Self {
+    pub const POST_ONLY: Self = Self {
         post_only: true,
         ..Self::NONE
     };
@@ -157,7 +157,7 @@ impl Commands {
         text.contains(&pattern1) || text.contains(&pattern2) || text.contains(&pattern3)
     }
 
-    pub(crate) fn from_comment_text(text: &str) -> Self {
+    pub fn from_comment_text(text: &str) -> Self {
         Self {
             shorten: Self::contains_command_format(text, "short")
                 || Self::contains_command_format(text, "shorten"),
@@ -170,7 +170,7 @@ impl Commands {
             post_only: false,
         }
     }
-    pub(crate) fn overrides_from_comment_text(text: &str) -> Self {
+    pub fn overrides_from_comment_text(text: &str) -> Self {
         Self {
             shorten: !Self::contains_command_format(text, "long"),
             steps: !(Self::contains_command_format(text, "no steps")
@@ -183,11 +183,11 @@ impl Commands {
     }
 }
 
-pub(crate) const PLACEHOLDER: &str = "factorial of ";
+pub const PLACEHOLDER: &str = "factorial of ";
 const FOOTER_TEXT: &str =
     "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
-pub(crate) const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
-pub(crate) const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
+pub const MAX_COMMENT_LENGTH: i64 = 10_000 - 10 - FOOTER_TEXT.len() as i64;
+pub const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 
 macro_rules! contains_comb {
     // top level (advance both separately)
@@ -226,7 +226,7 @@ macro_rules! contains_comb {
 
 impl RedditCommentConstructed {
     /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [calculation_tasks](crate::calculation_tasks).
-    pub(crate) fn new(
+    pub fn new(
         comment_text: &str,
         id: &str,
         author: &str,
@@ -302,7 +302,7 @@ impl RedditCommentConstructed {
         }
     }
 
-    pub(crate) fn new_already_replied(id: &str, author: &str, subreddit: &str) -> Self {
+    pub fn new_already_replied(id: &str, author: &str, subreddit: &str) -> Self {
         let text = String::new();
         let status: Status = Status {
             already_replied_or_rejected: true,
@@ -322,7 +322,7 @@ impl RedditCommentConstructed {
     }
 }
 impl<S> RedditComment<S> {
-    pub(crate) fn add_status(&mut self, status: Status) {
+    pub fn add_status(&mut self, status: Status) {
         self.status = self.status | status;
     }
 }
@@ -370,7 +370,7 @@ impl RedditCommentExtracted {
 }
 impl RedditCommentCalculated {
     /// Does the formatting for the reply using [calculated](crate::calculated).
-    pub(crate) fn get_reply(&self) -> String {
+    pub fn get_reply(&self) -> String {
         let mut note = self
             .notify
             .as_ref()

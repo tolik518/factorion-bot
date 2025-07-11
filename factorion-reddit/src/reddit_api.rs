@@ -804,7 +804,7 @@ mod tests {
         time::timeout,
     };
 
-    use crate::calculation_results::{Calculation, Number};
+    use factorion_lib::calculation_results::{Calculation, CalculationResult, Number};
 
     use super::*;
 
@@ -1090,7 +1090,7 @@ mod tests {
             [Calculation {
                 value: Number::Exact(1.into()),
                 steps: vec![(2, 0)],
-                result: crate::calculation_results::CalculationResult::Exact(1.into())
+                result: CalculationResult::Exact(1.into())
             }]
         );
         assert_eq!(
@@ -1098,7 +1098,7 @@ mod tests {
             [Calculation {
                 value: Number::Exact(2.into()),
                 steps: vec![(1, 0)],
-                result: crate::calculation_results::CalculationResult::Exact(2.into())
+                result: CalculationResult::Exact(2.into())
             }]
         );
         assert_eq!(
@@ -1106,7 +1106,7 @@ mod tests {
             [Calculation {
                 value: Number::Exact(10.into()),
                 steps: vec![(0, 0)],
-                result: crate::calculation_results::CalculationResult::Exact(1334961.into())
+                result: CalculationResult::Exact(1334961.into())
             }]
         );
         println!("{comments:?}");
