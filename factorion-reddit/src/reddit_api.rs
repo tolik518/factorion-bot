@@ -5,14 +5,12 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::LazyLock;
 
-use crate::reddit_comment::{
-    Commands, RedditComment, RedditCommentCalculated, RedditCommentConstructed, Status,
-};
 use crate::{COMMENT_COUNT, MAX_ALREADY_REPLIED_LEN, SUBREDDIT_COMMANDS};
 use anyhow::{Error, anyhow};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use factorion_lib::comment::{Commands, Comment, CommentCalculated, CommentConstructed, Status};
 use futures::future::OptionFuture;
 use id::{DenseId, id_to_dense};
 use log::{debug, error, info, log, warn};
@@ -32,6 +30,13 @@ struct Token {
     expiration_time: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Meta {
+    pub id: String,
+    pub author: String,
+    pub subreddit: String,
+}
+
 #[cfg(not(test))]
 const REDDIT_OAUTH_URL: &str = "https://oauth.reddit.com";
 #[cfg(test)]
@@ -44,6 +49,8 @@ const REDDIT_TOKEN_URL: &str = "http://127.0.0.1:9384";
 const REDDIT_COMMENT_URL: &str = "https://oauth.reddit.com/api/comment";
 #[cfg(test)]
 const REDDIT_COMMENT_URL: &str = "http://127.0.0.1:9384";
+
+const MAX_COMMENT_LEN: usize = 10_000;
 
 pub(crate) struct RedditClient {
     client: Client,
@@ -82,7 +89,7 @@ impl RedditClient {
         check_mentions: bool,
         check_posts: bool,
         last_ids: &mut (String, String, String),
-    ) -> Result<(Vec<RedditCommentConstructed>, (f64, f64)), ()> {
+    ) -> Result<(Vec<CommentConstructed<Meta>>, (f64, f64)), ()> {
         static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut subreddits = SUBREDDIT_COMMANDS
                 .get()
@@ -344,7 +351,7 @@ impl RedditClient {
     /// May panic on a malformed response is received from the api.
     pub(crate) async fn reply_to_comment(
         &mut self,
-        comment: RedditCommentCalculated,
+        comment: CommentCalculated<Meta>,
         reply: &str,
     ) -> Result<Option<(f64, f64)>, Error> {
         #[cfg(not(test))]
@@ -359,7 +366,7 @@ impl RedditClient {
         }
 
         let params = json!({
-            "thing_id": comment.id,
+            "thing_id": comment.meta.id,
             "text": reply
         });
 
@@ -399,9 +406,9 @@ impl RedditClient {
             log!(
                 level,
                 "Comment ID {} by {} in {} -> Status FAILED: {:?}",
-                comment.id,
-                comment.author,
-                comment.subreddit,
+                comment.meta.id,
+                comment.meta.author,
+                comment.meta.subreddit,
                 error_message
             );
             return match level {
@@ -413,7 +420,7 @@ impl RedditClient {
 
         info!(
             "Comment ID {} -> Status OK: {:?}",
-            comment.id, error_message
+            comment.meta.id, error_message
         );
 
         Ok(ratelimit_reset
@@ -549,7 +556,7 @@ impl RedditClient {
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Result<
         (
-            Vec<RedditCommentConstructed>,
+            Vec<CommentConstructed<Meta>>,
             Vec<(String, (String, Commands, String))>,
             Option<(f64, f64)>,
             Option<String>,
@@ -630,9 +637,9 @@ impl RedditClient {
                     parent_paths.push((
                         path,
                         (
-                            extracted_comment.id.clone(),
+                            extracted_comment.meta.id.clone(),
                             extracted_comment.commands,
-                            extracted_comment.author.clone(),
+                            extracted_comment.meta.author.clone(),
                         ),
                     ));
                 }
@@ -642,7 +649,7 @@ impl RedditClient {
         let id = if comments.is_empty() {
             Some(String::new())
         } else {
-            comments.get(1).map(|comment| comment.id.clone())
+            comments.get(1).map(|comment| comment.meta.id.clone())
         };
 
         Ok((
@@ -659,7 +666,7 @@ impl RedditClient {
         commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
         extract_body: impl Fn(&Value) -> Cow<str>,
-    ) -> Option<RedditCommentConstructed> {
+    ) -> Option<CommentConstructed<Meta>> {
         let author = comment["data"]["author"].as_str().unwrap_or("");
         let subreddit = comment["data"]["subreddit"].as_str().unwrap_or("");
         let comment_id = comment["data"]["name"].as_str().unwrap_or_default();
@@ -677,17 +684,24 @@ impl RedditClient {
                     already_replied_to_comments.push(dense_id);
                 }
             }
-            Some(RedditComment::new_already_replied(
-                comment_id, author, subreddit,
+            Some(Comment::new_already_replied(
+                Meta {
+                    id: comment_id.to_owned(),
+                    author: author.to_owned(),
+                    subreddit: subreddit.to_owned(),
+                },
+                MAX_COMMENT_LEN,
             ))
         } else {
             already_replied_to_comments.push(dense_id);
             let Ok(mut comment) = std::panic::catch_unwind(|| {
-                RedditComment::new(
+                Comment::new(
                     &body,
-                    comment_id,
-                    author,
-                    subreddit,
+                    Meta {
+                        id: comment_id.to_owned(),
+                        author: author.to_owned(),
+                        subreddit: subreddit.to_owned(),
+                    },
                     if do_termial {
                         Commands::TERMIAL
                     } else {
@@ -696,16 +710,17 @@ impl RedditClient {
                         .get(subreddit)
                         .copied()
                         .unwrap_or(commands.get("").copied().unwrap_or(Commands::NONE)),
+                    MAX_COMMENT_LEN,
                 )
             }) else {
                 error!("Failed to construct comment {comment_id}!");
                 return None;
             };
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
-                comment.id = mention.clone();
+                comment.meta.id = mention.clone();
                 comment.commands = *commands;
-                comment.notify = Some(author.to_string());
-                comment.author = mention_author.clone();
+                comment.notify = Some(format!("u/{author}"));
+                comment.meta.author = mention_author.clone();
             }
 
             comment.add_status(Status::NOT_REPLIED);
@@ -880,9 +895,16 @@ mod tests {
                 "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 200\n\n{\"success\": true}"
             )]),
             client.reply_to_comment(
-                RedditComment::new_already_replied("t1_some_id", "author", "subressit")
-                    .extract()
-                    .calc(),
+                Comment::new_already_replied(
+                    Meta {
+                        id: "t1_some_id".to_owned(),
+                        author: "author".to_owned(),
+                        subreddit: "subressit".to_owned()
+                    },
+                    MAX_COMMENT_LEN
+                )
+                .extract()
+                .calc(),
                 "I relpy"
             )
         );
@@ -894,6 +916,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_comments() {
         let _lock = sequential();
+        let _ = factorion_lib::init_default();
         let mut client = RedditClient {
             client: Client::new(),
             token: Token {
@@ -940,9 +963,9 @@ mod tests {
             .map(|c| c.extract().calc())
             .collect::<Vec<_>>();
         assert_eq!(comments.len(), 2);
-        assert_eq!(comments[0].id, "t1_m38msug");
-        assert_eq!(comments[0].author, "mentioner");
-        assert_eq!(comments[0].notify.as_ref().unwrap(), "");
+        assert_eq!(comments[0].meta.id, "t1_m38msug");
+        assert_eq!(comments[0].meta.author, "mentioner");
+        assert_eq!(comments[0].notify.as_ref().unwrap(), "u/");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
         assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (-1, 0)]);
         assert_eq!(rate, (170.0, 7.0))
@@ -1024,6 +1047,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_extract_posts() {
+        let _ = factorion_lib::init_default();
         let response = Response::from(http::Response::builder().status(200).header("X-Ratelimit-Remaining", "10").header("X-Ratelimit-Reset", "350").body(r#"{
                "data": {
                    "children": [

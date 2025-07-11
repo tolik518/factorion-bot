@@ -1,12 +1,31 @@
-use std::sync::LazyLock;
+use std::sync::{LazyLock, OnceLock};
 
 use rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::{
+    FLOAT_PRECISION,
     calculation_results::Number,
-    calculation_tasks::{CalculationBase, CalculationJob, INTEGER_CONSTRUCTION_LIMIT},
-    math::{self, FLOAT_PRECISION},
+    calculation_tasks::{CalculationBase, CalculationJob},
 };
+
+pub mod recommended {
+    use rug::Integer;
+    use std::sync::LazyLock;
+
+    pub const INTEGER_CONSTRUCTION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 100_000_000.into());
+}
+static INTEGER_CONSTRUCTION_LIMIT: OnceLock<Integer> = OnceLock::new();
+
+use crate::AlreadyInit;
+pub fn init(integer_construction_limit: Integer) -> Result<(), AlreadyInit> {
+    INTEGER_CONSTRUCTION_LIMIT
+        .set(integer_construction_limit)
+        .map_err(|_| AlreadyInit)?;
+    Ok(())
+}
+pub fn init_default() -> Result<(), AlreadyInit> {
+    init(recommended::INTEGER_CONSTRUCTION_LIMIT.clone())
+}
 
 const POI_STARTS: &[char] = &[
     NEGATION,
@@ -50,19 +69,50 @@ const SPOILER_HTML_END: &str = "!&lt;";
 const SPOILER_HTML_POI: char = '&';
 
 const CONSTANT_STARTS: &[char] = &['p', 'e', 't', 'π', 'ɸ', 'τ'];
-static E: LazyLock<Number> =
-    LazyLock::new(|| Number::Float(Float::with_val(FLOAT_PRECISION, 1).exp().into()));
+static E: LazyLock<Number> = LazyLock::new(|| {
+    Number::Float(
+        Float::with_val(
+            *FLOAT_PRECISION
+                .get()
+                .expect("FLOAT_PRECISION uninitialized"),
+            1,
+        )
+        .exp()
+        .into(),
+    )
+});
 static PHI: LazyLock<Number> = LazyLock::new(|| {
     Number::Float(Float::into(
-        ((1.0 + Float::with_val(FLOAT_PRECISION, 5).sqrt()) as Float) / 2.0,
+        ((1.0
+            + Float::with_val(
+                *FLOAT_PRECISION
+                    .get()
+                    .expect("FLOAT_PRECISION uninitialized"),
+                5,
+            )
+            .sqrt()) as Float)
+            / 2.0,
     ))
 });
 static PI: LazyLock<Number> = LazyLock::new(|| {
-    Number::Float(Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi).into())
+    Number::Float(
+        Float::with_val(
+            *FLOAT_PRECISION
+                .get()
+                .expect("FLOAT_PRECISION uninitialized"),
+            rug::float::Constant::Pi,
+        )
+        .into(),
+    )
 });
 static TAU: LazyLock<Number> = LazyLock::new(|| {
     Number::Float(Float::into(
-        Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi) * 2.0,
+        Float::with_val(
+            *FLOAT_PRECISION
+                .get()
+                .expect("FLOAT_PRECISION uninitialized"),
+            rug::float::Constant::Pi,
+        ) * 2.0,
     ))
 });
 
@@ -498,6 +548,9 @@ fn parse_ops(text: &mut &str, prefix: bool, do_termial: bool) -> Option<Vec<i32>
 }
 
 fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
+    let prec = *FLOAT_PRECISION
+        .get()
+        .expect("FLOAT_PRECISION uninitialized");
     if text.starts_with(CONSTANT_STARTS) {
         let (n, x) = if text.starts_with("pi") {
             ("pi".len(), PI.clone())
@@ -587,8 +640,19 @@ fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
         Integer::ONE.clone()
     };
     if exponent >= decimal_part.len() as i64
-        && exponent <= INTEGER_CONSTRUCTION_LIMIT - integer_part.len() as i64
-        && (divisor == 1 || exponent >= INTEGER_CONSTRUCTION_LIMIT / 10)
+        && exponent
+            <= INTEGER_CONSTRUCTION_LIMIT
+                .get()
+                .expect("Limits uninitialized, use init")
+                .clone()
+                - integer_part.len() as i64
+        && (divisor == 1
+            || exponent
+                >= INTEGER_CONSTRUCTION_LIMIT
+                    .get()
+                    .expect("Limits uninitialized, use init")
+                    .clone()
+                    / 10)
     {
         let exponent = exponent - decimal_part.len();
         let n = format!("{integer_part}{decimal_part}")
@@ -596,7 +660,13 @@ fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
             .ok()?;
         let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
         Some(Number::Exact(num))
-    } else if exponent <= INTEGER_CONSTRUCTION_LIMIT - integer_part.len() as i64 {
+    } else if exponent
+        <= INTEGER_CONSTRUCTION_LIMIT
+            .get()
+            .expect("Limits uninitialized, use init")
+            .clone()
+            - integer_part.len() as i64
+    {
         let x = Float::parse(format!(
             "{integer_part}.{decimal_part}{}{}{}",
             if !exponent_part.0.is_empty() { "e" } else { "" },
@@ -604,7 +674,7 @@ fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
             exponent_part.0
         ))
         .ok()?;
-        let x = Float::with_val(FLOAT_PRECISION, x) / divisor;
+        let x = Float::with_val(prec, x) / divisor;
         if x.is_integer() {
             let n = x.to_integer().unwrap();
             Some(Number::Exact(n))
@@ -615,9 +685,9 @@ fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
         }
     } else {
         let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
-        let x = Float::with_val(FLOAT_PRECISION, x) / divisor;
+        let x = Float::with_val(prec, x) / divisor;
         if x.is_finite() {
-            let (b, e) = math::adjust_approximate((x, exponent));
+            let (b, e) = crate::math::adjust_approximate((x, exponent));
             Some(Number::Approximate(b.into(), e))
         } else {
             None
@@ -630,13 +700,18 @@ mod test {
     use super::*;
     use crate::calculation_tasks::CalculationBase::Num;
     use arbtest::arbtest;
+
+    use crate::recommended::FLOAT_PRECISION;
+
     #[test]
     fn test_text_only() {
+        let _ = crate::init_default();
         let jobs = parse("just some words of encouragement!", true);
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_factorial() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial 15!", true);
         assert_eq!(
             jobs,
@@ -649,6 +724,7 @@ mod test {
     }
     #[test]
     fn test_multifactorial() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial 15!!! actually a multi", true);
         assert_eq!(
             jobs,
@@ -661,6 +737,7 @@ mod test {
     }
     #[test]
     fn test_subfactorial() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial !15 actually a sub", true);
         assert_eq!(
             jobs,
@@ -673,11 +750,13 @@ mod test {
     }
     #[test]
     fn test_submultifactorial() {
+        let _ = crate::init_default();
         let jobs = parse("not well defined !!!15", true);
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_termial() {
+        let _ = crate::init_default();
         let jobs = parse("a termial 15?", true);
         assert_eq!(
             jobs,
@@ -690,11 +769,13 @@ mod test {
     }
     #[test]
     fn test_no_termial() {
+        let _ = crate::init_default();
         let jobs = parse("not enabled 15?", false);
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_multitermial() {
+        let _ = crate::init_default();
         let jobs = parse("a termial 15??? actually a multi", true);
         assert_eq!(
             jobs,
@@ -707,11 +788,13 @@ mod test {
     }
     #[test]
     fn test_subtermial() {
+        let _ = crate::init_default();
         let jobs = parse("a termial ?15 actually a sub", true);
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_chain() {
+        let _ = crate::init_default();
         let jobs = parse("a factorialchain (15!)!", true);
         assert_eq!(
             jobs,
@@ -728,6 +811,7 @@ mod test {
     }
     #[test]
     fn test_mixed_chain() {
+        let _ = crate::init_default();
         let jobs = parse("a factorialchain !(15!)", true);
         assert_eq!(
             jobs,
@@ -744,6 +828,7 @@ mod test {
     }
     #[test]
     fn test_postfix_chain() {
+        let _ = crate::init_default();
         let jobs = parse("a factorialchain -15!?", true);
         assert_eq!(
             jobs,
@@ -760,6 +845,7 @@ mod test {
     }
     #[test]
     fn test_negative() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial ---15!", true);
         assert_eq!(
             jobs,
@@ -772,6 +858,7 @@ mod test {
     }
     #[test]
     fn test_negative_gap() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial --- 15!", true);
         assert_eq!(
             jobs,
@@ -784,6 +871,7 @@ mod test {
     }
     #[test]
     fn test_paren() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial (15)!", true);
         assert_eq!(
             jobs,
@@ -796,6 +884,7 @@ mod test {
     }
     #[test]
     fn test_in_paren() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial (15!)", true);
         assert_eq!(
             jobs,
@@ -808,6 +897,7 @@ mod test {
     }
     #[test]
     fn test_decimal() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial 1.5!", true);
         assert_eq!(
             jobs,
@@ -820,6 +910,7 @@ mod test {
     }
     #[test]
     fn test_paren_negation() {
+        let _ = crate::init_default();
         let jobs = parse("a factorial -(--(-(-(-3))!))!", true);
         assert_eq!(
             jobs,
@@ -836,11 +927,13 @@ mod test {
     }
     #[test]
     fn test_tag() {
+        let _ = crate::init_default();
         let jobs = parse(">!5 a factorial 15! !<", true);
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_incomplete_tag() {
+        let _ = crate::init_default();
         let jobs = parse(">!5 a factorial 15!", true);
         assert_eq!(
             jobs,
@@ -860,6 +953,7 @@ mod test {
     }
     #[test]
     fn test_escaped_tag() {
+        let _ = crate::init_default();
         let jobs = parse("\\>!5 a factorial 15! !<", true);
         assert_eq!(
             jobs,
@@ -879,6 +973,7 @@ mod test {
     }
     #[test]
     fn test_escaped_tag2() {
+        let _ = crate::init_default();
         let jobs = parse(">!5 a factorial 15! \\!<", true);
         assert_eq!(
             jobs,
@@ -899,6 +994,7 @@ mod test {
 
     #[test]
     fn test_url() {
+        let _ = crate::init_default();
         let jobs = parse(
             "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
@@ -908,6 +1004,7 @@ mod test {
 
     #[test]
     fn test_uri_poi_doesnt_cause_infinite_loop() {
+        let _ = crate::init_default();
         let jobs = parse("84!:", true);
         assert_eq!(
             jobs,
@@ -920,6 +1017,7 @@ mod test {
     }
     #[test]
     fn test_escaped_url() {
+        let _ = crate::init_default();
         let jobs = parse(
             "\\://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
@@ -936,17 +1034,20 @@ mod test {
 
     #[test]
     fn test_word_in_paren() {
+        let _ = crate::init_default();
         let jobs = parse("(x-2)! (2 word)! ((x/k)-3)! (,x-4)!", true);
         assert_eq!(jobs, []);
     }
 
     #[test]
     fn test_multi_number_paren() {
+        let _ = crate::init_default();
         let jobs = parse("(5-2)!", true);
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_arbitrary_input() {
+        let _ = crate::init_default();
         arbtest(|u| {
             let text: &str = u.arbitrary()?;
             let _ = parse(text, u.arbitrary()?);
@@ -1000,6 +1101,7 @@ mod test {
 
     #[test]
     fn test_parse_num() {
+        let _ = crate::init_default();
         let num = parse_num(&mut "1.5more !", false, false);
         assert_eq!(
             num,
@@ -1079,14 +1181,19 @@ mod test {
     #[allow(clippy::uninlined_format_args)]
     #[test]
     fn test_biggest_num() {
+        let _ = crate::init_default();
         let num = parse_num(
-            &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str(),
+            &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT.get().unwrap()).as_str(),
             true,
             false,
         );
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(
-            &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str(),
+            &mut format!(
+                "9e{}",
+                INTEGER_CONSTRUCTION_LIMIT.get().unwrap().clone() - 1
+            )
+            .as_str(),
             false,
             false,
         );

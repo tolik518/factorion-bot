@@ -274,7 +274,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-lib"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arbtest",
  "factorion-math",
@@ -283,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-math"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rug",
 ]

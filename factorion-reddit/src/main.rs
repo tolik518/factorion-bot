@@ -1,5 +1,5 @@
 use dotenvy::dotenv;
-use factorion_lib::comment::{Commands, RedditComment, Status};
+use factorion_lib::comment::{Commands, Comment, Status};
 use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
 use reddit_api::RedditClient;
@@ -15,7 +15,6 @@ use tokio::time::{Duration, sleep};
 
 mod influxdb;
 mod reddit_api;
-use factorion_lib::comment as reddit_comment;
 
 const API_COMMENT_COUNT: u32 = 100;
 const ALREADY_REPLIED_IDS_FILE_PATH: &str = "already_replied_ids.dat";
@@ -124,8 +123,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let comments = comments
             .into_iter()
             .filter_map(|c| {
-                let id = c.id.clone();
-                match std::panic::catch_unwind(|| RedditComment::extract(c)) {
+                let id = c.meta.id.clone();
+                match std::panic::catch_unwind(|| Comment::extract(c)) {
                     Ok(c) => Some(c),
                     Err(_) => {
                         error!("Failed to calculate comment {id}!");
@@ -142,8 +141,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let comments = comments
             .into_iter()
             .filter_map(|c| {
-                let id = c.id.clone();
-                match std::panic::catch_unwind(|| RedditComment::calc(c)) {
+                let id = c.meta.id.clone();
+                match std::panic::catch_unwind(|| Comment::calc(c)) {
                     Ok(c) => Some(c),
                     Err(_) => {
                         error!("Failed to calculate comment {id}!");
@@ -165,9 +164,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         for comment in comments {
-            let comment_id = comment.id.clone();
-            let comment_author = comment.author.clone();
-            let comment_subreddit = comment.subreddit.clone();
+            let comment_id = comment.meta.id.clone();
+            let comment_author = comment.meta.author.clone();
+            let comment_subreddit = comment.meta.subreddit.clone();
 
             let status: Status = comment.status;
             let should_answer = status.factorials_found && status.not_replied;
@@ -264,6 +263,36 @@ fn init() {
 
         error!("Thread panicked at {location} with message: {message}");
     }));
+
+    factorion_lib::init(
+        std::env::var("FLOAT_PRECISION")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
+        std::env::var("UPPER_CALCULATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT.clone()),
+        std::env::var("UPPER_APPROXIMATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT.clone()),
+        std::env::var("UPPER_SUBFACTORIAL_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT.clone()),
+        std::env::var("UPPER_TERMIAL_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT.clone()),
+        std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| {
+                factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT.clone()
+            }),
+        std::env::var("INTEGER_CONSTRUCTION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT.clone()),
+        std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
+    )
+    .unwrap();
 }
 
 fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {
