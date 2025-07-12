@@ -70,13 +70,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:      
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - run: git fetch origin "${{ github.event.pull_request.base.ref }}"
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: old
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
-          baseline-rev: ${{ github.event.pull_request.base.ref }}
+          baseline-root: old
 
   bumped_version:
     name: Bumped Version Check
