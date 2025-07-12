@@ -1083,7 +1083,7 @@ mod tests {
     #[test]
     fn test_comment_new_fraction() {
         let comment = RedditComment::new(
-            "This is a test with a factorial of fractions !1/2! (1/2)",
+            "This is a test with a factorial of fractions !1/2! (1/2)!",
             "123",
             "test_author",
             "test_subreddit",
