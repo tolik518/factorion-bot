@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::{
@@ -6,7 +8,7 @@ use crate::{
     math::{self, FLOAT_PRECISION},
 };
 
-const POI_STARTS: [char; 19] = [
+const POI_STARTS: &[char] = &[
     NEGATION,
     '!', // PREFIX_OPS
     '.', // Decimal separators
@@ -21,6 +23,12 @@ const POI_STARTS: [char; 19] = [
     '7',
     '8',
     '9',
+    'p', // Constants
+    'e',
+    't',
+    'π',
+    'ɸ',
+    'τ',
     URI_POI,
     SPOILER_POI,
     SPOILER_HTML_POI,
@@ -40,6 +48,23 @@ const SPOILER_POI: char = '>';
 const SPOILER_HTML_START: &str = "&gt;!";
 const SPOILER_HTML_END: &str = "!&lt;";
 const SPOILER_HTML_POI: char = '&';
+
+const CONSTANT_STARTS: &[char] = &['p', 'e', 't', 'π', 'ɸ', 'τ'];
+static E: LazyLock<Number> =
+    LazyLock::new(|| Number::Float(Float::with_val(FLOAT_PRECISION, 1).exp().into()));
+static PHI: LazyLock<Number> = LazyLock::new(|| {
+    Number::Float(Float::into(
+        ((1.0 + Float::with_val(FLOAT_PRECISION, 5).sqrt()) as Float) / 2.0,
+    ))
+});
+static PI: LazyLock<Number> = LazyLock::new(|| {
+    Number::Float(Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi).into())
+});
+static TAU: LazyLock<Number> = LazyLock::new(|| {
+    Number::Float(Float::into(
+        Float::with_val(FLOAT_PRECISION, rug::float::Constant::Pi) * 2.0,
+    ))
+});
 
 const PREFIX_OPS: [char; 1] = ['!'];
 #[allow(dead_code)]
@@ -117,6 +142,9 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             }
             current_negative = 0;
         }
+        let had_text = position_of_interest
+            .checked_sub(1)
+            .is_some_and(|n| text[..=n].ends_with(char::is_alphabetic));
         // so we can just ignore everything before
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
@@ -301,11 +329,11 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             // Prefix OP (6.)
             let Ok(level) = parse_op(&mut text, true, do_termial) else {
                 // also skip number to prevent stuff like "!!!1!" getting through
-                parse_num(&mut text, true);
+                parse_num(&mut text, false, true);
                 continue;
             };
             // On number (6.1.)
-            if let Some(num) = parse_num(&mut text, true) {
+            if let Some(num) = parse_num(&mut text, false, true) {
                 // set base (6.1.2.)
                 if let Some(CalculationBase::Calc(job)) = base.take() {
                     // multiple number, likely expression => poision paren
@@ -348,7 +376,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             };
         } else {
             // Number (7.)
-            let Some(num) = parse_num(&mut text, false) else {
+            let Some(num) = parse_num(&mut text, had_text, false) else {
                 // advance one char to avoid loop
                 let mut end = 1;
                 while !text.is_char_boundary(end) && end < text.len() {
@@ -469,7 +497,32 @@ fn parse_ops(text: &mut &str, prefix: bool, do_termial: bool) -> Option<Vec<i32>
     Some(res)
 }
 
-fn parse_num(text: &mut &str, had_op: bool) -> Option<Number> {
+fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
+    if text.starts_with(CONSTANT_STARTS) {
+        let (n, x) = if text.starts_with("pi") {
+            ("pi".len(), PI.clone())
+        } else if text.starts_with("π") {
+            ("π".len(), PI.clone())
+        } else if text.starts_with("phi") {
+            ("phi".len(), PHI.clone())
+        } else if text.starts_with("ɸ") {
+            ("ɸ".len(), PHI.clone())
+        } else if text.starts_with("tau") {
+            ("tau".len(), TAU.clone())
+        } else if text.starts_with("τ") {
+            ("τ".len(), TAU.clone())
+        } else if text.starts_with("e") {
+            ("e".len(), E.clone())
+        } else {
+            return None;
+        };
+        *text = &text[n..];
+        if had_text || text.starts_with(char::is_alphabetic) {
+            return None;
+        }
+        return Some(x);
+    }
+
     let integer_part = {
         let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
         let part = &text[..end];
@@ -902,6 +955,12 @@ mod test {
     }
 
     #[test]
+    fn test_constant() {
+        let jobs = parse("!espi!", true);
+        assert_eq!(jobs, []);
+    }
+
+    #[test]
     fn test_fraction() {
         let jobs = parse("!5/6!", true);
         assert_eq!(
@@ -941,54 +1000,70 @@ mod test {
 
     #[test]
     fn test_parse_num() {
-        let num = parse_num(&mut "1.5more !", false);
+        let num = parse_num(&mut "1.5more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into()))
         );
-        let num = parse_num(&mut "1,5more !", false);
+        let num = parse_num(&mut "1,5more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into()))
         );
-        let num = parse_num(&mut ".5more !", false);
+        let num = parse_num(&mut ".5more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "1more !", false);
+        let num = parse_num(&mut "1more !", false, true);
         assert_eq!(num, Some(1.into()));
-        let num = parse_num(&mut "1.0more !", false);
+        let num = parse_num(&mut "1.0more !", true, false);
         assert_eq!(num, Some(1.into()));
-        let num = parse_num(&mut "1.5e2more !", false);
+        let num = parse_num(&mut "1.5e2more !", false, false);
         assert_eq!(num, Some(150.into()));
-        let num = parse_num(&mut "1e2more !", false);
+        let num = parse_num(&mut "1e2more !", false, false);
         assert_eq!(num, Some(100.into()));
-        let num = parse_num(&mut "1.531e2more !", false);
+        let num = parse_num(&mut "1.531e2more !", false, false);
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
         };
         assert!(Float::abs(f.as_float().clone() - 153.1) < 0.0000001);
-        let num = parse_num(&mut "5e-1more !", false);
+        let num = parse_num(&mut "5e-1more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "e2more !", false);
+        let num = parse_num(&mut "e2more !", true, false);
         assert_eq!(num, None);
-        let num = parse_num(&mut "1/2 !", false);
+        let num = parse_num(&mut "es !", false, false);
+        assert_eq!(num, None);
+        let num = parse_num(&mut "e !", false, false);
+        assert_eq!(num, Some(E.clone()));
+        let num = parse_num(&mut "pi !", false, false);
+        assert_eq!(num, Some(PI.clone()));
+        let num = parse_num(&mut "π !", false, false);
+        assert_eq!(num, Some(PI.clone()));
+        let num = parse_num(&mut "phi !", false, false);
+        assert_eq!(num, Some(PHI.clone()));
+        let num = parse_num(&mut "ɸ !", false, false);
+        assert_eq!(num, Some(PHI.clone()));
+        let num = parse_num(&mut "tau !", false, false);
+        assert_eq!(num, Some(TAU.clone()));
+        let num = parse_num(&mut "τ !", false, false);
+        assert_eq!(num, Some(TAU.clone()));
+        let num = parse_num(&mut "1/2 !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "10/2 !", false);
+        let num = parse_num(&mut "10/2 !", false, false);
         assert_eq!(num, Some(Number::Exact(5.into())));
-        let num = parse_num(&mut "1.5/2 !", false);
+        let num = parse_num(&mut "1.5/2 !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.75).into()))
         );
-        let num = parse_num(&mut "10e10000000000/2 !", false);
+        let num = parse_num(&mut "10e10000000000/2 !", false, false);
         assert_eq!(
             num,
             Some(Number::Approximate(
@@ -996,9 +1071,9 @@ mod test {
                 10000000000u64.into()
             ))
         );
-        let num = parse_num(&mut "10/2 !", true);
+        let num = parse_num(&mut "10/2 !", false, true);
         assert_eq!(num, Some(Number::Exact(10.into())));
-        let num = parse_num(&mut "10/2!", false);
+        let num = parse_num(&mut "10/2!", false, false);
         assert_eq!(num, Some(Number::Exact(2.into())));
     }
     #[allow(clippy::uninlined_format_args)]
@@ -1006,11 +1081,13 @@ mod test {
     fn test_biggest_num() {
         let num = parse_num(
             &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str(),
+            true,
             false,
         );
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(
             &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str(),
+            false,
             false,
         );
         assert!(num.is_some());
