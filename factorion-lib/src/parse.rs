@@ -13,7 +13,7 @@ pub mod recommended {
     use rug::Integer;
     use std::sync::LazyLock;
 
-    pub const INTEGER_CONSTRUCTION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 100_000_000.into());
+    pub static INTEGER_CONSTRUCTION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 100_000_000.into());
 }
 static INTEGER_CONSTRUCTION_LIMIT: OnceLock<Integer> = OnceLock::new();
 

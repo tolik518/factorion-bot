@@ -28,6 +28,7 @@ pub mod recommended {
 }
 #[derive(Debug, Clone, Copy)]
 pub struct AlreadyInit;
+#[allow(clippy::too_many_arguments)]
 pub fn init(
     float_precision: u32,
     upper_calculation_limit: Integer,
@@ -54,16 +55,16 @@ pub fn init(
 }
 pub fn init_default() -> Result<(), AlreadyInit> {
     let mut already = false;
-    if let Err(_) = FLOAT_PRECISION.set(recommended::FLOAT_PRECISION) {
+    if FLOAT_PRECISION.set(recommended::FLOAT_PRECISION).is_err() {
         already = true;
     }
-    if let Err(_) = parse::init_default() {
+    if parse::init_default().is_err() {
         already = true;
     }
-    if let Err(_) = calculation_tasks::init_default() {
+    if calculation_tasks::init_default().is_err() {
         already = true;
     }
-    if let Err(_) = calculation_results::init_default() {
+    if calculation_results::init_default().is_err() {
         already = true;
     }
     (!already).then_some(()).ok_or(AlreadyInit)

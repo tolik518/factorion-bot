@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run Format
-        run: cargo fmt --all -- --check --profile ci
+        run: cargo fmt --all -- --check
 
   test:
     runs-on: ubuntu-latest

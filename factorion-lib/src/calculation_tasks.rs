@@ -18,12 +18,12 @@ pub mod recommended {
     use rug::{Float, Integer};
     use std::{str::FromStr, sync::LazyLock};
     // Limit for exact calculation, set to limit calculation time
-    pub const UPPER_CALCULATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
+    pub static UPPER_CALCULATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
     pub static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
         LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
     // Limit for exact subfactorial calculation, set to limit calculation time
-    pub const UPPER_SUBFACTORIAL_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
+    pub static UPPER_SUBFACTORIAL_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
     // Limit for exact termial calculation, set to limit calculation time (absurdly high)
     pub static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
         LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
