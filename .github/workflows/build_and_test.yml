@@ -28,6 +28,14 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
+  semver:
+    name: Semver Check
+    runs-on: ubuntu-latest
+    steps:      
+      - name: Check semver
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          baseline-rev: ${{ github.event.pull_request.base.ref }}
 
   bumped_version:
     name: Bumped Version Check
@@ -41,28 +49,31 @@ jobs:
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           # Fetch the base branch version of Cargo.toml and diff files
           git fetch origin "$BASE_BRANCH"
-          # Get list of changed files between base branch and the current commit
-          CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD)
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
+          for PATH in ["factorion-reddit", "factorion-lib", "factorion-math"]
+          do
+            # Get list of changed files between base branch and the current commit
+            CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD -- "$PATH")
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
           
-          # Filter out files that are not yml, yaml, or md.
-          NON_CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -vE '\.(yml|yaml|md)$' || true)
+            # Filter out files that are not yml, yaml, or md.
+            NON_CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -vE '\.(yml|yaml|md)$' || true)
           
-          if [ -z "$NON_CONFIG_FILES" ]; then
-            echo "Only YAML, Markdown, or similar files changed. Skipping version bump check."
-            exit 0
-          fi
+            if [ -z "$NON_CONFIG_FILES" ]; then
+              echo "Only YAML, Markdown, or similar files changed. Skipping version bump check."
+              exit 0
+            fi
 
-          # Proceed with version bump check if there are other changes.
-          BASE_VERSION=$(git show origin/"$BASE_BRANCH":Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
-          PR_VERSION=$(grep '^version' Cargo.toml | head -n 1 | cut -d '"' -f2)
-          echo "Base version: $BASE_VERSION"
-          echo "PR version: $PR_VERSION"
+            # Proceed with version bump check if there are other changes.
+            BASE_VERSION=$(git show origin/"$BASE_BRANCH":"$PATH"/Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
+            PR_VERSION=$(grep '^version' "$PATH"/Cargo.toml | head -n 1 | cut -d '"' -f2)
+            echo "Base version: $BASE_VERSION"
+            echo "PR version: $PR_VERSION"
 
-          if [ "$BASE_VERSION" = "$PR_VERSION" ]; then
-            echo "Error: version not bumped! Please update the version in Cargo.toml."
-            exit 1
-          else
-            echo "Version bump detected."
-          fi
+            if [ "$BASE_VERSION" = "$PR_VERSION" ]; then
+              echo "Error: version not bumped! Please update the version in Cargo.toml."
+              exit 1
+            else
+              echo "Version bump detected."
+            fi
+          done

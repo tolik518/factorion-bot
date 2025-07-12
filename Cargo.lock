@@ -278,6 +278,7 @@ version = "1.0.0"
 dependencies = [
  "arbtest",
  "factorion-math",
+ "gmp-mpfr-sys",
  "rug",
 ]
 
@@ -285,6 +286,7 @@ dependencies = [
 name = "factorion-math"
 version = "1.0.0"
 dependencies = [
+ "gmp-mpfr-sys",
  "rug",
 ]
 
