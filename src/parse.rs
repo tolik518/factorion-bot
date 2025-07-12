@@ -142,9 +142,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             }
             current_negative = 0;
         }
-        let had_text = position_of_interest
-            .checked_sub(1)
-            .is_some_and(|n| text[..=n].ends_with(char::is_alphabetic));
+        let had_text = text[..position_of_interest].ends_with(char::is_alphabetic);
         // so we can just ignore everything before
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
@@ -516,10 +514,10 @@ fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
         } else {
             return None;
         };
-        *text = &text[n..];
-        if had_text || text.starts_with(char::is_alphabetic) {
+        if had_text || text[n..].starts_with(char::is_alphabetic) {
             return None;
         }
+        *text = &text[n..];
         return Some(x);
     }
 
