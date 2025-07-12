@@ -33,7 +33,7 @@ jobs:
     name: Semver Check
     runs-on: ubuntu-latest
     steps:      
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
