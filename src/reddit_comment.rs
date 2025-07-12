@@ -1053,7 +1053,7 @@ mod tests {
     #[test]
     fn test_comment_new_constants() {
         let comment = RedditComment::new(
-            "This is a test comment with constants pi! And non-constant pie!",
+            "This is a test comment with constants pi! And non-constant pie! pine! tribute!",
             "123",
             "test_author",
             "test_subreddit",
