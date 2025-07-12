@@ -38,17 +38,30 @@ macro_rules! impl_all_bitwise {
     };
 }
 
+/// The primary abstraction.
+/// Construct -> Extract -> Calculate -> Get Reply
+///
+/// Uses a generic for Metadata (meta).
+///
+/// Uses three type-states exposed as the aliases [CommentConstructed], [CommentExtracted], and [CommentCalculated].
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Comment<Meta, S> {
+    /// Metadata (generic)
     pub meta: Meta,
+    /// Data for the current step
     pub calculation_list: S,
+    /// If Some will prepend a "Hey {string}!" to the reply.
     pub notify: Option<String>,
     pub status: Status,
     pub commands: Commands,
+    /// How long the reply may at most be
     pub max_length: usize,
 }
+/// Base [Comment], contains the comment text, if it might have a calculation. Use [extract](Comment::extract).
 pub type CommentConstructed<Meta> = Comment<Meta, String>;
+/// Extracted [Comment], contains the calculations to be done. Use [calc](Comment::calc).
 pub type CommentExtracted<Meta> = Comment<Meta, Vec<CalculationJob>>;
+/// Calculated [Comment], contains the results along with how we go to them. Use [get_reply](Comment::get_reply).
 pub type CommentCalculated<Meta> = Comment<Meta, Vec<Calculation>>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -107,9 +120,13 @@ impl Status {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 pub struct Commands {
+    /// Turn all integers into scientific notiation if that makes them shorter.
     pub shorten: bool,
+    /// Return all the intermediate results for nested calculations.
     pub steps: bool,
+    /// Parse and calculate termials.
     pub termial: bool,
+    /// Disable the beginning note.
     pub no_note: bool,
     pub post_only: bool,
 }
@@ -224,7 +241,7 @@ macro_rules! contains_comb {
 }
 
 impl<Meta> CommentConstructed<Meta> {
-    /// Takes a raw comment, finds the factorials and commands, and fetches the calculation using [calculation_tasks](crate::calculation_tasks).
+    /// Takes a raw comment, finds the factorials and commands, and packages it, also checks if it might have something to calculate.
     pub fn new(comment_text: &str, meta: Meta, pre_commands: Commands, max_length: usize) -> Self {
         let command_overrides = Commands::overrides_from_comment_text(comment_text);
         let commands: Commands =
@@ -249,7 +266,7 @@ impl<Meta> CommentConstructed<Meta> {
         }
     }
 
-    pub fn might_have_factorial(text: &str) -> bool {
+    fn might_have_factorial(text: &str) -> bool {
         contains_comb!(
             text,
             [
@@ -267,6 +284,7 @@ impl<Meta> CommentConstructed<Meta> {
         )
     }
 
+    /// Extracts the calculations using [parse](mod@crate::parse).
     pub fn extract(self) -> CommentExtracted<Meta> {
         let Comment {
             meta,
@@ -292,6 +310,7 @@ impl<Meta> CommentConstructed<Meta> {
         }
     }
 
+    /// Constructs an empty comment with [Status] already_replied_or_rejected set.
     pub fn new_already_replied(meta: Meta, max_length: usize) -> Self {
         let text = String::new();
         let status: Status = Status {
@@ -316,6 +335,7 @@ impl<Meta, S> Comment<Meta, S> {
     }
 }
 impl<Meta> CommentExtracted<Meta> {
+    /// Does the calculations using [calculation_tasks](crate::calculation_tasks).
     pub fn calc(self) -> CommentCalculated<Meta> {
         let Comment {
             meta,
@@ -356,7 +376,7 @@ impl<Meta> CommentExtracted<Meta> {
     }
 }
 impl<Meta> CommentCalculated<Meta> {
-    /// Does the formatting for the reply using [calculated](crate::calculated).
+    /// Does the formatting for the reply using [calculation_result](crate::calculation_results).
     pub fn get_reply(&self) -> String {
         let mut note = self
             .notify

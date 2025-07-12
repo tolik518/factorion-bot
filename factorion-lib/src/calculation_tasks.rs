@@ -77,12 +77,16 @@ pub fn init_default() -> Result<(), AlreadyInit> {
     )
 }
 
+/// Representation of the calculation to be done
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CalculationJob {
     pub base: CalculationBase,
+    /// Type of the calculation
     pub level: i32,
+    /// Number of negations encountered
     pub negative: u32,
 }
+/// The basis of a calculation, wheter [Number] or [CalculationJob].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CalculationBase {
     Num(Number),
@@ -90,6 +94,8 @@ pub enum CalculationBase {
 }
 
 impl CalculationJob {
+    /// Execute the calculation. \
+    /// If include_steps is enabled, will return all intermediate results.
     pub fn execute(self, include_steps: bool) -> Vec<Option<Calculation>> {
         let CalculationJob {
             mut base,

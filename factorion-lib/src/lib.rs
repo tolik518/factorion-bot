@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use std::sync::OnceLock;
 
 use factorion_math as math;
@@ -6,8 +7,19 @@ pub mod calculation_results;
 pub mod calculation_tasks;
 pub mod comment;
 pub mod parse;
+/// The result of a calculation
+pub use calculation_results::Calculation;
+/// The format prepped for calculation
+pub use calculation_tasks::CalculationJob;
+/// Convenient abstraction for comments with commands
+pub use comment::{Commands, Comment};
+/// The parser
+pub use parse::parse;
+/// The version of rug we use (for convenience)
+pub use rug;
 
-pub static FLOAT_PRECISION: OnceLock<u32> = OnceLock::new();
+static FLOAT_PRECISION: OnceLock<u32> = OnceLock::new();
+/// Recommended values for [`init`]
 pub mod recommended {
     pub use super::math::recommended::FLOAT_PRECISION;
     pub use crate::calculation_results::recommended::*;

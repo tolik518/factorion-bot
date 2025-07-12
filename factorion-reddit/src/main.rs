@@ -1,3 +1,4 @@
+#![doc = include_str!("../../README.md")]
 use dotenvy::dotenv;
 use factorion_lib::comment::{Commands, Comment, Status};
 use influxdb::INFLUX_CLIENT;

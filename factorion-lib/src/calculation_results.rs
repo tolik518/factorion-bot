@@ -65,16 +65,21 @@ impl fmt::Debug for CalculationResult {
     }
 }
 
+/// The result of a calculation in various formats.
 #[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub enum CalculationResult {
     Exact(Integer),
+    /// a * 10^b
     Approximate(OrdFloat, Integer),
+    /// b digits (a is whether the number is negative)
     ApproximateDigits(bool, Integer),
+    /// (^(c)10)^d digits (a is whether is negative, b is negative number of digits (super small))
     ApproximateDigitsTower(bool, bool, u32, Integer),
     Float(OrdFloat),
     ComplexInfinity,
 }
 
+/// A number in various formats. An alias of [CalculationResult].
 pub type Number = CalculationResult;
 
 impl Number {
@@ -121,6 +126,9 @@ impl std::fmt::Display for Number {
 }
 
 impl CalculationResult {
+    /// Formats a number. \
+    /// Shorten turns integers into scientific notation if that makes them shorter. \
+    /// Aggressive enables tertation for towers.
     fn format(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -213,7 +221,9 @@ impl CalculationResult {
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
 pub struct Calculation {
+    /// The base number
     pub value: Number,
+    /// Steps taken during calculation (level, negation)
     pub steps: Vec<(i32, u32)>,
     pub result: CalculationResult,
 }
@@ -267,6 +277,10 @@ impl Calculation {
 }
 
 impl Calculation {
+    /// Formats a Calcucation. \
+    /// Force shorten shortens all integers, if that makes them smaller. \
+    /// Agressive shorten replaces the description of what steps were taken with "All that of" and truns towers into tetration. \
+    /// Too big number is from when the integer part automatically gets shortened.
     pub fn format(
         &self,
         acc: &mut String,
@@ -399,10 +413,10 @@ impl Calculation {
         }
     }
 }
-/// Rounds a base 10 number string.
-/// Uses the last digit to decide the rounding direction.
-/// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros.
-/// If the input is all 9s, this will round to 10.
+/// Rounds a base 10 number string. \
+/// Uses the last digit to decide the rounding direction. \
+/// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros. \
+/// If the input is all 9s, this will round to 10. \
 ///
 /// # Panic
 /// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.

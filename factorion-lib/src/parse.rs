@@ -1,3 +1,4 @@
+//! Parses text and extracts calculations
 use std::sync::{LazyLock, OnceLock};
 
 use rug::{Complete, Float, Integer, integer::IntegerExt64};
