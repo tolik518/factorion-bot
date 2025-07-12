@@ -19,6 +19,8 @@ static INTEGER_CONSTRUCTION_LIMIT: OnceLock<Integer> = OnceLock::new();
 
 use crate::AlreadyInit;
 pub fn init(integer_construction_limit: Integer) -> Result<(), AlreadyInit> {
+    static INITIALIZING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = INITIALIZING.lock();
     INTEGER_CONSTRUCTION_LIMIT
         .set(integer_construction_limit)
         .map_err(|_| AlreadyInit)?;

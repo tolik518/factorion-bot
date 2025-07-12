@@ -16,6 +16,8 @@ static NUMBER_DECIMALS_SCIENTIFIC: OnceLock<usize> = OnceLock::new();
 
 use crate::AlreadyInit;
 pub fn init(number_decimals_scientific: usize) -> Result<(), AlreadyInit> {
+    static INITIALIZING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = INITIALIZING.lock();
     NUMBER_DECIMALS_SCIENTIFIC
         .set(number_decimals_scientific)
         .map_err(|_| AlreadyInit)?;

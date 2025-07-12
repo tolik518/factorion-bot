@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use factorion_math as math;
 use rug::Integer;
@@ -26,6 +26,8 @@ pub mod recommended {
     pub use crate::calculation_tasks::recommended::*;
     pub use crate::parse::recommended::*;
 }
+
+static INITIALIZING: Mutex<()> = Mutex::new(());
 #[derive(Debug, Clone, Copy)]
 pub struct AlreadyInit;
 #[allow(clippy::too_many_arguments)]
@@ -39,6 +41,7 @@ pub fn init(
     integer_construction_limit: Integer,
     number_decimals_scientific: usize,
 ) -> Result<(), AlreadyInit> {
+    let _guard = INITIALIZING.lock().unwrap();
     FLOAT_PRECISION
         .set(float_precision)
         .map_err(|_| AlreadyInit)?;
@@ -54,18 +57,12 @@ pub fn init(
     Ok(())
 }
 pub fn init_default() -> Result<(), AlreadyInit> {
-    let mut already = false;
-    if FLOAT_PRECISION.set(recommended::FLOAT_PRECISION).is_err() {
-        already = true;
-    }
-    if parse::init_default().is_err() {
-        already = true;
-    }
-    if calculation_tasks::init_default().is_err() {
-        already = true;
-    }
-    if calculation_results::init_default().is_err() {
-        already = true;
-    }
-    (!already).then_some(()).ok_or(AlreadyInit)
+    let _guard = INITIALIZING.lock().unwrap();
+    FLOAT_PRECISION
+        .set(recommended::FLOAT_PRECISION)
+        .map_err(|_| AlreadyInit)?;
+    parse::init_default()?;
+    calculation_tasks::init_default()?;
+    calculation_results::init_default()?;
+    Ok(())
 }

@@ -49,6 +49,8 @@ pub fn init(
     upper_termial_limit: Integer,
     upper_termial_approximation_limit: Integer,
 ) -> Result<(), AlreadyInit> {
+    static INITIALIZING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = INITIALIZING.lock();
     UPPER_CALCULATION_LIMIT
         .set(upper_calculation_limit)
         .map_err(|_| AlreadyInit)?;
