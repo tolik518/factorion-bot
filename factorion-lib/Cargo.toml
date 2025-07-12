@@ -2,6 +2,12 @@
 name = "factorion-lib"
 version = "1.0.0"
 edition = "2024"
+description = "A library used to create bots to recognize and calculate factorials and related concepts"
+license = "MIT"
+repository = "https://github.com/tolik518/factorion-bot/"
+readme = "README.md"
+keywords = ["factorial", "termial", "bot", "math"]
+categories = ["mathematics", "web-programming", "parser-implementations"]
 
 [dependencies]
 factorion-math = {path = "../factorion-math", version = "1.0"}
