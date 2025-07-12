@@ -83,6 +83,15 @@ CHECK_POSTS=<check_posts>
 MENTIONS_EVERY=<check_mentions_every_nth_loop>
 POSTS_EVERY=<check_posts_every_nth_loop>
 
+FLOAT_PRECISION=<the_precision_floats_use>
+UPPER_CALCULATION_LIMIT=<maximum_number_to_precisely_calculate>
+UPPER_APPROXIMATION_LIMIT=<maximum_number_to_approximte>
+UPPER_SUBFACTORIAL_LIMIT=<maximum_number_to_precisely_calculate_subfactorial>
+UPPER_TERMIAL_LIMIT=<maximum_number_to_precisely_calculate_termial>
+UPPER_TERMIAL_APPROXIMATION_LIMIT=<maximum_number_to_approximate_termial>
+INTEGER_CONSTRUCTION_LIMIT=<maximum_integer_to_parse_exponent>
+NUMBER_DECIMALS_SCIENTIFIC=<how_many_decimals_to_display>
+
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test
 INFLUXDB_TOKEN=<token>
