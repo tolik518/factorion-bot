@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-reddit"
-version = "3.4.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
