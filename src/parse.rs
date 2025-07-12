@@ -121,6 +121,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
     let mut paren_steps: Vec<(u32, Option<i32>, bool)> = Vec::new();
     let mut current_negative: u32 = 0;
     let mut last_len = usize::MAX;
+    let mut had_text_before = false;
     while !text.is_empty() {
         if last_len == text.len() {
             panic!("Parser caught in a loop! Text: \"{text}\"")
@@ -141,8 +142,11 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 step.2 = true;
             }
             current_negative = 0;
+            had_text_before = false;
         }
-        let had_text = text[..position_of_interest].ends_with(char::is_alphabetic);
+        let had_text =
+            text[..position_of_interest].ends_with(char::is_alphabetic) || had_text_before;
+        had_text_before = false;
         // so we can just ignore everything before
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
@@ -375,6 +379,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
         } else {
             // Number (7.)
             let Some(num) = parse_num(&mut text, had_text, false) else {
+                had_text_before = true;
                 // advance one char to avoid loop
                 let mut end = 1;
                 while !text.is_char_boundary(end) && end < text.len() {
