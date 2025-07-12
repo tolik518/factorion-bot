@@ -1000,35 +1000,35 @@ mod test {
 
     #[test]
     fn test_parse_num() {
-        let num = parse_num(&mut "1.5more !", false);
+        let num = parse_num(&mut "1.5more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into()))
         );
-        let num = parse_num(&mut "1,5more !", false);
+        let num = parse_num(&mut "1,5more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into()))
         );
-        let num = parse_num(&mut ".5more !", false);
+        let num = parse_num(&mut ".5more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "1more !", false);
+        let num = parse_num(&mut "1more !", false, true);
         assert_eq!(num, Some(1.into()));
         let num = parse_num(&mut "1.0more !", true, false);
         assert_eq!(num, Some(1.into()));
-        let num = parse_num(&mut "1.5e2more !", false);
+        let num = parse_num(&mut "1.5e2more !", false, false);
         assert_eq!(num, Some(150.into()));
-        let num = parse_num(&mut "1e2more !", false);
+        let num = parse_num(&mut "1e2more !", false, false);
         assert_eq!(num, Some(100.into()));
-        let num = parse_num(&mut "1.531e2more !", false);
+        let num = parse_num(&mut "1.531e2more !", false, false);
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
         };
         assert!(Float::abs(f.as_float().clone() - 153.1) < 0.0000001);
-        let num = parse_num(&mut "5e-1more !", false);
+        let num = parse_num(&mut "5e-1more !", false, false);
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
@@ -1087,6 +1087,7 @@ mod test {
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(
             &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT - 1).as_str(),
+            false,
             false,
         );
         assert!(num.is_some());

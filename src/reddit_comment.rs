@@ -1061,7 +1061,7 @@ mod tests {
         )
         .extract()
         .calc();
-      
+
         assert_eq!(
             comment
                 .calculation_list
@@ -1079,7 +1079,7 @@ mod tests {
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
     }
-  
+
     #[test]
     fn test_comment_new_fraction() {
         let comment = RedditComment::new(
