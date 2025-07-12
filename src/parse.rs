@@ -284,10 +284,6 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
                 continue;
             };
             if !levels.is_empty() {
-                // Prefix? (5.1.1.)
-                if step.1.is_some() {
-                    continue;
-                }
                 // Set as base (5.1.2.)
                 for level in levels {
                     // base available?
@@ -333,11 +329,11 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             // Prefix OP (6.)
             let Ok(level) = parse_op(&mut text, true, do_termial) else {
                 // also skip number to prevent stuff like "!!!1!" getting through
-                parse_num(&mut text, false);
+                parse_num(&mut text, false, true);
                 continue;
             };
             // On number (6.1.)
-            if let Some(num) = parse_num(&mut text, false) {
+            if let Some(num) = parse_num(&mut text, false, true) {
                 // set base (6.1.2.)
                 if let Some(CalculationBase::Calc(job)) = base.take() {
                     // multiple number, likely expression => poision paren
@@ -380,7 +376,7 @@ pub fn parse(mut text: &str, do_termial: bool) -> Vec<CalculationJob> {
             };
         } else {
             // Number (7.)
-            let Some(num) = parse_num(&mut text, had_text) else {
+            let Some(num) = parse_num(&mut text, had_text, false) else {
                 // advance one char to avoid loop
                 let mut end = 1;
                 while !text.is_char_boundary(end) && end < text.len() {
@@ -501,7 +497,7 @@ fn parse_ops(text: &mut &str, prefix: bool, do_termial: bool) -> Option<Vec<i32>
     Some(res)
 }
 
-fn parse_num(text: &mut &str, had_text: bool) -> Option<Number> {
+fn parse_num(text: &mut &str, had_text: bool, had_op: bool) -> Option<Number> {
     if text.starts_with(CONSTANT_STARTS) {
         let (n, x) = if text.starts_with("pi") {
             ("pi".len(), PI.clone())
@@ -526,6 +522,7 @@ fn parse_num(text: &mut &str, had_text: bool) -> Option<Number> {
         }
         return Some(x);
     }
+
     let integer_part = {
         let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
         let part = &text[..end];
@@ -559,6 +556,19 @@ fn parse_num(text: &mut &str, had_text: bool) -> Option<Number> {
     } else {
         (&text[..0], false)
     };
+    let fraction_part = if !had_op && text.starts_with(['/']) {
+        *text = &text[1..];
+        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let part = &text[..end];
+        *text = &text[end..];
+        part
+    } else {
+        &text[..0]
+    };
+    if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
+        let n = fraction_part.parse::<Integer>().ok()?;
+        return Some(Number::Exact(n));
+    }
     if integer_part.is_empty() && decimal_part.is_empty() {
         return None;
     }
@@ -571,14 +581,20 @@ fn parse_num(text: &mut &str, had_text: bool) -> Option<Number> {
     } else {
         0.into()
     };
+    let divisor = if !fraction_part.is_empty() {
+        fraction_part.parse::<Integer>().ok()?
+    } else {
+        Integer::ONE.clone()
+    };
     if exponent >= decimal_part.len() as i64
         && exponent <= INTEGER_CONSTRUCTION_LIMIT - integer_part.len() as i64
+        && (divisor == 1 || exponent >= INTEGER_CONSTRUCTION_LIMIT / 10)
     {
         let exponent = exponent - decimal_part.len();
         let n = format!("{integer_part}{decimal_part}")
             .parse::<Integer>()
             .ok()?;
-        let num = n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete();
+        let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
         Some(Number::Exact(num))
     } else if exponent <= INTEGER_CONSTRUCTION_LIMIT - integer_part.len() as i64 {
         let x = Float::parse(format!(
@@ -588,7 +604,7 @@ fn parse_num(text: &mut &str, had_text: bool) -> Option<Number> {
             exponent_part.0
         ))
         .ok()?;
-        let x = Float::with_val(FLOAT_PRECISION, x);
+        let x = Float::with_val(FLOAT_PRECISION, x) / divisor;
         if x.is_integer() {
             let n = x.to_integer().unwrap();
             Some(Number::Exact(n))
@@ -599,7 +615,7 @@ fn parse_num(text: &mut &str, had_text: bool) -> Option<Number> {
         }
     } else {
         let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
-        let x = Float::with_val(FLOAT_PRECISION, x);
+        let x = Float::with_val(FLOAT_PRECISION, x) / divisor;
         if x.is_finite() {
             let (b, e) = math::adjust_approximate((x, exponent));
             Some(Number::Approximate(b.into(), e))
@@ -945,6 +961,44 @@ mod test {
     }
 
     #[test]
+    fn test_fraction() {
+        let jobs = parse("!5/6!", true);
+        assert_eq!(
+            jobs,
+            [
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Exact(5.into())),
+                    level: 0,
+                    negative: 0
+                },
+                CalculationJob {
+                    base: CalculationBase::Num(Number::Exact(6.into())),
+                    level: 1,
+                    negative: 0
+                }
+            ]
+        );
+        let jobs = parse("5/6!", true);
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(Number::Exact(6.into())),
+                level: 1,
+                negative: 0
+            }]
+        );
+        let jobs = parse("(10/2)!", true);
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(Number::Exact(5.into())),
+                level: 1,
+                negative: 0
+            },]
+        );
+    }
+
+    #[test]
     fn test_parse_num() {
         let num = parse_num(&mut "1.5more !", false);
         assert_eq!(
@@ -963,7 +1017,7 @@ mod test {
         );
         let num = parse_num(&mut "1more !", false);
         assert_eq!(num, Some(1.into()));
-        let num = parse_num(&mut "1.0more !", true);
+        let num = parse_num(&mut "1.0more !", true, false);
         assert_eq!(num, Some(1.into()));
         let num = parse_num(&mut "1.5e2more !", false);
         assert_eq!(num, Some(150.into()));
@@ -979,24 +1033,48 @@ mod test {
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "e2more !", true);
+        let num = parse_num(&mut "e2more !", true, false);
         assert_eq!(num, None);
-        let num = parse_num(&mut "es !", false);
+        let num = parse_num(&mut "es !", false, false);
         assert_eq!(num, None);
-        let num = parse_num(&mut "e !", false);
+        let num = parse_num(&mut "e !", false, false);
         assert_eq!(num, Some(E.clone()));
-        let num = parse_num(&mut "pi !", false);
+        let num = parse_num(&mut "pi !", false, false);
         assert_eq!(num, Some(PI.clone()));
-        let num = parse_num(&mut "π !", false);
+        let num = parse_num(&mut "π !", false, false);
         assert_eq!(num, Some(PI.clone()));
-        let num = parse_num(&mut "phi !", false);
+        let num = parse_num(&mut "phi !", false, false);
         assert_eq!(num, Some(PHI.clone()));
-        let num = parse_num(&mut "ɸ !", false);
+        let num = parse_num(&mut "ɸ !", false, false);
         assert_eq!(num, Some(PHI.clone()));
-        let num = parse_num(&mut "tau !", false);
+        let num = parse_num(&mut "tau !", false, false);
         assert_eq!(num, Some(TAU.clone()));
-        let num = parse_num(&mut "τ !", false);
+        let num = parse_num(&mut "τ !", false, false);
         assert_eq!(num, Some(TAU.clone()));
+        let num = parse_num(&mut "1/2 !", false, false);
+        assert_eq!(
+            num,
+            Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
+        );
+        let num = parse_num(&mut "10/2 !", false, false);
+        assert_eq!(num, Some(Number::Exact(5.into())));
+        let num = parse_num(&mut "1.5/2 !", false, false);
+        assert_eq!(
+            num,
+            Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.75).into()))
+        );
+        let num = parse_num(&mut "10e10000000000/2 !", false, false);
+        assert_eq!(
+            num,
+            Some(Number::Approximate(
+                Float::with_val(FLOAT_PRECISION, 5).into(),
+                10000000000u64.into()
+            ))
+        );
+        let num = parse_num(&mut "10/2 !", false, true);
+        assert_eq!(num, Some(Number::Exact(10.into())));
+        let num = parse_num(&mut "10/2!", false, false);
+        assert_eq!(num, Some(Number::Exact(2.into())));
     }
     #[allow(clippy::uninlined_format_args)]
     #[test]
@@ -1004,6 +1082,7 @@ mod test {
         let num = parse_num(
             &mut format!("9e{}", INTEGER_CONSTRUCTION_LIMIT).as_str(),
             true,
+            false,
         );
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(

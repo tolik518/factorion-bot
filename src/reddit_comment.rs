@@ -1061,6 +1061,7 @@ mod tests {
         )
         .extract()
         .calc();
+      
         assert_eq!(
             comment
                 .calculation_list
@@ -1077,6 +1078,25 @@ mod tests {
             vec![(std::f64::consts::PI, 7.188082728976033)]
         );
         assert_eq!(comment.status, Status::FACTORIALS_FOUND);
+    }
+  
+    #[test]
+    fn test_comment_new_fraction() {
+        let comment = RedditComment::new(
+            "This is a test with a factorial of fractions !1/2! (1/2)",
+            "123",
+            "test_author",
+            "test_subreddit",
+            Commands::NONE,
+        )
+        .extract()
+        .calc();
+
+        let reply = comment.get_reply();
+        assert_eq!(
+            reply,
+            "Subfactorial of 1 is 0 \n\nThe factorial of 2 is 2 \n\nThe factorial of 0.5 is approximately 0.886226925452758 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*"
+        );
     }
 
     #[test]
