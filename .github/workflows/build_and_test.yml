@@ -50,10 +50,10 @@ jobs:
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           # Fetch the base branch version of Cargo.toml and diff files
           git fetch origin "$BASE_BRANCH"
-          for PATH in ["factorion-reddit", "factorion-lib", "factorion-math"]
+          for DIR in ["factorion-reddit", "factorion-lib", "factorion-math"]
           do
             # Get list of changed files between base branch and the current commit
-            CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD -- "$PATH")
+            CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD -- "$DIR")
             echo "Changed files:"
             echo "$CHANGED_FILES"
           
@@ -66,8 +66,8 @@ jobs:
             fi
 
             # Proceed with version bump check if there are other changes.
-            BASE_VERSION=$(git show origin/"$BASE_BRANCH":"$PATH"/Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
-            PR_VERSION=$(grep '^version' "$PATH"/Cargo.toml | head -n 1 | cut -d '"' -f2)
+            BASE_VERSION=$(git show origin/"$BASE_BRANCH":"$DIR"/Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
+            PR_VERSION=$(grep '^version' "$DIR"/Cargo.toml | head -n 1 | cut -d '"' -f2)
             echo "Base version: $BASE_VERSION"
             echo "PR version: $PR_VERSION"
 
