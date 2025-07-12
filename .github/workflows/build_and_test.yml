@@ -12,14 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run Format
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all -- --check --profile ci
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Test
-        run: cargo test
+        run: cargo test --profile ci
 
   clippy:
     name: Clippy
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features --profile ci
 
   semver:
     name: Semver Check
