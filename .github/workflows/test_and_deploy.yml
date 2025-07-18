@@ -36,7 +36,7 @@ jobs:
         id: get_version
         run: |
           # Extract the version from Cargo.toml
-          VERSION=$(grep '^version' Cargo.toml | head -n 1 | sed -E 's/version *= *"([^"]+)".*/\1/')
+          VERSION=$(grep '^version' factorion-bot-reddit/Cargo.toml | head -n 1 | sed -E 's/version *= *"([^"]+)".*/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Version extracted: $VERSION"
 

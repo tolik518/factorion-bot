@@ -273,25 +273,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "factorion-lib"
-version = "1.0.0"
-dependencies = [
- "arbtest",
- "factorion-math",
- "gmp-mpfr-sys",
- "rug",
-]
-
-[[package]]
-name = "factorion-math"
-version = "1.0.0"
-dependencies = [
- "gmp-mpfr-sys",
- "rug",
-]
-
-[[package]]
-name = "factorion-reddit"
+name = "factorion-bot-reddit"
 version = "4.0.0"
 dependencies = [
  "anyhow",
@@ -308,6 +290,22 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "factorion-lib"
+version = "1.0.0"
+dependencies = [
+ "arbtest",
+ "factorion-math",
+]
+
+[[package]]
+name = "factorion-math"
+version = "1.0.0"
+dependencies = [
+ "gmp-mpfr-sys",
+ "rug",
 ]
 
 [[package]]

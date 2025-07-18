@@ -5,10 +5,14 @@ use rug::{Complete, Float, Integer};
 use std::ops::Mul;
 use std::ops::Rem;
 
-pub fn factorial(n: u64, k: i32) -> Integer {
+pub use rug;
+
+/// The k-factorial of n
+pub fn factorial(n: u64, k: u32) -> Integer {
     Integer::factorial_m_64(n, k as u64).complete()
 }
 
+/// The k-factorial of -n is the factorial of n-k times this factor (inf if None)
 pub fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
     let n = -n;
     let rem = n.rem(2 * k);
@@ -23,6 +27,7 @@ pub fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
     }
 }
 
+/// The subfactorial of n
 pub fn subfactorial(n: u64) -> Integer {
     let mut f = Integer::ONE.clone();
     let mut b = true;
@@ -38,10 +43,12 @@ pub fn subfactorial(n: u64) -> Integer {
     f
 }
 
+/// The termial of n
 pub fn termial(n: Integer) -> Integer {
     (n.clone() * (n + 1)) / 2
 }
 
+/// The k-termial of n
 pub fn multitermial(n: Integer, k: u32) -> Integer {
     let modulo = n.mod_u(k);
     let floor = n / k;
@@ -49,6 +56,7 @@ pub fn multitermial(n: Integer, k: u32) -> Integer {
     k * termial(floor) + ceil * modulo
 }
 
+/// The factorial of x (using gamma)
 pub fn fractional_factorial(x: Float) -> Float {
     (x + 1.0f64).gamma()
 }
@@ -57,8 +65,8 @@ pub fn fractional_factorial(x: Float) -> Float {
 ///
 /// Algorithm adapted from the formula by pregunton in a
 /// [Math Stack Exchange reply](https://math.stackexchange.com/questions/3488791/define-the-triple-factorial-n-as-a-continuous-function-for-n-in-mathbb/3488935#3488935).
-pub fn fractional_multifactorial(x: Float, k: i32) -> Float {
-    let _k = k;
+pub fn fractional_multifactorial(x: Float, k: u32) -> Float {
+    let _k = k as i32;
     let k = Float::with_val(x.prec(), k);
     let fact = fractional_factorial(x.clone() / k.clone());
     let pow = k.clone().pow(x.clone() / k.clone());
@@ -109,6 +117,7 @@ fn fractional_multifactorial_sum(x: Float, j: i32, _k: i32, k: Float) -> Float {
             .unwrap_or(Float::with_val(x.prec(), 1))
 }
 
+/// The termial of x
 pub fn fractional_termial(x: Float) -> Float {
     let prec = x.prec();
     let gamma_plus = ((x.clone() + 2) as Float).gamma();
@@ -204,9 +213,9 @@ pub const APPROX_FACT_SAFE_UPPER_BOUND_FACTOR: u32 = 4_000_000;
 /// using the sterling aproximation and the fractional multifactorial algorithm.
 ///
 /// # Panic
-/// Will panic if either k or n are non-positive,
+/// Will panic if n is non-positive,
 /// or if the input is so large, that the output is inf, safe if n * 4_000_000 is finite.
-pub fn approximate_multifactorial(n: Integer, k: i32, prec: u32) -> (Float, Integer) {
+pub fn approximate_multifactorial(n: Integer, k: u32, prec: u32) -> (Float, Integer) {
     let n = Float::with_val(prec, n);
     approximate_multifactorial_float(n, k)
 }
@@ -214,10 +223,9 @@ pub fn approximate_multifactorial(n: Integer, k: i32, prec: u32) -> (Float, Inte
 /// using the sterling aproximation and the fractional multifactorial algorithm.
 ///
 /// # Panic
-/// Will panic if either k or n are non-positive,
+/// Will panic if n is non-positive,
 /// or if the input is so large, that the output is inf, safe if n * 4_000_000 is finite.
-pub fn approximate_multifactorial_float(n: Float, k: i32) -> (Float, Integer) {
-    assert!(k > 0, "k must be positive");
+pub fn approximate_multifactorial_float(n: Float, k: u32) -> (Float, Integer) {
     let prec = n.prec();
     let k = Float::with_val(prec, k);
     let fact = approximate_factorial_float(n.clone() / k.clone());
@@ -240,21 +248,25 @@ fn approximate_multifactorial_product(n: Float, k: Float) -> Float {
     j.clone() / k.clone().pow(j.clone() / k.clone()) / fractional_factorial(j.clone() / k.clone())
 }
 
+/// The subfactorial of n as a * 10^b
 pub fn approximate_subfactorial(n: Integer, prec: u32) -> (Float, Integer) {
     let n = Float::with_val(prec, n);
     approximate_subfactorial_float(n)
 }
+/// The subfactorial of n as a * 10^b
 pub fn approximate_subfactorial_float(n: Float) -> (Float, Integer) {
     let prec = n.prec();
     let (x, e) = approximate_factorial_float(n);
     adjust_approximate((x / Float::with_val(prec, 1).exp(), e))
 }
 
+/// The k-termial of n as a * 10^b
 pub fn approximate_termial(n: Integer, k: u32, prec: u32) -> (Float, Integer) {
     let n = Float::with_val(prec, n);
     approximate_termial_float(k, n)
 }
 
+/// The k-termial of n as a * 10^b
 pub fn approximate_termial_float(k: u32, n: Float) -> (Float, Integer) {
     let prec = n.prec();
     let len: Integer = n
@@ -269,6 +281,7 @@ pub fn approximate_termial_float(k: u32, n: Float) -> (Float, Integer) {
     adjust_approximate(((a * b) / (2 * k), 2 * len))
 }
 
+/// The k-termial of x * 10^e as a * 10^b
 pub fn approximate_approx_termial((x, e): (Float, Integer), k: u32) -> (Float, Integer) {
     let a = x.clone();
     let b = x + k;
@@ -279,11 +292,11 @@ pub fn approximate_approx_termial((x, e): (Float, Integer), k: u32) -> (Float, I
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
 /// # Panic
-/// Will panic if either `n` or `k` are non-positive,
+/// Will panic if either `n` is non-positive,
 /// or if `n` is `inf` as a `Float`.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_multifactorial_digits(n: Integer, k: i32, prec: u32) -> Integer {
+pub fn approximate_multifactorial_digits(n: Integer, k: u32, prec: u32) -> Integer {
     let n = Float::with_val(prec, n);
     approximate_multifactorial_digits_float(k, n)
 }
@@ -291,12 +304,11 @@ pub fn approximate_multifactorial_digits(n: Integer, k: i32, prec: u32) -> Integ
 /// This is based on the base 10 logarithm of Sterling's Approximation.
 ///
 /// # Panic
-/// Will panic if either `n` or `k` are non-positive,
+/// Will panic if either `n` is non-positive,
 /// or if `n` is `inf` as a `Float`.
 ///
 /// Algorithm adapted from [Wikipedia](https://en.wikipedia.org/wiki/Stirling's_approximation) as cc-by-sa-4.0
-pub fn approximate_multifactorial_digits_float(k: i32, n: Float) -> Integer {
-    assert!(k > 0, "k must be positive");
+pub fn approximate_multifactorial_digits_float(k: u32, n: Float) -> Integer {
     let prec = n.prec();
     let k = Float::with_val(prec, k);
     let ln10 = Float::with_val(prec, 10).ln();
@@ -308,6 +320,7 @@ pub fn approximate_multifactorial_digits_float(k: i32, n: Float) -> Integer {
         + Integer::ONE
 }
 
+/// The k-termial of n as 10^b
 pub fn approximate_termial_digits(n: Integer, k: u32, prec: u32) -> Integer {
     let n = Float::with_val(prec, n);
     approximate_termial_digits_float(k, n)
@@ -334,6 +347,7 @@ pub fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     (x, total_exponent)
 }
 
+/// Number of digits of n (log10, but 1 if 0)
 pub fn length(n: &Integer, prec: u32) -> Integer {
     if n == &0 {
         return Integer::ONE.clone();
@@ -345,7 +359,9 @@ pub fn length(n: &Integer, prec: u32) -> Integer {
         + 1
 }
 
+/// Recommended constants
 pub mod recommended {
+    /// Recommended prec, balancing accuracy and performance
     pub const FLOAT_PRECISION: u32 = 1024;
 }
 

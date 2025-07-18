@@ -1,5 +1,5 @@
 [package]
-name = "factorion-reddit"
+name = "factorion-bot-reddit"
 version = "4.0.0"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Reddit"

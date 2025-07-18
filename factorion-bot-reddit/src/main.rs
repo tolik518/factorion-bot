@@ -1,6 +1,9 @@
 #![doc = include_str!("../../README.md")]
 use dotenvy::dotenv;
-use factorion_lib::comment::{Commands, Comment, Status};
+use factorion_lib::{
+    comment::{Commands, Comment, Status},
+    rug::{Complete, Integer, integer::IntegerExt64},
+};
 use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
 use reddit_api::RedditClient;
@@ -273,16 +276,16 @@ fn init() {
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT.clone()),
         std::env::var("UPPER_APPROXIMATION_LIMIT")
-            .map(|s| s.parse().unwrap())
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
             .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT.clone()),
         std::env::var("UPPER_SUBFACTORIAL_LIMIT")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT.clone()),
         std::env::var("UPPER_TERMIAL_LIMIT")
-            .map(|s| s.parse().unwrap())
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
             .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT.clone()),
         std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
-            .map(|s| s.parse().unwrap())
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
             .unwrap_or_else(|_| {
                 factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT.clone()
             }),

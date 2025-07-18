@@ -13,10 +13,10 @@ pub use calculation_results::Calculation;
 pub use calculation_tasks::CalculationJob;
 /// Convenient abstraction for comments with commands
 pub use comment::{Commands, Comment};
+/// The version of rug we use (for convenience)
+pub use factorion_math::rug;
 /// The parser
 pub use parse::parse;
-/// The version of rug we use (for convenience)
-pub use rug;
 
 static FLOAT_PRECISION: OnceLock<u32> = OnceLock::new();
 /// Recommended values for [`init`]

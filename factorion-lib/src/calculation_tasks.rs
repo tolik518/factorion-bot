@@ -10,12 +10,12 @@ use crate::{
 
 use crate::FLOAT_PRECISION;
 
-use rug::Integer;
-use rug::{Float, ops::Pow};
+use crate::rug::Integer;
+use crate::rug::{Float, ops::Pow};
 
 pub mod recommended {
     use crate::recommended::FLOAT_PRECISION;
-    use rug::{Float, Integer};
+    use crate::rug::{Float, Integer};
     use std::{str::FromStr, sync::LazyLock};
     // Limit for exact calculation, set to limit calculation time
     pub static UPPER_CALCULATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
@@ -29,7 +29,7 @@ pub mod recommended {
         LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
     pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
-        let mut max = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
+        let mut max = Float::with_val(FLOAT_PRECISION, crate::rug::float::Special::Infinity);
         max.next_down();
         max.to_integer().unwrap()
     });
@@ -260,8 +260,9 @@ impl CalculationJob {
                     }
                 }
                 2.. => {
-                    let res: Float = math::fractional_multifactorial(num.as_float().clone(), level)
-                        * if negative % 2 != 0 { -1 } else { 1 };
+                    let res: Float =
+                        math::fractional_multifactorial(num.as_float().clone(), level as u32)
+                            * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(CalculationResult::Float(res.into()));
                     } else {
@@ -325,7 +326,7 @@ impl CalculationJob {
                     .expect("Limit uninitialized, use init")
             {
                 let factorial =
-                    math::approximate_multifactorial_digits(calc_num.clone(), level, prec);
+                    math::approximate_multifactorial_digits(calc_num.clone(), level as u32, prec);
                 CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
             // Check if the number is within a reasonable range to compute
             } else if calc_num
@@ -336,7 +337,7 @@ impl CalculationJob {
                 let factorial = if level == 0 {
                     math::approximate_factorial(calc_num.clone(), prec)
                 } else {
-                    math::approximate_multifactorial(calc_num.clone(), level, prec)
+                    math::approximate_multifactorial(calc_num.clone(), level as u32, prec)
                 };
                 CalculationResult::Approximate(
                     ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
@@ -344,8 +345,8 @@ impl CalculationJob {
                 )
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial =
-                    math::factorial(calc_num, level) * if negative % 2 != 0 { -1 } else { 1 };
+                let factorial = math::factorial(calc_num, level as u32)
+                    * if negative % 2 != 0 { -1 } else { 1 };
                 CalculationResult::Exact(factorial)
             })
         } else if level == 0 {

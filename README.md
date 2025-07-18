@@ -83,14 +83,14 @@ CHECK_POSTS=<check_posts>
 MENTIONS_EVERY=<check_mentions_every_nth_loop>
 POSTS_EVERY=<check_posts_every_nth_loop>
 
-FLOAT_PRECISION=<the_precision_floats_use>
-UPPER_CALCULATION_LIMIT=<maximum_number_to_precisely_calculate>
-UPPER_APPROXIMATION_LIMIT=<maximum_number_to_approximte>
-UPPER_SUBFACTORIAL_LIMIT=<maximum_number_to_precisely_calculate_subfactorial>
-UPPER_TERMIAL_LIMIT=<maximum_number_to_precisely_calculate_termial>
-UPPER_TERMIAL_APPROXIMATION_LIMIT=<maximum_number_to_approximate_termial>
-INTEGER_CONSTRUCTION_LIMIT=<maximum_integer_to_parse_exponent>
-NUMBER_DECIMALS_SCIENTIFIC=<how_many_decimals_to_display>
+FLOAT_PRECISION=<the_precision_floats_use> 1024
+UPPER_CALCULATION_LIMIT=<maximum_number_to_precisely_calculate> 1000000
+UPPER_APPROXIMATION_LIMIT=<maximum_number_to_approximte_exponent> 300
+UPPER_SUBFACTORIAL_LIMIT=<maximum_number_to_precisely_calculate_subfactorial> 1000000
+UPPER_TERMIAL_LIMIT=<maximum_number_to_precisely_calculate_termial_exponent> 10000
+UPPER_TERMIAL_APPROXIMATION_LIMIT=<maximum_number_to_approximate_termial_exponent> 323228496
+INTEGER_CONSTRUCTION_LIMIT=<maximum_integer_to_parse_exponent> 100000000
+NUMBER_DECIMALS_SCIENTIFIC=<how_many_decimals_to_display> 30
 
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test
@@ -101,6 +101,7 @@ RUST_LOG=<factorion_bot|info|debug|trace|error|warn>
 
 Replace with the values you received from the Reddit App creation.
 InfluxDB is optional and can be removed if not needed.
+The limits, precision and number of deciamls are optional, and will use default values if left away.
 The `_EVERY` variables are optional and default to `1`.
 They control how often posts/mentions are checked compared to comments.
 Setting them to `0` will result in a crash.

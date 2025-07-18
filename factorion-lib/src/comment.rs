@@ -1,7 +1,7 @@
 //! Parses comments and generates the reply.
 
-use rug::integer::IntegerExt64;
-use rug::{Complete, Integer};
+use crate::rug::integer::IntegerExt64;
+use crate::rug::{Complete, Integer};
 
 use crate::calculation_results::Calculation;
 use crate::calculation_tasks::CalculationJob;
@@ -519,7 +519,7 @@ impl<Meta> CommentCalculated<Meta> {
 
 #[cfg(test)]
 mod tests {
-    use rug::{Float, Integer};
+    use crate::rug::{Float, Integer};
 
     use crate::{
         calculation_results::{CalculationResult, Number},
@@ -1074,6 +1074,7 @@ mod tests {
 
     #[test]
     fn test_comment_new_constants() {
+        let _ = crate::init_default();
         let comment = Comment::new(
             "This is a test comment with constants pi! And non-constant pie!",
             (),
@@ -1103,6 +1104,7 @@ mod tests {
 
     #[test]
     fn test_comment_new_fraction() {
+        let _ = crate::init_default();
         let comment = Comment::new(
             "This is a test with a factorial of fractions !1/2! (1/2)!",
             (),

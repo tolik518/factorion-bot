@@ -1,7 +1,7 @@
 //! Parses text and extracts calculations
 use std::sync::{LazyLock, OnceLock};
 
-use rug::{Complete, Float, Integer, integer::IntegerExt64};
+use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::{
     FLOAT_PRECISION,
@@ -10,7 +10,7 @@ use crate::{
 };
 
 pub mod recommended {
-    use rug::Integer;
+    use crate::rug::Integer;
     use std::sync::LazyLock;
 
     pub static INTEGER_CONSTRUCTION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 100_000_000.into());
@@ -103,7 +103,7 @@ static PI: LazyLock<Number> = LazyLock::new(|| {
             *FLOAT_PRECISION
                 .get()
                 .expect("FLOAT_PRECISION uninitialized"),
-            rug::float::Constant::Pi,
+            crate::rug::float::Constant::Pi,
         )
         .into(),
     )
@@ -114,7 +114,7 @@ static TAU: LazyLock<Number> = LazyLock::new(|| {
             *FLOAT_PRECISION
                 .get()
                 .expect("FLOAT_PRECISION uninitialized"),
-            rug::float::Constant::Pi,
+            crate::rug::float::Constant::Pi,
         ) * 2.0,
     ))
 });
@@ -1060,12 +1060,14 @@ mod test {
 
     #[test]
     fn test_constant() {
+        let _ = crate::init_default();
         let jobs = parse("!espi!", true);
         assert_eq!(jobs, []);
     }
 
     #[test]
     fn test_fraction() {
+        let _ = crate::init_default();
         let jobs = parse("!5/6!", true);
         assert_eq!(
             jobs,

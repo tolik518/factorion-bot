@@ -1,9 +1,9 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 use crate::FLOAT_PRECISION;
 
-use rug::float::OrdFloat;
-use rug::ops::{NegAssign, NotAssign, Pow};
-use rug::{Float, Integer};
+use crate::rug::float::OrdFloat;
+use crate::rug::ops::{NegAssign, NotAssign, Pow};
+use crate::rug::{Float, Integer};
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Write;
@@ -461,7 +461,7 @@ fn truncate(number: &Integer, add_roughly: bool) -> String {
     let orig_number = number;
     let number = number.clone().abs();
     let length = (Float::with_val(prec, &number).ln() / Float::with_val(prec, 10).ln())
-        .to_integer_round(rug::float::Round::Down)
+        .to_integer_round(crate::rug::float::Round::Down)
         .unwrap()
         .0;
     let truncated_number: Integer = &number
@@ -520,7 +520,7 @@ fn truncate(number: &Integer, add_roughly: bool) -> String {
 mod tests {
     use super::*;
     use crate::recommended::FLOAT_PRECISION;
-    use rug::Integer;
+    use crate::rug::Integer;
     use std::{str::FromStr, sync::LazyLock};
 
     static TOO_BIG_NUMBER: LazyLock<Integer> =
@@ -955,7 +955,7 @@ mod test {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::Exact({
-                let mut r = Float::with_val(FLOAT_PRECISION, rug::float::Special::Infinity);
+                let mut r = Float::with_val(FLOAT_PRECISION, crate::rug::float::Special::Infinity);
                 r.next_down();
                 r.to_integer().unwrap()
             }),
