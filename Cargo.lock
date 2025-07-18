@@ -275,6 +275,7 @@ dependencies = [
 [[package]]
 name = "factorion-bot-reddit"
 version = "4.0.0"
+
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -287,6 +288,7 @@ dependencies = [
  "influxdb",
  "log",
  "reqwest 0.12.22",
+
  "serde",
  "serde_json",
  "tokio",
