@@ -10,30 +10,80 @@ jobs:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: "Cache cargo"
+        id: cache-cargo
+        uses: "actions/cache@v4"
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-check-
       - name: Run Format
         run: cargo fmt --all -- --check
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: "Cache cargo"
+        id: cache-cargo
+        uses: "actions/cache@v4"
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-test-
       - name: Test
-        run: cargo test
+        run: cargo test --profile ci
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: "Cache cargo"
+        id: cache-cargo
+        uses: "actions/cache@v4"
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features --profile ci
+
+  semver:
+    name: Semver Check
+    runs-on: ubuntu-latest
+    steps:      
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: .old
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          baseline-root: .old
 
   bumped_version:
     name: Bumped Version Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 2  # Ensure you have the commit history to compare
       - name: Ensure version bump in Cargo.toml (if applicable)
@@ -41,28 +91,31 @@ jobs:
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           # Fetch the base branch version of Cargo.toml and diff files
           git fetch origin "$BASE_BRANCH"
-          # Get list of changed files between base branch and the current commit
-          CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD)
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
+          for DIR in ["factorion-reddit", "factorion-lib", "factorion-math"]
+          do
+            # Get list of changed files between base branch and the current commit
+            CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD -- "$DIR")
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
           
-          # Filter out files that are not yml, yaml, or md.
-          NON_CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -vE '\.(yml|yaml|md)$' || true)
+            # Filter out files that are not yml, yaml, or md.
+            NON_CONFIG_FILES=$(echo "$CHANGED_FILES" | grep -vE '\.(yml|yaml|md)$' || true)
           
-          if [ -z "$NON_CONFIG_FILES" ]; then
-            echo "Only YAML, Markdown, or similar files changed. Skipping version bump check."
-            exit 0
-          fi
+            if [ -z "$NON_CONFIG_FILES" ]; then
+              echo "Only YAML, Markdown, or similar files changed. Skipping version bump check."
+              exit 0
+            fi
 
-          # Proceed with version bump check if there are other changes.
-          BASE_VERSION=$(git show origin/"$BASE_BRANCH":Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
-          PR_VERSION=$(grep '^version' Cargo.toml | head -n 1 | cut -d '"' -f2)
-          echo "Base version: $BASE_VERSION"
-          echo "PR version: $PR_VERSION"
+            # Proceed with version bump check if there are other changes.
+            BASE_VERSION=$(git show origin/"$BASE_BRANCH":"$DIR"/Cargo.toml | grep '^version' | head -n 1 | cut -d '"' -f2)
+            PR_VERSION=$(grep '^version' "$DIR"/Cargo.toml | head -n 1 | cut -d '"' -f2)
+            echo "Base version: $BASE_VERSION"
+            echo "PR version: $PR_VERSION"
 
-          if [ "$BASE_VERSION" = "$PR_VERSION" ]; then
-            echo "Error: version not bumped! Please update the version in Cargo.toml."
-            exit 1
-          else
-            echo "Version bump detected."
-          fi
+            if [ "$BASE_VERSION" = "$PR_VERSION" ]; then
+              echo "Error: version not bumped! Please update the version in Cargo.toml."
+              exit 1
+            else
+              echo "Version bump detected."
+            fi
+          done
