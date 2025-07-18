@@ -73,11 +73,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
-          path: old
+          path: .old
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
-          baseline-root: old
+          baseline-root: .old
 
   bumped_version:
     name: Bumped Version Check
