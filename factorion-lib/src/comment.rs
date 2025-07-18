@@ -1076,7 +1076,7 @@ mod tests {
     fn test_comment_new_constants() {
         let _ = crate::init_default();
         let comment = Comment::new(
-            "This is a test comment with constants pi! And non-constant pie!",
+            "This is a test comment with constants pi! And non-constant pie! pine! tribute!",
             (),
             Commands::NONE,
             MAX_LENGTH,
