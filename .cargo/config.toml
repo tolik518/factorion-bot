@@ -1,0 +1,5 @@
+[profile.ci]
+inherits = "dev"
+opt-level = 0
+lto = "off"
+debug = false

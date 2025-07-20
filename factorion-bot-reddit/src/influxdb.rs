@@ -1,10 +1,8 @@
 use chrono::{DateTime, Utc};
 use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable};
-use std::time::SystemTime;
+use std::{sync::LazyLock, time::SystemTime};
 
-use once_cell::sync::Lazy;
-
-pub static INFLUX_CLIENT: Lazy<Option<InfluxDbClient>> = Lazy::new(|| {
+pub static INFLUX_CLIENT: LazyLock<Option<InfluxDbClient>> = LazyLock::new(|| {
     let host = std::env::var("INFLUXDB_HOST").ok()?;
     let bucket = std::env::var("INFLUXDB_BUCKET").ok()?;
     let token = std::env::var("INFLUXDB_TOKEN").ok()?;
