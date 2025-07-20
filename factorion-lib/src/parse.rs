@@ -11,9 +11,8 @@ use crate::{
 
 pub mod recommended {
     use crate::rug::Integer;
-    use std::sync::LazyLock;
 
-    pub static INTEGER_CONSTRUCTION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 100_000_000.into());
+    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 100_000_000.into();
 }
 static INTEGER_CONSTRUCTION_LIMIT: OnceLock<Integer> = OnceLock::new();
 
@@ -27,7 +26,7 @@ pub fn init(integer_construction_limit: Integer) -> Result<(), AlreadyInit> {
     Ok(())
 }
 pub fn init_default() -> Result<(), AlreadyInit> {
-    init(recommended::INTEGER_CONSTRUCTION_LIMIT.clone())
+    init(recommended::INTEGER_CONSTRUCTION_LIMIT())
 }
 
 const POI_STARTS: &[char] = &[

@@ -16,23 +16,23 @@ use crate::rug::{Float, ops::Pow};
 pub mod recommended {
     use crate::recommended::FLOAT_PRECISION;
     use crate::rug::{Float, Integer};
-    use std::{str::FromStr, sync::LazyLock};
+    use std::str::FromStr;
     // Limit for exact calculation, set to limit calculation time
-    pub static UPPER_CALCULATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
+    pub static UPPER_CALCULATION_LIMIT: fn() -> Integer = || 1_000_000.into();
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
-    pub static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
-        LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
+    pub static UPPER_APPROXIMATION_LIMIT: fn() -> Integer =
+        || Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap();
     // Limit for exact subfactorial calculation, set to limit calculation time
-    pub static UPPER_SUBFACTORIAL_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
+    pub static UPPER_SUBFACTORIAL_LIMIT: fn() -> Integer = || 1_000_000.into();
     // Limit for exact termial calculation, set to limit calculation time (absurdly high)
-    pub static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
-        LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
+    pub static UPPER_TERMIAL_LIMIT: fn() -> Integer =
+        || Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap();
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
-    pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
+    pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: fn() -> Integer = || {
         let mut max = Float::with_val(FLOAT_PRECISION, crate::rug::float::Special::Infinity);
         max.next_down();
         max.to_integer().unwrap()
-    });
+    };
 }
 
 static UPPER_CALCULATION_LIMIT: OnceLock<Integer> = OnceLock::new();
@@ -71,11 +71,11 @@ pub fn init(
 pub fn init_default() -> Result<(), AlreadyInit> {
     use recommended::*;
     init(
-        UPPER_CALCULATION_LIMIT.clone(),
-        UPPER_APPROXIMATION_LIMIT.clone(),
-        UPPER_SUBFACTORIAL_LIMIT.clone(),
-        UPPER_TERMIAL_LIMIT.clone(),
-        UPPER_TERMIAL_APPROXIMATION_LIMIT.clone(),
+        UPPER_CALCULATION_LIMIT(),
+        UPPER_APPROXIMATION_LIMIT(),
+        UPPER_SUBFACTORIAL_LIMIT(),
+        UPPER_TERMIAL_LIMIT(),
+        UPPER_TERMIAL_APPROXIMATION_LIMIT(),
     )
 }
 
