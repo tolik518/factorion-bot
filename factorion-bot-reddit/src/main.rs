@@ -274,24 +274,22 @@ fn init() {
             .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
         std::env::var("UPPER_CALCULATION_LIMIT")
             .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT.clone()),
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT()),
         std::env::var("UPPER_APPROXIMATION_LIMIT")
             .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT.clone()),
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT()),
         std::env::var("UPPER_SUBFACTORIAL_LIMIT")
             .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT.clone()),
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT()),
         std::env::var("UPPER_TERMIAL_LIMIT")
             .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT.clone()),
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT()),
         std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
-            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| {
-                factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT.clone()
-            }),
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT),
         std::env::var("INTEGER_CONSTRUCTION_LIMIT")
             .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT.clone()),
+            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT()),
         std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),

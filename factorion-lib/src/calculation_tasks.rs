@@ -14,32 +14,29 @@ use crate::rug::Integer;
 use crate::rug::{Float, ops::Pow};
 
 pub mod recommended {
-    use crate::recommended::FLOAT_PRECISION;
-    use crate::rug::{Float, Integer};
-    use std::{str::FromStr, sync::LazyLock};
+    use factorion_math::rug::Complete;
+    use factorion_math::rug::integer::IntegerExt64;
+
+    use crate::rug::Integer;
     // Limit for exact calculation, set to limit calculation time
-    pub static UPPER_CALCULATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
+    pub static UPPER_CALCULATION_LIMIT: fn() -> Integer = || 1_000_000.into();
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
-    pub static UPPER_APPROXIMATION_LIMIT: LazyLock<Integer> =
-        LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap());
+    pub static UPPER_APPROXIMATION_LIMIT: fn() -> Integer =
+        || Integer::u64_pow_u64(10, 300).complete();
     // Limit for exact subfactorial calculation, set to limit calculation time
-    pub static UPPER_SUBFACTORIAL_LIMIT: LazyLock<Integer> = LazyLock::new(|| 1_000_000.into());
+    pub static UPPER_SUBFACTORIAL_LIMIT: fn() -> Integer = || 1_000_000.into();
     // Limit for exact termial calculation, set to limit calculation time (absurdly high)
-    pub static UPPER_TERMIAL_LIMIT: LazyLock<Integer> =
-        LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(10000))).unwrap());
+    pub static UPPER_TERMIAL_LIMIT: fn() -> Integer = || Integer::u64_pow_u64(10, 10000).complete();
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
-    pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: LazyLock<Integer> = LazyLock::new(|| {
-        let mut max = Float::with_val(FLOAT_PRECISION, crate::rug::float::Special::Infinity);
-        max.next_down();
-        max.to_integer().unwrap()
-    });
+    // Based on max float. (bits)
+    pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: u32 = 1073741822;
 }
 
 static UPPER_CALCULATION_LIMIT: OnceLock<Integer> = OnceLock::new();
 static UPPER_APPROXIMATION_LIMIT: OnceLock<Integer> = OnceLock::new();
 static UPPER_SUBFACTORIAL_LIMIT: OnceLock<Integer> = OnceLock::new();
 static UPPER_TERMIAL_LIMIT: OnceLock<Integer> = OnceLock::new();
-static UPPER_TERMIAL_APPROXIMATION_LIMIT: OnceLock<Integer> = OnceLock::new();
+static UPPER_TERMIAL_APPROXIMATION_LIMIT: OnceLock<u32> = OnceLock::new();
 
 use crate::AlreadyInit;
 pub fn init(
@@ -47,7 +44,7 @@ pub fn init(
     upper_approximation_limit: Integer,
     upper_subfactorial_limit: Integer,
     upper_termial_limit: Integer,
-    upper_termial_approximation_limit: Integer,
+    upper_termial_approximation_limit: u32,
 ) -> Result<(), AlreadyInit> {
     static INITIALIZING: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _guard = INITIALIZING.lock();
@@ -71,11 +68,11 @@ pub fn init(
 pub fn init_default() -> Result<(), AlreadyInit> {
     use recommended::*;
     init(
-        UPPER_CALCULATION_LIMIT.clone(),
-        UPPER_APPROXIMATION_LIMIT.clone(),
-        UPPER_SUBFACTORIAL_LIMIT.clone(),
-        UPPER_TERMIAL_LIMIT.clone(),
-        UPPER_TERMIAL_APPROXIMATION_LIMIT.clone(),
+        UPPER_CALCULATION_LIMIT(),
+        UPPER_APPROXIMATION_LIMIT(),
+        UPPER_SUBFACTORIAL_LIMIT(),
+        UPPER_TERMIAL_LIMIT(),
+        UPPER_TERMIAL_APPROXIMATION_LIMIT,
     )
 }
 
@@ -377,7 +374,7 @@ impl CalculationJob {
             })
         } else if level < 0 {
             Some(
-                if calc_num
+                if calc_num.significant_bits()
                     > *UPPER_TERMIAL_APPROXIMATION_LIMIT
                         .get()
                         .expect("Limit uninitialized, use init")

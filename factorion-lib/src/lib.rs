@@ -37,7 +37,7 @@ pub fn init(
     upper_approximation_limit: Integer,
     upper_subfactorial_limit: Integer,
     upper_termial_limit: Integer,
-    upper_termial_approximation_limit: Integer,
+    upper_termial_approximation_limit: u32,
     integer_construction_limit: Integer,
     number_decimals_scientific: usize,
 ) -> Result<(), AlreadyInit> {
