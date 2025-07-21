@@ -10,9 +10,9 @@ use crate::{
 };
 
 pub mod recommended {
-    use crate::rug::Integer;
+    use factorion_math::rug::Integer;
 
-    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 100_000_000.into();
+    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 100_000_000u128.into();
 }
 static INTEGER_CONSTRUCTION_LIMIT: OnceLock<Integer> = OnceLock::new();
 

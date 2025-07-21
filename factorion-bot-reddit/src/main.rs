@@ -285,8 +285,8 @@ fn init() {
             .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
             .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT()),
         std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
-            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT()),
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT),
         std::env::var("INTEGER_CONSTRUCTION_LIMIT")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT()),
