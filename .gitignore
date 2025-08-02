@@ -1,5 +1,6 @@
 /target
 /.env
+/.direnv
 /.idea/
 cargo-test-*
 comment_ids
