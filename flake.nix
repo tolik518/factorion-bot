@@ -34,24 +34,26 @@
       devShells = forAllSystems (
         { pkgs, ... }:
         with pkgs;
-        mkShell {
-          packages = [
-            # Rust
-            cargo
-            clippy
-            rust-analyzer
-            rustc
-            rustfmt
-            cargo-watch
+        {
+          default = mkShell {
+            packages = [
+              # Rust
+              cargo
+              clippy
+              rust-analyzer
+              rustc
+              rustfmt
+              cargo-watch
 
-            # Project Build-Dependencies
-            pkg-config
-            openssl
-            m4
-            gmp
-            mpc
-            mpfr
-          ];
+              # Project Build-Dependencies
+              pkg-config
+              openssl
+              m4
+              gmp
+              mpc
+              mpfr
+            ];
+          };
         }
       );
 
