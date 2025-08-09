@@ -18,7 +18,7 @@ This little fella is currently running on <b>r/mathmemes</b>, <b>r/unexpectedfac
   - [Reddit API Credentials](#reddit-api-credentials)
   - [Installation](#installation)
   - [Configuration](#configuration)
-- [Usage](#usage)
+  - [Usage](#usage)
 - [Contributing](#contributing)
 
 # Getting Started
@@ -55,16 +55,36 @@ Follow these steps to set up and run the Factorion bot on your local machine and
    - A `username` and `password` (for the Reddit account that created the app)
 
 
-### Installation
-
+## Installation
+You might need to install some build dependecies: openssl, gmp, m4, pkg-config
+### With Cargo (crates.io)
+```bash
+cargo install --locked factorion-bot-reddit
+```
+### With Nix
+Use the provided flake.
+```bash
+nix build github:tolik518/factorion-bot
+# The binaries will be in result/bin
+```
+### With docker
+Skip to [Running on a server](#running-on-a-server).
+### Manually
 Fork/Clone the repository and navigate to the project directory:
 
 ```bash
-git clone https://github.com/yourusername/factorion-bot.git
+git clone https://github.com/tolik518/factorion-bot.git
 cd factorion-bot
+
+# To just build
+cargo build -r
+# The binaries will be in target/release
+
+# To install
+cargo install --path .
 ```
 
-### Configuration
+## Configuration
 
 Create a `.env` file in the project root with the following variables:
 
@@ -108,20 +128,20 @@ Setting them to `0` will result in a crash.
 
 Set `RUST_LOG` to `factorion_bot` to see all logs, or `error` to see only errors.
 
-## Run the following command to install dependencies:
-
-##### Refer to `Cargo.toml`
-
-```bash
-cargo build
-```
-
 ## Usage
 
-Run the bot with:
+If built manually, run the bot with:
 
 ```bash
 cargo run
+```
+
+Otherwise run the binary `factorion-bot-reddit`.
+```bash
+# If in path (cargo install)
+factorion-bot-reddit
+# If local nix build
+result/bin/factorion-bot-reddit
 ```
 ### How does it work in Reddit?
 1. Create a new user for the bot so it can be mentioned by `/u/<botname>`
@@ -141,8 +161,11 @@ docker compose up -d
 ```
 
 
-## Contributing
+# Contributing
 
 Feel free to submit issues or pull requests if you would like to contribute to this project.
 Help with ideas, math, code, documentation, etc. is greatly appreciated.
 If you are unsure about how to start, visit [Contributing](CONTRIBUTING.md)
+
+## Nix Devshell
+If you use nix you can use `nix develop` and/or nix-direnv to enter a devshell, that provides all dependencies.
