@@ -394,6 +394,20 @@ fn test_comment_new_decimals_termial() {
     assert_eq!(comment.status, Status::FACTORIALS_FOUND);
 }
 #[test]
+fn test_comment_new_multitermial_decimals() {
+    let _ = factorion_lib::init_default();
+    let comment = Comment::new(
+        "This is a test comment with decimal number 1294.5??",
+        (),
+        Commands::NONE,
+        MAX_LENGTH,
+    )
+    .extract()
+    .calc();
+    assert_eq!(comment.calculation_list, vec![]);
+    assert_eq!(comment.status, Status::NO_FACTORIAL);
+}
+#[test]
 fn test_comment_new_subfactorial_decimals() {
     let _ = factorion_lib::init_default();
     let comment = Comment::new(

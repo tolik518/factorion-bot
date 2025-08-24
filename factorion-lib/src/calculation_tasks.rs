@@ -234,7 +234,11 @@ impl CalculationJob {
             }
             CalculationResult::ComplexInfinity => return Some(CalculationResult::ComplexInfinity),
             Number::Float(num) => match level {
-                ..0 => {
+                ..-1 => {
+                    // We don't support multitermials of decimals
+                    return None;
+                }
+                -1 => {
                     let res: Float = math::fractional_termial(num.as_float().clone())
                         * if negative % 2 != 0 { -1 } else { 1 };
                     if res.is_finite() {
@@ -402,7 +406,37 @@ impl CalculationJob {
                 },
             )
         } else {
-            None
+            unreachable!()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use factorion_math::recommended::FLOAT_PRECISION;
+
+    #[test]
+    fn test_unsupported_calcs() {
+        // Subfactorial
+        let job = CalculationJob {
+            base: CalculationBase::Num(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into())),
+            level: 0,
+            negative: 0,
+        };
+        assert_eq!(job.execute(false), vec![None]);
+        // Multitermial
+        let job = CalculationJob {
+            base: CalculationBase::Num(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into())),
+            level: -2,
+            negative: 0,
+        };
+        assert_eq!(job.execute(false), vec![None]);
+        let job = CalculationJob {
+            base: CalculationBase::Num(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into())),
+            level: -51,
+            negative: 0,
+        };
+        assert_eq!(job.execute(false), vec![None]);
     }
 }
