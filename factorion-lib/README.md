@@ -26,7 +26,7 @@ assert_eq!(comment.meta, "meta");
 // Useful status
 assert_eq!(comment.status, Status::FACTORIALS_FOUND);
 // Good looking reply (reddit markdown formatting).
-assert_eq!(reply, "Hey @you! \n\nThe termial of the factorial of 5 is 7260 \n\n\n*^(This action was performed by a bot. Please DM me if you have any questions.)*");
+assert_eq!(reply, "Hey @you! \n\nThe termial of the factorial of 5 is 7260 \n\n\n*^(This action was performed by a bot.)*");
 ```
 Or manually do the steps:
 ```rust

@@ -202,8 +202,7 @@ impl Commands {
     }
 }
 
-const FOOTER_TEXT: &str =
-    "\n*^(This action was performed by a bot. Please DM me if you have any questions.)*";
+const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot.)*";
 
 macro_rules! contains_comb {
     // top level (advance both separately)
