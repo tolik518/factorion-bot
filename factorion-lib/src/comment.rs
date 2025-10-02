@@ -511,6 +511,38 @@ impl<Meta> CommentCalculated<Meta> {
             }
         }
 
+        // Check if any of the calculated results are factorions and add interesting message
+        let factorions: Vec<String> = self
+            .calculation_list
+            .iter()
+            .filter_map(|calc| {
+                if calc.is_factorion() {
+                    if let crate::calculation_results::CalculationResult::Exact(ref num) = calc.result {
+                        Some(num.to_string())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !factorions.is_empty() {
+            let factorion_message = if factorions.len() == 1 {
+                format!(
+                    "\n**Interesting!** {} is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n",
+                    factorions[0]
+                )
+            } else {
+                format!(
+                    "\n**Interesting!** {} are [factorions](https://en.wikipedia.org/wiki/Factorion) - numbers that equal the sum of the factorial of their digits!\n",
+                    factorions.join(", ")
+                )
+            };
+            reply.push_str(&factorion_message);
+        }
+
         reply.push_str(FOOTER_TEXT);
         reply
     }

@@ -1555,3 +1555,173 @@ fn test_arbitrary_comment() {
         Ok(())
     });
 }
+
+#[test]
+fn test_factorion_detection_in_reply_single() {
+    let _ = factorion_lib::init_default();
+    
+    // Test that when we calculate a result that happens to be 145 (a factorion),
+    // the bot includes the special factorion message
+    let comment = Comment::new(
+        "What is 145!?", // This would calculate the factorial of 145, but we need a case where the RESULT is 145
+        (),
+        Commands::NONE,
+        MAX_LENGTH,
+    )
+    .extract()
+    .calc();
+
+    // Manually create a comment with a factorion result for testing
+    let factorion_comment = Comment {
+        meta: (),
+        calculation_list: vec![
+            Calculation {
+                value: 12.into(), // Doesn't matter what the input was
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(145)), // Result is the factorion 145
+            }
+        ],
+        notify: None,
+        commands: Commands::NONE,
+        max_length: MAX_LENGTH,
+        status: Status::FACTORIALS_FOUND,
+    };
+
+    let reply = factorion_comment.get_reply();
+    
+    // Check that the reply contains the factorion message
+    assert!(reply.contains("**Interesting!**"));
+    assert!(reply.contains("145 is a factorion"));
+    assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+    assert!(reply.contains("sum of the factorial of its digits"));
+}
+
+#[test] 
+fn test_factorion_detection_in_reply_multiple() {
+    let _ = factorion_lib::init_default();
+    
+    // Test with multiple factorions in one reply
+    let multiple_factorion_comment = Comment {
+        meta: (),
+        calculation_list: vec![
+            Calculation {
+                value: 1.into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(1)), // Factorion: 1! = 1
+            },
+            Calculation {
+                value: 2.into(), 
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(2)), // Factorion: 2! = 2
+            },
+            Calculation {
+                value: 145.into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(145)), // Factorion: 1! + 4! + 5! = 145
+            }
+        ],
+        notify: None,
+        commands: Commands::NONE,
+        max_length: MAX_LENGTH,
+        status: Status::FACTORIALS_FOUND,
+    };
+
+    let reply = multiple_factorion_comment.get_reply();
+    
+    // Check that the reply mentions multiple factorions
+    assert!(reply.contains("**Interesting!**"));
+    assert!(reply.contains("are factorions")); // plural form
+    assert!(reply.contains("1, 2, 145"));
+    assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+}
+
+#[test]
+fn test_no_factorion_message_for_normal_numbers() {
+    let _ = factorion_lib::init_default();
+    
+    // Test that normal factorial results don't trigger factorion message
+    let normal_comment = Comment {
+        meta: (),
+        calculation_list: vec![
+            Calculation {
+                value: 5.into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(120)), // 5! = 120, not a factorion
+            }
+        ],
+        notify: None,
+        commands: Commands::NONE,
+        max_length: MAX_LENGTH,
+        status: Status::FACTORIALS_FOUND,
+    };
+
+    let reply = normal_comment.get_reply();
+    
+    // Check that there's no factorion message
+    assert!(!reply.contains("**Interesting!**"));
+    assert!(!reply.contains("factorion"));
+    assert!(!reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+    
+    // But should still contain the normal factorial result
+    assert!(reply.contains("120"));
+    assert!(reply.contains("This action was performed by a bot"));
+}
+
+#[test]
+fn test_factorion_detection_40585() {
+    let _ = factorion_lib::init_default();
+    
+    // Test the largest known factorion: 40585
+    let factorion_comment = Comment {
+        meta: (),
+        calculation_list: vec![
+            Calculation {
+                value: 40585.into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(40585)), // 4! + 0! + 5! + 8! + 5! = 40585
+            }
+        ],
+        notify: None,
+        commands: Commands::NONE,
+        max_length: MAX_LENGTH,
+        status: Status::FACTORIALS_FOUND,
+    };
+
+    let reply = factorion_comment.get_reply();
+    
+    // Check that 40585 is detected as a factorion
+    assert!(reply.contains("**Interesting!**"));
+    assert!(reply.contains("40585 is a factorion"));
+    assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+}
+
+#[test]
+fn test_factorion_not_detected_for_approximations() {
+    let _ = factorion_lib::init_default();
+    
+    // Test that approximate results don't trigger factorion detection
+    let approximate_comment = Comment {
+        meta: (),
+        calculation_list: vec![
+            Calculation {
+                value: 145.into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Approximate(
+                    factorion_math::rug::Float::with_val(factorion_lib::recommended::FLOAT_PRECISION, 145.0).into(),
+                    Integer::from(0),
+                ), // Approximate result, not exact
+            }
+        ],
+        notify: None,
+        commands: Commands::NONE,
+        max_length: MAX_LENGTH,
+        status: Status::FACTORIALS_FOUND,
+    };
+
+    let reply = approximate_comment.get_reply();
+    
+    // Should not detect factorion for approximate results
+    assert!(!reply.contains("**Interesting!**"));
+    assert!(!reply.contains("factorion"));
+    assert!(!reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+}
