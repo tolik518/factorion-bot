@@ -711,6 +711,7 @@ impl RedditClient {
                         .copied()
                         .unwrap_or(commands.get("").copied().unwrap_or(Commands::NONE)),
                     MAX_COMMENT_LEN,
+                    "en",
                 )
             }) else {
                 error!("Failed to construct comment {comment_id}!");

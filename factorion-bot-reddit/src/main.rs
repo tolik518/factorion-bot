@@ -56,6 +56,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         number_decimals_scientific: std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
+        locales: HashMap::new(),
+        default_locale: "en".to_owned(),
     };
 
     let influx_client = &*INFLUX_CLIENT;

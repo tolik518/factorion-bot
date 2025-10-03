@@ -299,6 +299,7 @@ dependencies = [
  "arbtest",
  "factorion-math",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

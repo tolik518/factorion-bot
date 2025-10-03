@@ -1,7 +1,5 @@
 {
-  "version": 1,
-  "locale": {
-    "bot_disclaimer": "This action was performed by a bot. Please DM me if you have any questions.",
+    "bot_disclaimer": "This action was performed by a bot.",
     "notes": {
       "tower": "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.",
       "tower_mult": "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.",
@@ -9,7 +7,8 @@
       "digits_mult": "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.",
       "approx": "That is so large, that I can't calculate it, so I'll have to approximate.",
       "approx_mult": "Some of those are so large, that I can't calculate them, so I'll have to approximate.",
-      "round": "That is so large, that I can't calculate it, so I'll have to approximate.",
+      "round": "I can't calculate such a large factorial of decimals. So I had to round at some point.",
+      "round_mult": "I can't calculate that large factorials of decimals. So I had to round at some point.",
       "too_big": "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.",
       "too_big_mult": "If I post the whole numbers, the comment would get too long. So I had to turn them into scientific notation.",
       "remove": "If I posted all numbers, the comment would get too long. So I had to remove some of them.",
@@ -22,17 +21,19 @@
       "factorial": "factorial",
       "uple": "uple-{factorial}",
       "sub": "sub{factorial}",
-      "num_overrides": [
-        [2, "double-{factorial}"],
-        [3, "triple-{factorial}"]
-      ],
+      "num_overrides": {
+        "2": "double-{factorial}",
+        "3": "triple-{factorial}"
+      },
       "exact": "The {factorial} of {number} is {result}",
-      "roughly": "The {factorial} of {number} is roughly {result}",
-      "approximate": "The {factorial} of {number} is approximately {result}",
+      "rough": "The {factorial} of {number} is roughly {result}",
+      "approx": "The {factorial} of {number} is approximately {result}",
       "digits": "The {factorial} of {number} has approximately {result} digits",
       "order": "The {factorial} of {number} has on the order of {result} digits",
       "all_that": "All that of {number} has on the order of {result} digits",
       "rough_number": "roughly {number}"
+    },
+    "number_format": {
+      "decimal": "."
     }
-  }
 }

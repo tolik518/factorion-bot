@@ -12,7 +12,7 @@ use factorion_lib::Consts;
 // You need to define constants first
 let consts = Consts::default();
 // Construct a comment from the text, metadata (generic), commands and maximum comment length
-let comment: CommentConstructed<&str> = Comment::new("Here might be a factorial 5!?", "meta", Commands::TERMIAL, 10_000);
+let comment: CommentConstructed<&str> = Comment::new("Here might be a factorial 5!?", "meta", Commands::TERMIAL, 10_000, "en");
 // Here we just checked if it might contain a factorial and put things in the correct form.
 // Now to parse and extract any calculations
 let comment: CommentExtracted<&str> = comment.extract(&consts);
@@ -27,7 +27,7 @@ assert_eq!(comment.meta, "meta");
 // Useful status
 assert_eq!(comment.status, Status::FACTORIALS_FOUND);
 // Good looking reply (reddit markdown formatting).
-assert_eq!(reply, "Hey @you! \n\nThe termial of the factorial of 5 is 7260 \n\n\n*^(This action was performed by a bot.)*");
+assert_eq!(reply, "Hey @you!\n\nThe termial of the factorial of 5 is 7260 \n\n\n*^(This action was performed by a bot.)*");
 ```
 Or manually do the steps:
 ```rust

@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{borrow::Cow, collections::HashMap};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct Locale<'a> {
     pub bot_disclaimer: Cow<'a, str>,
     pub notes: Notes<'a>,
@@ -9,7 +9,7 @@ pub struct Locale<'a> {
     pub number_format: NumFormat,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct Notes<'a> {
     pub tower: Cow<'a, str>,
     pub tower_mult: Cow<'a, str>,
@@ -27,7 +27,7 @@ pub struct Notes<'a> {
     pub mention: Cow<'a, str>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct Format<'a> {
     pub termial: Cow<'a, str>,
     pub factorial: Cow<'a, str>,
@@ -43,7 +43,7 @@ pub struct Format<'a> {
     pub all_that: Cow<'a, str>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 pub struct NumFormat {
     pub decimal: char,
 }

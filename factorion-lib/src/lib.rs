@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::HashMap;
+
 use factorion_math as math;
 use rug::Integer;
 pub mod calculation_results;
@@ -18,6 +20,8 @@ pub use factorion_math::rug;
 /// The parser
 pub use parse::parse;
 
+use crate::locale::Locale;
+
 pub mod recommended {
     pub use crate::calculation_results::recommended::*;
     pub use crate::calculation_tasks::recommended::*;
@@ -25,7 +29,7 @@ pub mod recommended {
     pub use factorion_math::recommended::FLOAT_PRECISION;
 }
 
-pub struct Consts {
+pub struct Consts<'a> {
     pub float_precision: u32,
     pub upper_calculation_limit: Integer,
     pub upper_approximation_limit: Integer,
@@ -34,8 +38,10 @@ pub struct Consts {
     pub upper_termial_approximation_limit: u32,
     pub integer_construction_limit: Integer,
     pub number_decimals_scientific: usize,
+    pub locales: HashMap<String, Locale<'a>>,
+    pub default_locale: String,
 }
-impl Default for Consts {
+impl Default for Consts<'_> {
     fn default() -> Self {
         Consts {
             float_precision: math::recommended::FLOAT_PRECISION,
@@ -48,6 +54,11 @@ impl Default for Consts {
             integer_construction_limit: parse::recommended::INTEGER_CONSTRUCTION_LIMIT(),
             number_decimals_scientific:
                 calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
+            locales: HashMap::from([(
+                "en".to_owned(),
+                serde_json::de::from_str(include_str!("en.json")).unwrap(),
+            )]),
+            default_locale: "en".to_owned(),
         }
     }
 }
