@@ -819,7 +819,10 @@ mod tests {
         time::timeout,
     };
 
-    use factorion_lib::calculation_results::{Calculation, CalculationResult, Number};
+    use factorion_lib::{
+        Consts,
+        calculation_results::{Calculation, CalculationResult, Number},
+    };
 
     use super::*;
 
@@ -882,6 +885,7 @@ mod tests {
     #[tokio::test]
     async fn test_reply_to_comment() {
         let _lock = sequential();
+        let consts = Consts::default();
         let mut client = RedditClient {
             client: Client::new(),
             token: Token {
@@ -903,8 +907,8 @@ mod tests {
                     },
                     MAX_COMMENT_LEN
                 )
-                .extract()
-                .calc(),
+                .extract(&consts)
+                .calc(&consts),
                 "I relpy"
             )
         );
@@ -916,7 +920,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_comments() {
         let _lock = sequential();
-        let _ = factorion_lib::init_default();
+        let consts = Consts::default();
         let mut client = RedditClient {
             client: Client::new(),
             token: Token {
@@ -960,7 +964,7 @@ mod tests {
         let (comments, rate) = comments.unwrap();
         let comments = comments
             .into_iter()
-            .map(|c| c.extract().calc())
+            .map(|c| c.extract(&consts).calc(&consts))
             .collect::<Vec<_>>();
         assert_eq!(comments.len(), 2);
         assert_eq!(comments[0].meta.id, "t1_m38msug");
@@ -1047,7 +1051,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_extract_posts() {
-        let _ = factorion_lib::init_default();
+        let consts = Consts::default();
         let response = Response::from(http::Response::builder().status(200).header("X-Ratelimit-Remaining", "10").header("X-Ratelimit-Reset", "350").body(r#"{
                "data": {
                    "children": [
@@ -1106,7 +1110,7 @@ mod tests {
         .unwrap();
         let comments = comments
             .into_iter()
-            .map(|c| c.extract().calc())
+            .map(|c| c.extract(&consts).calc(&consts))
             .collect::<Vec<_>>();
         assert_eq!(comments.len(), 3);
         assert_eq!(

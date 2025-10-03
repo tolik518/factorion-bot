@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 use dotenvy::dotenv;
 use factorion_lib::{
+    Consts,
     comment::{Commands, Comment, Status},
     rug::{Complete, Integer, integer::IntegerExt64},
 };
@@ -29,6 +30,33 @@ static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init();
+
+    let consts = Consts {
+        float_precision: std::env::var("FLOAT_PRECISION")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
+        upper_calculation_limit: std::env::var("UPPER_CALCULATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT()),
+        upper_approximation_limit: std::env::var("UPPER_APPROXIMATION_LIMIT")
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT()),
+        upper_subfactorial_limit: std::env::var("UPPER_SUBFACTORIAL_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT()),
+        upper_termial_limit: std::env::var("UPPER_TERMIAL_LIMIT")
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT()),
+        upper_termial_approximation_limit: std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT),
+        integer_construction_limit: std::env::var("INTEGER_CONSTRUCTION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT()),
+        number_decimals_scientific: std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
+    };
 
     let influx_client = &*INFLUX_CLIENT;
 
@@ -128,7 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .into_iter()
             .filter_map(|c| {
                 let id = c.meta.id.clone();
-                match std::panic::catch_unwind(|| Comment::extract(c)) {
+                match std::panic::catch_unwind(|| Comment::extract(c, &consts)) {
                     Ok(c) => Some(c),
                     Err(_) => {
                         error!("Failed to calculate comment {id}!");
@@ -146,7 +174,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .into_iter()
             .filter_map(|c| {
                 let id = c.meta.id.clone();
-                match std::panic::catch_unwind(|| Comment::calc(c)) {
+                match std::panic::catch_unwind(|| Comment::calc(c, &consts)) {
                     Ok(c) => Some(c),
                     Err(_) => {
                         error!("Failed to calculate comment {id}!");
@@ -184,7 +212,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
 
             if should_answer {
-                let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply())
+                let Ok(reply): Result<String, _> =
+                    std::panic::catch_unwind(|| comment.get_reply(&consts))
                 else {
                     error!("Failed to format comment!");
                     continue;
@@ -267,34 +296,6 @@ fn init() {
 
         error!("Thread panicked at {location} with message: {message}");
     }));
-
-    factorion_lib::init(
-        std::env::var("FLOAT_PRECISION")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
-        std::env::var("UPPER_CALCULATION_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT()),
-        std::env::var("UPPER_APPROXIMATION_LIMIT")
-            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT()),
-        std::env::var("UPPER_SUBFACTORIAL_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT()),
-        std::env::var("UPPER_TERMIAL_LIMIT")
-            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT()),
-        std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT),
-        std::env::var("INTEGER_CONSTRUCTION_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT()),
-        std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
-    )
-    .unwrap();
 }
 
 fn write_comment_ids(already_replied_or_rejected: &[DenseId]) {

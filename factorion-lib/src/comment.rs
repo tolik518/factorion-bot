@@ -3,6 +3,7 @@
 use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
+use crate::Consts;
 use crate::calculation_results::Calculation;
 use crate::calculation_tasks::CalculationJob;
 use crate::parse::parse;
@@ -284,7 +285,7 @@ impl<Meta> CommentConstructed<Meta> {
     }
 
     /// Extracts the calculations using [parse](mod@crate::parse).
-    pub fn extract(self) -> CommentExtracted<Meta> {
+    pub fn extract(self, consts: &Consts) -> CommentExtracted<Meta> {
         let Comment {
             meta,
             calculation_list: comment_text,
@@ -293,7 +294,7 @@ impl<Meta> CommentConstructed<Meta> {
             commands,
             max_length,
         } = self;
-        let pending_list: Vec<CalculationJob> = parse(&comment_text, commands.termial);
+        let pending_list: Vec<CalculationJob> = parse(&comment_text, commands.termial, consts);
 
         if pending_list.is_empty() {
             status.no_factorial = true;
@@ -335,7 +336,7 @@ impl<Meta, S> Comment<Meta, S> {
 }
 impl<Meta> CommentExtracted<Meta> {
     /// Does the calculations using [calculation_tasks](crate::calculation_tasks).
-    pub fn calc(self) -> CommentCalculated<Meta> {
+    pub fn calc(self, consts: &Consts) -> CommentCalculated<Meta> {
         let Comment {
             meta,
             calculation_list: pending_list,
@@ -346,7 +347,7 @@ impl<Meta> CommentExtracted<Meta> {
         } = self;
         let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
-            .flat_map(|calc| calc.execute(commands.steps))
+            .flat_map(|calc| calc.execute(commands.steps, &consts))
             .filter_map(|x| {
                 if x.is_none() {
                     status.number_too_big_to_calculate = true;
@@ -376,7 +377,7 @@ impl<Meta> CommentExtracted<Meta> {
 }
 impl<Meta> CommentCalculated<Meta> {
     /// Does the formatting for the reply using [calculation_result](crate::calculation_results).
-    pub fn get_reply(&self) -> String {
+    pub fn get_reply(&self, consts: &Consts) -> String {
         let mut note = self
             .notify
             .as_ref()
@@ -443,7 +444,13 @@ impl<Meta> CommentCalculated<Meta> {
             .calculation_list
             .iter()
             .fold(note.clone(), |mut acc, factorial| {
-                let _ = factorial.format(&mut acc, self.commands.shorten, false, too_big_number);
+                let _ = factorial.format(
+                    &mut acc,
+                    self.commands.shorten,
+                    false,
+                    too_big_number,
+                    consts,
+                );
                 acc
             });
 
@@ -462,7 +469,7 @@ impl<Meta> CommentCalculated<Meta> {
                 .calculation_list
                 .iter()
                 .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(&mut acc, true, false, too_big_number);
+                    let _ = factorial.format(&mut acc, true, false, too_big_number, consts);
                     acc
                 });
         }
@@ -475,7 +482,7 @@ impl<Meta> CommentCalculated<Meta> {
                 .iter()
                 .map(|fact| {
                     let mut res = String::new();
-                    let _ = fact.format(&mut res, true, false, too_big_number);
+                    let _ = fact.format(&mut res, true, false, too_big_number, consts);
                     res
                 })
                 .collect();
@@ -491,7 +498,13 @@ impl<Meta> CommentCalculated<Meta> {
                             reply = self.calculation_list.iter().fold(
                                 note.to_string(),
                                 |mut acc, factorial| {
-                                    let _ = factorial.format(&mut acc, true, true, too_big_number);
+                                    let _ = factorial.format(
+                                        &mut acc,
+                                        true,
+                                        true,
+                                        too_big_number,
+                                        consts,
+                                    );
                                     acc
                                 },
                             );
@@ -531,8 +544,8 @@ mod tests {
 
     #[test]
     fn test_extraction_dedup() {
-        let _ = crate::init_default();
-        let jobs = parse("24! -24! 2!? (2!?)!", true);
+        let consts = Consts::default();
+        let jobs = parse("24! -24! 2!? (2!?)!", true, &consts);
         assert_eq!(
             jobs,
             [
@@ -574,7 +587,6 @@ mod tests {
 
     #[test]
     fn test_commands_from_comment_text() {
-        let _ = crate::init_default();
         let cmd1 = Commands::from_comment_text("!shorten!all !triangle !no_note");
         assert!(cmd1.shorten);
         assert!(cmd1.steps);
@@ -604,7 +616,6 @@ mod tests {
 
     #[test]
     fn test_commands_overrides_from_comment_text() {
-        let _ = crate::init_default();
         let cmd1 = Commands::overrides_from_comment_text("long no_steps no_termial note");
         assert!(cmd1.shorten);
         assert!(cmd1.steps);
@@ -615,7 +626,6 @@ mod tests {
 
     #[test]
     fn test_might_have_factorial() {
-        let _ = crate::init_default();
         assert!(Comment::might_have_factorial("5!"));
         assert!(Comment::might_have_factorial("3?"));
         assert!(!Comment::might_have_factorial("!?"));
@@ -623,7 +633,6 @@ mod tests {
 
     #[test]
     fn test_new_already_replied() {
-        let _ = crate::init_default();
         let comment = Comment::new_already_replied((), MAX_LENGTH);
         assert_eq!(comment.calculation_list, "");
         assert!(comment.status.already_replied_or_rejected);

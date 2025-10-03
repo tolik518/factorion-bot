@@ -1,30 +1,15 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
-use crate::FLOAT_PRECISION;
 
+use crate::Consts;
 use crate::rug::float::OrdFloat;
 use crate::rug::ops::{NegAssign, NotAssign, Pow};
 use crate::rug::{Float, Integer};
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Write;
-use std::sync::OnceLock;
 
 pub mod recommended {
     pub const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
-}
-static NUMBER_DECIMALS_SCIENTIFIC: OnceLock<usize> = OnceLock::new();
-
-use crate::AlreadyInit;
-pub fn init(number_decimals_scientific: usize) -> Result<(), AlreadyInit> {
-    static INITIALIZING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = INITIALIZING.lock();
-    NUMBER_DECIMALS_SCIENTIFIC
-        .set(number_decimals_scientific)
-        .map_err(|_| AlreadyInit)?;
-    Ok(())
-}
-pub fn init_default() -> Result<(), AlreadyInit> {
-    init(recommended::NUMBER_DECIMALS_SCIENTIFIC)
 }
 
 impl fmt::Debug for CalculationResult {
@@ -121,11 +106,6 @@ impl From<Float> for Number {
         Number::Float(value.into())
     }
 }
-impl std::fmt::Display for Number {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format(f, f.alternate(), f.sign_minus())
-    }
-}
 
 impl CalculationResult {
     /// Formats a number. \
@@ -133,90 +113,85 @@ impl CalculationResult {
     /// Aggressive enables tertation for towers.
     fn format(
         &self,
-        f: &mut std::fmt::Formatter<'_>,
+        acc: &mut String,
         shorten: bool,
         agressive: bool,
+        consts: &Consts,
     ) -> std::fmt::Result {
-        use std::fmt::Display;
         match &self {
             CalculationResult::Exact(factorial) => {
                 if shorten {
-                    f.write_str(&truncate(factorial, true))
+                    acc.write_str(&truncate(factorial, true, consts))
                 } else {
-                    factorial.fmt(f)
+                    write!(acc, "{factorial}")
                 }
             }
             CalculationResult::Approximate(base, exponent) => {
                 let base = base.as_float();
                 if !base.to_f64().is_finite() {
-                    f.write_fmt(format_args!("{base:.30}"))?;
+                    write!(acc, "{base:.30}")?;
                 } else {
-                    base.to_f64().fmt(f)?;
+                    write!(acc, "{}", base.to_f64())?;
                 };
-                f.write_str(" × 10^")?;
+                acc.write_str(" × 10^")?;
                 if shorten {
-                    f.write_str("(")?;
-                    f.write_str(&truncate(exponent, false))?;
-                    f.write_str(")")
+                    acc.write_str("(")?;
+                    acc.write_str(&truncate(exponent, false, consts))?;
+                    acc.write_str(")")
                 } else {
-                    exponent.fmt(f)
+                    write!(acc, "{exponent}")
                 }
             }
             CalculationResult::ApproximateDigits(_, digits) => {
                 if shorten {
-                    f.write_str(&truncate(digits, false))?;
+                    acc.write_str(&truncate(digits, false, consts))?;
                 } else {
-                    digits.fmt(f)?;
+                    write!(acc, "{digits}")?;
                 }
-                f.write_str(" digits")
+                acc.write_str(" digits")
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
-                f.write_str(if *negative { "-" } else { "" })?;
+                acc.write_str(if *negative { "-" } else { "" })?;
                 if !agressive {
                     if *depth > 0 {
-                        f.write_fmt(format_args!("10^("))?;
+                        acc.write_str("10^(")?;
                     }
                     if *depth > 1 {
-                        f.write_str(&"10\\^".repeat(*depth as usize - 1))?;
-                        f.write_str("(")?;
+                        acc.write_str(&"10\\^".repeat(*depth as usize - 1))?;
+                        acc.write_str("(")?;
                     }
                     if shorten {
-                        f.write_str(&truncate(exponent, false))?;
+                        acc.write_str(&truncate(exponent, false, consts))?;
                     } else {
-                        exponent.fmt(f)?;
+                        write!(acc, "{exponent}")?;
                     }
                     if *depth > 1 {
-                        f.write_str("\\)")?;
+                        acc.write_str("\\)")?;
                     }
                     if *depth > 0 {
-                        f.write_str(")")?;
+                        acc.write_str(")")?;
                     }
                 } else {
                     let mut extra = 0;
-                    let mut exponent = Float::with_val(
-                        *FLOAT_PRECISION
-                            .get()
-                            .expect("FLOAT_PRECISION unititialized, use init"),
-                        exponent,
-                    );
+                    let mut exponent = Float::with_val(consts.float_precision, exponent);
                     while exponent >= 10 {
                         extra += 1;
                         exponent = exponent.log10();
                     }
-                    f.write_str("^(")?;
-                    (depth + extra).fmt(f)?;
-                    f.write_str(")10")?;
+                    acc.write_str("^(")?;
+                    write!(acc, "{}", depth + extra)?;
+                    acc.write_str(")10")?;
                 }
-                f.write_str(" digits")
+                acc.write_str(" digits")
             }
             CalculationResult::Float(gamma) => {
                 if !gamma.as_float().to_f64().is_finite() {
-                    f.write_fmt(format_args!("{:.30}", gamma.as_float()))
+                    write!(acc, "{:.30}", gamma.as_float())
                 } else {
-                    gamma.as_float().to_f64().fmt(f)
+                    write!(acc, "{}", gamma.as_float().to_f64())
                 }
             }
-            CalculationResult::ComplexInfinity => f.write_str("∞\u{0303}"),
+            CalculationResult::ComplexInfinity => acc.write_str("∞\u{0303}"),
         }
     }
 }
@@ -289,6 +264,7 @@ impl Calculation {
         force_shorten: bool,
         agressive_shorten: bool,
         too_big_number: &Integer,
+        consts: &Consts,
     ) -> Result<(), std::fmt::Error> {
         let mut factorial_string = if !agressive_shorten {
             self.steps.iter().rev().fold(String::new(), |mut a, e| {
@@ -341,21 +317,19 @@ impl Calculation {
         };
         let factorial = &self.result;
         write!(acc, "{factorial_string}")?;
-        if agressive_shorten {
-            write!(acc, "{number:-#}")?
-        } else if number.is_too_long(too_big_number) || force_shorten {
-            write!(acc, "{number:#}")?
-        } else {
-            write!(acc, "{number}")?
-        }
+        number.format(
+            acc,
+            number.is_too_long(too_big_number) || force_shorten || agressive_shorten,
+            agressive_shorten,
+            consts,
+        )?;
         write!(acc, " {is}{approximate} ")?;
-        if agressive_shorten {
-            write!(acc, "{factorial:-#}")?
-        } else if factorial.is_too_long(too_big_number) || force_shorten {
-            write!(acc, "{factorial:#}")?
-        } else {
-            write!(acc, "{factorial}")?
-        }
+        factorial.format(
+            acc,
+            factorial.is_too_long(too_big_number) || force_shorten || agressive_shorten,
+            agressive_shorten,
+            consts,
+        )?;
         write!(acc, " \n\n")
     }
 
@@ -450,10 +424,8 @@ fn round(number: &mut String) {
         }
     }
 }
-fn truncate(number: &Integer, add_roughly: bool) -> String {
-    let prec = *FLOAT_PRECISION
-        .get()
-        .expect("FLOAT_PRECISION unititialized, use init");
+fn truncate(number: &Integer, add_roughly: bool, consts: &Consts) -> String {
+    let prec = consts.float_precision;
     if number == &0 {
         return number.to_string();
     }
@@ -466,22 +438,11 @@ fn truncate(number: &Integer, add_roughly: bool) -> String {
         .0;
     let truncated_number: Integer = &number
         / (Float::with_val(prec, 10)
-            .pow(
-                (length.clone()
-                    - NUMBER_DECIMALS_SCIENTIFIC
-                        .get()
-                        .expect("NUMBER_DECIMALS_SCIENTIFIC uninitialized, use init")
-                    - 1u8)
-                    .max(Integer::ZERO),
-            )
+            .pow((length.clone() - consts.number_decimals_scientific - 1u8).max(Integer::ZERO))
             .to_integer()
             .unwrap());
     let mut truncated_number = truncated_number.to_string();
-    if truncated_number.len()
-        > *NUMBER_DECIMALS_SCIENTIFIC
-            .get()
-            .expect("NUMBER_DECIMALS_SCIENTIFIC uninitialized, use init")
-    {
+    if truncated_number.len() > consts.number_decimals_scientific {
         round(&mut truncated_number);
     }
     if let Some(mut digit) = truncated_number.pop() {
@@ -500,12 +461,7 @@ fn truncate(number: &Integer, add_roughly: bool) -> String {
     if negative {
         truncated_number.insert(0, '-');
     }
-    if length
-        > NUMBER_DECIMALS_SCIENTIFIC
-            .get()
-            .expect("NUMBER_DECIMALS_SCIENTIFIC uninitialized, use init")
-            + 1
-    {
+    if length > consts.number_decimals_scientific + 1 {
         format!(
             "{}{} × 10^{}",
             if add_roughly { "roughly " } else { "" },
@@ -528,7 +484,6 @@ mod tests {
 
     #[test]
     fn test_round_down() {
-        let _ = crate::init_default();
         let mut number = String::from("1929472373");
         round(&mut number);
         assert_eq!(number, "192947237");
@@ -536,7 +491,6 @@ mod tests {
 
     #[test]
     fn test_round_up() {
-        let _ = crate::init_default();
         let mut number = String::from("74836748625");
         round(&mut number);
         assert_eq!(number, "7483674863");
@@ -544,7 +498,6 @@ mod tests {
 
     #[test]
     fn test_round_carry() {
-        let _ = crate::init_default();
         let mut number = String::from("24999999995");
         round(&mut number);
         assert_eq!(number, "25");
@@ -552,7 +505,6 @@ mod tests {
 
     #[test]
     fn test_factorial_level_string() {
-        let _ = crate::init_default();
         assert_eq!(Calculation::get_factorial_level_string(1), "the ");
         assert_eq!(Calculation::get_factorial_level_string(2), "double-");
         assert_eq!(Calculation::get_factorial_level_string(3), "triple-");
@@ -565,27 +517,36 @@ mod tests {
 
     #[test]
     fn test_truncate() {
-        let _ = crate::init_default();
-        assert_eq!(truncate(&Integer::from_str("0").unwrap(), false), "0");
-        assert_eq!(truncate(&Integer::from_str("-1").unwrap(), false), "-1");
+        let consts = Consts::default();
+        assert_eq!(
+            truncate(&Integer::from_str("0").unwrap(), false, &consts),
+            "0"
+        );
+        assert_eq!(
+            truncate(&Integer::from_str("-1").unwrap(), false, &consts),
+            "-1"
+        );
         assert_eq!(
             truncate(
                 &Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
-                false
+                false,
+                &consts
             ),
             "1 × 10^300"
         );
         assert_eq!(
             truncate(
                 &-Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
-                false
+                false,
+                &consts
             ),
             "-1 × 10^300"
         );
         assert_eq!(
             truncate(
                 &Integer::from_str(&format!("1{}", "0".repeat(2000000))).unwrap(),
-                false
+                false,
+                &consts
             ),
             "1 × 10^2000000"
         );
@@ -593,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_factorial_format() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let mut acc = String::new();
         let factorial = Calculation {
             value: 5.into(),
@@ -601,7 +562,7 @@ mod tests {
             result: CalculationResult::Exact(Integer::from(120)),
         };
         factorial
-            .format(&mut acc, false, false, &TOO_BIG_NUMBER)
+            .format(&mut acc, false, false, &TOO_BIG_NUMBER, &consts)
             .unwrap();
         assert_eq!(acc, "The factorial of 5 is 120 \n\n");
 
@@ -612,7 +573,7 @@ mod tests {
             result: CalculationResult::Exact(Integer::from(120)),
         };
         factorial
-            .format(&mut acc, false, false, &TOO_BIG_NUMBER)
+            .format(&mut acc, false, false, &TOO_BIG_NUMBER, &consts)
             .unwrap();
         assert_eq!(acc, "Subfactorial of 5 is 120 \n\n");
 
@@ -626,7 +587,7 @@ mod tests {
             ),
         };
         factorial
-            .format(&mut acc, false, false, &TOO_BIG_NUMBER)
+            .format(&mut acc, false, false, &TOO_BIG_NUMBER, &consts)
             .unwrap();
         assert_eq!(acc, "The factorial of 5 is approximately 1.2 × 10^5 \n\n");
 
@@ -637,7 +598,7 @@ mod tests {
             result: CalculationResult::ApproximateDigits(false, 3.into()),
         };
         factorial
-            .format(&mut acc, false, false, &TOO_BIG_NUMBER)
+            .format(&mut acc, false, false, &TOO_BIG_NUMBER, &consts)
             .unwrap();
         assert_eq!(acc, "The factorial of 5 has approximately 3 digits \n\n");
 
@@ -648,7 +609,7 @@ mod tests {
             result: CalculationResult::Exact(Integer::from(120)),
         };
         factorial
-            .format(&mut acc, true, false, &TOO_BIG_NUMBER)
+            .format(&mut acc, true, false, &TOO_BIG_NUMBER, &consts)
             .unwrap();
         assert_eq!(acc, "The factorial of 5 is 120 \n\n");
     }
@@ -668,43 +629,46 @@ mod test {
 
     #[test]
     fn test_format_factorial() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 10.into(),
             steps: vec![(3, 0)],
             result: CalculationResult::Exact(280.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
     }
     #[test]
     fn test_format_factorial_exact_of_decimal() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()),
             steps: vec![(3, 0)],
             result: CalculationResult::Exact(280.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "Triple-factorial of 0.5 is approximately 280 \n\n");
     }
     #[test]
     fn test_format_factorial_force_shorten_small() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 10.into(),
             steps: vec![(3, 0)],
             result: CalculationResult::Exact(280.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, true, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, true, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
     }
     #[test]
     fn test_format_factorial_force_shorten_large() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 100.into(),
             steps: vec![(1, 0)],
@@ -713,7 +677,8 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 100 is 232019615953125000000000000000000 \n\n"
@@ -721,7 +686,7 @@ mod test {
     }
     #[test]
     fn test_format_factorial_auto_shorten() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 3249.into(),
             steps: vec![(1,0)],
@@ -730,7 +695,8 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n"
@@ -738,26 +704,28 @@ mod test {
     }
     #[test]
     fn test_format_factorial_chain() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 5.into(),
             steps: vec![(3, 0), (1, 0)],
             result: CalculationResult::Exact(3628800.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "The factorial of triple-factorial of 5 is 3628800 \n\n");
     }
     #[test]
     fn test_format_factorial_negative() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 3)],
             result: CalculationResult::Exact(3628800.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "The triple-y negative factorial of 0 is 3628800 \n\n");
         let fact = Calculation {
             value: 0.into(),
@@ -765,12 +733,13 @@ mod test {
             result: CalculationResult::Exact(3628800.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "The negative factorial of 0 is 3628800 \n\n");
     }
     #[test]
     fn test_format_approximate_factorial() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
@@ -780,7 +749,8 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 0 is approximately 2.83947 × 10^10043 \n\n"
@@ -788,14 +758,15 @@ mod test {
     }
     #[test]
     fn test_format_approximate_digits_factorial() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigits(false, 10043394.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has approximately 10043394 digits \n\n"
@@ -803,26 +774,28 @@ mod test {
     }
     #[test]
     fn test_format_complex_infinity_factorial() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::ComplexInfinity,
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "The factorial of 0 is ∞\u{0303} \n\n");
     }
     #[test]
     fn test_format_digits_tower() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigitsTower(false, false, 9, 10375.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
@@ -830,14 +803,15 @@ mod test {
     }
     #[test]
     fn test_format_digits_tower_negative() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigitsTower(false, true, 9, 10375.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 0 has on the order of -10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(10375\\)) digits \n\n"
@@ -845,31 +819,33 @@ mod test {
     }
     #[test]
     fn test_format_digits_tower_tet() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::ApproximateDigitsTower(false, false, 9, 10375.into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, true, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, true, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "All that of 0 has on the order of ^(10)10 digits \n\n");
     }
     #[test]
     fn test_format_gamma() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: Number::Float(Float::with_val(FLOAT_PRECISION, 9.2).into()),
             steps: vec![(1, 0)],
             result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 893.83924421).into()),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(s, "The factorial of 9.2 is approximately 893.83924421 \n\n");
     }
     #[test]
     fn test_format_gamma_fallback() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: Number::Float(Float::with_val(FLOAT_PRECISION, 0).into()),
             steps: vec![(1, 0)],
@@ -880,7 +856,8 @@ mod test {
             },
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 0 is approximately 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 \n\n"
@@ -888,7 +865,7 @@ mod test {
     }
     #[test]
     fn test_format_approximate_factorial_shorten() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: Number::Exact(
                 Integer::from_str("2018338437429423744923849374833232131").unwrap(),
@@ -900,7 +877,8 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, true, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, true, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of roughly 2.018338437429423744923849374833 × 10^36 is approximately 2.8394792834 × 10^(1.009428349230489498344398410249 × 10^40) \n\n"
@@ -908,7 +886,7 @@ mod test {
     }
     #[test]
     fn test_format_approximate_digits_factorial_shorten() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: Number::Exact(
                 Integer::from_str("2313820948092579283573259490834298719").unwrap(),
@@ -920,7 +898,8 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, true, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, true, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of roughly 2.313820948092579283573259490834 × 10^36 has approximately 9.842371208573508275237815084709 × 10^48 digits \n\n"
@@ -928,7 +907,7 @@ mod test {
     }
     #[test]
     fn test_format_digits_tower_shorten() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: Number::Exact(
                 Integer::from_str("13204814708471087502685784603872164320053271").unwrap(),
@@ -942,7 +921,8 @@ mod test {
             ),
         };
         let mut s = String::new();
-        fact.format(&mut s, true, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, true, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of roughly 1.320481470847108750268578460387 × 10^43 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(7.084327410873502875032857120359 × 10^45\\)) digits \n\n"
@@ -950,7 +930,7 @@ mod test {
     }
     #[test]
     fn test_format_huge() {
-        let _ = crate::init_default();
+        let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
@@ -961,7 +941,8 @@ mod test {
             }),
         };
         let mut s = String::new();
-        fact.format(&mut s, false, false, &TOO_BIG_NUMBER).unwrap();
+        fact.format(&mut s, false, false, &TOO_BIG_NUMBER, &consts)
+            .unwrap();
         assert_eq!(
             s,
             "The factorial of 0 is roughly 2.098578716467387692404358116884 × 10^323228496 \n\n"
@@ -970,7 +951,6 @@ mod test {
 
     #[test]
     fn test_calculation_is_approximate() {
-        let _ = crate::init_default();
         let c1 = Calculation {
             value: 0.into(),
             steps: vec![],
@@ -990,7 +970,6 @@ mod test {
 
     #[test]
     fn test_calculation_is_rounded() {
-        let _ = crate::init_default();
         let c1 = Calculation {
             value: Number::Float(Float::with_val(FLOAT_PRECISION, 1.23).into()),
             steps: vec![],
@@ -1016,7 +995,6 @@ mod test {
 
     #[test]
     fn test_is_too_long() {
-        let _ = crate::init_default();
         let small = Calculation {
             value: 1.into(),
             steps: vec![],
