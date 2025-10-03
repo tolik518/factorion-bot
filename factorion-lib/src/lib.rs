@@ -5,6 +5,7 @@ use rug::Integer;
 pub mod calculation_results;
 pub mod calculation_tasks;
 pub mod comment;
+pub mod locale;
 pub mod parse;
 /// The result of a calculation
 pub use calculation_results::Calculation;
