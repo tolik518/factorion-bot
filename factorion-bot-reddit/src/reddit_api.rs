@@ -632,17 +632,16 @@ impl RedditClient {
                 && msg_type == "username_mention"
                 && !extracted_comment.status.already_replied_or_rejected
                 && extracted_comment.status.no_factorial
+                && let Some(path) = Self::extract_summon_parent_id(comment)
             {
-                if let Some(path) = Self::extract_summon_parent_id(comment) {
-                    parent_paths.push((
-                        path,
-                        (
-                            extracted_comment.meta.id.clone(),
-                            extracted_comment.commands,
-                            extracted_comment.meta.author.clone(),
-                        ),
-                    ));
-                }
+                parent_paths.push((
+                    path,
+                    (
+                        extracted_comment.meta.id.clone(),
+                        extracted_comment.commands,
+                        extracted_comment.meta.author.clone(),
+                    ),
+                ));
             }
             comments.push(extracted_comment);
         }
@@ -679,10 +678,9 @@ impl RedditClient {
             if let Some(min) = already_replied_to_comments
                 .len()
                 .checked_sub(MAX_ALREADY_REPLIED_LEN / 5 * 4)
+                && i < min
             {
-                if i < min {
-                    already_replied_to_comments.push(dense_id);
-                }
+                already_replied_to_comments.push(dense_id);
             }
             Some(Comment::new_already_replied(
                 Meta {

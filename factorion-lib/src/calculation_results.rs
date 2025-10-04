@@ -328,7 +328,7 @@ impl Calculation {
                         acc,
                         start,
                         "{factorial}",
-                        &Self::get_factorial_level_string(neg as i32),
+                        &Self::get_factorial_level_string(neg as i32, locale),
                     );
                     replace(acc, start, "{factorial}", "y {factorial}");
                 }
@@ -339,7 +339,7 @@ impl Calculation {
                 acc,
                 start,
                 "{factorial}",
-                &Self::get_factorial_level_string(level.abs()),
+                &Self::get_factorial_level_string(level.abs(), locale),
             );
 
             replace(
@@ -375,54 +375,70 @@ impl Calculation {
         Ok(())
     }
 
-    fn get_factorial_level_string(level: i32) -> Cow<'static, str> {
+    fn get_factorial_level_string<'a>(level: i32, locale: &'a locale::Format<'a>) -> Cow<'a, str> {
+        const SINGLES: [&str; 10] = [
+            "", "un", "duo", "tre", "quattuor", "quin", "sex", "septen", "octo", "novem",
+        ];
+        const SINGLES_LAST: [&str; 10] = [
+            "", "un", "du", "tr", "quadr", "quint", "sext", "sept", "oct", "non",
+        ];
+        const TENS: [&str; 10] = [
+            "",
+            "dec",
+            "vigin",
+            "trigin",
+            "quadragin",
+            "quagin",
+            "sexagin",
+            "septuagin",
+            "octogin",
+            "nonagin",
+        ];
+        const HUNDREDS: [&str; 10] = [
+            "",
+            "cen",
+            "ducen",
+            "tricen",
+            "quadringen",
+            "quingen",
+            "sescen",
+            "septingen",
+            "octingen ",
+            "nongen",
+        ];
+        const THOUSANDS: [&str; 10] = [
+            "", "mill", "bill", "trill", "quadrill", "quintill", "sextill", "septill", "octill",
+            "nonill",
+        ];
+        if let Some(s) = locale.num_overrides.get(&level) {
+            return s.as_ref().into();
+        }
         match level {
-            0 => "sub{factorial}".into(),
+            0 => locale.sub.as_ref().into(),
             1 => "{factorial}".into(),
-            2 => "double-{factorial}".into(),
-            3 => "triple-{factorial}".into(),
-            4 => "quadruple-{factorial}".into(),
-            5 => "quintuple-{factorial}".into(),
-            6 => "sextuple-{factorial}".into(),
-            7 => "septuple-{factorial}".into(),
-            8 => "octuple-{factorial}".into(),
-            9 => "nonuple-{factorial}".into(),
-            10 => "decuple-{factorial}".into(),
-            11 => "undecuple-{factorial}".into(),
-            12 => "duodecuple-{factorial}".into(),
-            13 => "tredecuple-{factorial}".into(),
-            14 => "quattuordecuple-{factorial}".into(),
-            15 => "quindecuple-{factorial}".into(),
-            16 => "sexdecuple-{factorial}".into(),
-            17 => "septendecuple-{factorial}".into(),
-            18 => "octodecuple-{factorial}".into(),
-            19 => "novemdecuple-{factorial}".into(),
-            20 => "vigintuple-{factorial}".into(),
-            21 => "unvigintuple-{factorial}".into(),
-            22 => "duovigintuple-{factorial}".into(),
-            23 => "trevigintuple-{factorial}".into(),
-            24 => "quattuorvigintuple-{factorial}".into(),
-            25 => "quinvigintuple-{factorial}".into(),
-            26 => "sexvigintuple-{factorial}".into(),
-            27 => "septenvigintuple-{factorial}".into(),
-            28 => "octovigintuple-{factorial}".into(),
-            29 => "novemvigintuple-{factorial}".into(),
-            30 => "trigintuple-{factorial}".into(),
-            31 => "untrigintuple-{factorial}".into(),
-            32 => "duotrigintuple-{factorial}".into(),
-            33 => "tretrigintuple-{factorial}".into(),
-            34 => "quattuortrigintuple-{factorial}".into(),
-            35 => "quintrigintuple-{factorial}".into(),
-            36 => "sextrigintuple-{factorial}".into(),
-            37 => "septentrigintuple-{factorial}".into(),
-            38 => "octotrigintuple-{factorial}".into(),
-            39 => "novemtrigintuple-{factorial}".into(),
-            40 => "quadragintuple-{factorial}".into(),
-            41 => "unquadragintuple-{factorial}".into(),
-            42 => "duoquadragintuple-{factorial}".into(),
-            43 => "trequadragintuple-{factorial}".into(),
-            44 => "quattuorquadragintuple-{factorial}".into(),
-            45 => "quinquadragintuple-{factorial}".into(),
+            ..=9999 if !locale.force_num => {
+                let singles = if level < 10 { SINGLES_LAST } else { SINGLES };
+                let mut acc = String::new();
+                let mut n = level;
+                let s = n % 10;
+                n /= 10;
+                acc.write_str(singles[s as usize]).unwrap();
+                let t = n % 10;
+                n /= 10;
+                acc.write_str(TENS[t as usize]).unwrap();
+                let h = n % 10;
+                n /= 10;
+                acc.write_str(HUNDREDS[h as usize]).unwrap();
+                let th = n % 10;
+                acc.write_str(THOUSANDS[th as usize]).unwrap();
+                // Check if we need tuple not uple
+                if th == 0 && (h != 0 || (t != 0 && t != 1)) {
+                    acc.write_str("t").unwrap();
+                }
+                acc.write_str(&locale.uple).unwrap();
+
+                acc.into()
+            }
             _ => {
                 let mut suffix = String::new();
                 write!(&mut suffix, "{level}-{{factorial}}").unwrap();
@@ -443,27 +459,26 @@ fn round(number: &mut String) {
     if let Some(digit) = number
         .pop()
         .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+        && digit >= 5
     {
-        if digit >= 5 {
-            let mut last_digit = number
+        let mut last_digit = number
+            .pop()
+            .and_then(|n| n.to_digit(10))
+            .expect("Not a base 10 number");
+        // Carry over at 9s
+        while last_digit == 9 {
+            let Some(digit) = number
                 .pop()
-                .and_then(|n| n.to_digit(10))
-                .expect("Not a base 10 number");
-            // Carry over at 9s
-            while last_digit == 9 {
-                let Some(digit) = number
-                    .pop()
-                    .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-                else {
-                    // If we reached the end we get 10
-                    number.push_str("10");
-                    return;
-                };
-                last_digit = digit;
-            }
-            // Round up
-            let _ = write!(number, "{}", last_digit + 1);
+                .map(|n| n.to_digit(10).expect("Not a base 10 number"))
+            else {
+                // If we reached the end we get 10
+                number.push_str("10");
+                return;
+            };
+            last_digit = digit;
         }
+        // Round up
+        let _ = write!(number, "{}", last_digit + 1);
     }
 }
 fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
@@ -552,22 +567,55 @@ mod tests {
 
     #[test]
     fn test_factorial_level_string() {
-        assert_eq!(Calculation::get_factorial_level_string(1), "{factorial}");
+        let en = locale::get_en();
         assert_eq!(
-            Calculation::get_factorial_level_string(2),
+            Calculation::get_factorial_level_string(1, &en.format),
+            "{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(2, &en.format),
             "double-{factorial}"
         );
         assert_eq!(
-            Calculation::get_factorial_level_string(3),
+            Calculation::get_factorial_level_string(3, &en.format),
             "triple-{factorial}"
         );
         assert_eq!(
-            Calculation::get_factorial_level_string(45),
+            Calculation::get_factorial_level_string(45, &en.format),
             "quinquadragintuple-{factorial}"
         );
         assert_eq!(
-            Calculation::get_factorial_level_string(50),
-            "50-{factorial}"
+            Calculation::get_factorial_level_string(50, &en.format),
+            "quagintuple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(521, &en.format),
+            "unviginquingentuple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(4321, &en.format),
+            "unvigintricenquadrilluple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(10000, &en.format),
+            "10000-{factorial}"
+        );
+        let de = locale::get_de();
+        assert_eq!(
+            Calculation::get_factorial_level_string(1, &de.format),
+            "{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(2, &de.format),
+            "doppel{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(3, &de.format),
+            "trippel{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(45, &de.format),
+            "quinquadragintupel{factorial}"
         );
     }
 

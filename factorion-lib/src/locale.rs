@@ -1,6 +1,13 @@
 use serde::Deserialize;
 use std::{borrow::Cow, collections::HashMap};
 
+pub fn get_en() -> Locale<'static> {
+    serde_json::de::from_str(include_str!("en.json")).unwrap()
+}
+pub fn get_de() -> Locale<'static> {
+    serde_json::de::from_str(include_str!("de.json")).unwrap()
+}
+
 #[derive(Deserialize)]
 pub struct Locale<'a> {
     pub bot_disclaimer: Cow<'a, str>,
@@ -35,7 +42,8 @@ pub struct Format<'a> {
     pub uple: Cow<'a, str>,
     pub sub: Cow<'a, str>,
     pub negative: Cow<'a, str>,
-    pub num_overrides: HashMap<usize, Cow<'a, str>>,
+    pub num_overrides: HashMap<i32, Cow<'a, str>>,
+    pub force_num: bool,
     pub nest: Cow<'a, str>,
     pub rough_number: Cow<'a, str>,
     pub exact: Cow<'a, str>,

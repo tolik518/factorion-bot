@@ -55,14 +55,8 @@ impl Default for Consts<'_> {
             number_decimals_scientific:
                 calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
             locales: HashMap::from([
-                (
-                    "en".to_owned(),
-                    serde_json::de::from_str(include_str!("en.json")).unwrap(),
-                ),
-                (
-                    "de".to_owned(),
-                    serde_json::de::from_str(include_str!("de.json")).unwrap(),
-                ),
+                ("en".to_owned(), locale::get_en()),
+                ("de".to_owned(), locale::get_de()),
             ]),
             default_locale: "en".to_owned(),
         }

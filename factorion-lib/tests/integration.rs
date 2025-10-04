@@ -1010,7 +1010,7 @@ fn test_get_reply_for_high_multifactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 10.into(),
-            steps: vec![(46, 0)],
+            steps: vec![(12345, 0)],
             result: CalculationResult::Exact(Integer::from(10)),
         }],
         notify: None,
@@ -1023,7 +1023,7 @@ fn test_get_reply_for_high_multifactorial() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "46-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot.)*"
+        "12345-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1601,7 +1601,7 @@ fn test_german_locale() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Subfakultät von 2 ist 1 \n\nDouble-fakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2.5 ist üngefähr 7.184006321612229 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
+        "Subfakultät von 2 ist 1 \n\nDoppelfakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2.5 ist üngefähr 7.184006321612229 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
     );
 }
 

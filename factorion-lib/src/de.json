@@ -27,6 +27,7 @@
         "2": "doppel{factorial}",
         "3": "trippel{factorial}"
       },
+      "force_num": false,
       "nest": "{factorial} von {next}",
       "exact": "{factorial} von {number} ist {result}",
       "rough": "{factorial} von {number} ist grob {result}",

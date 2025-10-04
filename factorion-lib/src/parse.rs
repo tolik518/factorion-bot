@@ -449,10 +449,10 @@ pub fn parse(
             current_negative = 0;
         };
         // toplevel? (8.)
-        if paren_steps.is_empty() {
-            if let Some(CalculationBase::Calc(job)) = base.take() {
-                jobs.push(*job);
-            }
+        if paren_steps.is_empty()
+            && let Some(CalculationBase::Calc(job)) = base.take()
+        {
+            jobs.push(*job);
         }
     }
     if let Some(CalculationBase::Calc(job)) = base.take() {
