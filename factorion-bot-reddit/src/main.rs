@@ -3,6 +3,7 @@ use dotenvy::dotenv;
 use factorion_lib::{
     Consts,
     comment::{Commands, Comment, Status},
+    locale::Locale,
     rug::{Complete, Integer, integer::IntegerExt64},
 };
 use influxdb::INFLUX_CLIENT;
@@ -25,7 +26,7 @@ const API_COMMENT_COUNT: u32 = 100;
 const ALREADY_REPLIED_IDS_FILE_PATH: &str = "already_replied_ids.dat";
 const MAX_ALREADY_REPLIED_LEN: usize = 100_000;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
-static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, Commands>> = OnceLock::new();
+static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, (&str, Commands)>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -56,7 +57,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
         number_decimals_scientific: std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
-        locales: HashMap::new(),
+        locales: std::env::var("LOCALES_DIR")
+            .map(|dir| {
+                let files = std::fs::read_dir(dir).unwrap();
+                let mut map = HashMap::new();
+                for (key, value) in files
+                    .map(|file| {
+                        let file = file.unwrap();
+                        let locale: Locale<'static> = serde_json::de::from_str(
+                            std::fs::read_to_string(file.path()).unwrap().leak(),
+                        )
+                        .unwrap();
+                        (file.file_name().into_string().unwrap(), locale)
+                    })
+                    .collect::<Box<_>>()
+                {
+                    map.insert(key, value);
+                }
+                map
+            })
+            .unwrap_or_else(|_| {
+                factorion_lib::locale::get_all()
+                    .map(|(k, v)| (k.to_owned(), v))
+                    .into()
+            }),
         default_locale: "en".to_owned(),
     };
 
@@ -79,29 +103,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let subreddit_commands = subreddit_commands.leak();
     let commands = subreddit_commands
         .split('+')
-        .map(|s| s.split_once(':').unwrap_or((s, "")))
+        .map(|s| s.split_once(':').expect("Locale is unset"))
+        .map(|(s, r)| (s, r.split_once(':').unwrap_or((r, ""))))
+        .map(|(s, (l, c))| (s, if l.is_empty() { "en" } else { l }, c))
         .filter(|s| !(s.0.is_empty() && s.1.is_empty()))
-        .map(|(sub, commands)| {
+        .map(|(sub, locale, commands)| {
             (
                 sub,
-                commands
-                    .split(',')
-                    .map(|command| match command.trim() {
-                        "shorten" => Commands::SHORTEN,
-                        "termial" => Commands::TERMIAL,
-                        "steps" => Commands::STEPS,
-                        "no_note" => Commands::NO_NOTE,
-                        "post_only" => Commands::POST_ONLY,
-                        "" => Commands::NONE,
-                        s => panic!("Unknown command in subreddit {sub}: {s}"),
-                    })
-                    .fold(Commands::NONE, |a, e| a | e),
+                (
+                    locale,
+                    commands
+                        .split(',')
+                        .map(|command| match command.trim() {
+                            "shorten" => Commands::SHORTEN,
+                            "termial" => Commands::TERMIAL,
+                            "steps" => Commands::STEPS,
+                            "no_note" => Commands::NO_NOTE,
+                            "post_only" => Commands::POST_ONLY,
+                            "" => Commands::NONE,
+                            s => panic!("Unknown command in subreddit {sub}: {s}"),
+                        })
+                        .fold(Commands::NONE, |a, e| a | e),
+                ),
             )
         })
         .collect::<HashMap<_, _>>();
     if !commands.is_empty() {
         requests_per_loop += 1.0;
-        if !commands.values().all(|v| v.post_only) {
+        if !commands.values().all(|v| v.1.post_only) {
             requests_per_loop += 1.0;
         }
     }

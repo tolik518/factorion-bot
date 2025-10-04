@@ -305,7 +305,11 @@ impl<Meta> CommentConstructed<Meta> {
             &comment_text,
             commands.termial,
             consts,
-            &consts.locales.get(&locale).unwrap().number_format,
+            &consts
+                .locales
+                .get(&locale)
+                .unwrap_or(consts.locales.get(&consts.default_locale).unwrap())
+                .number_format,
         );
 
         if pending_list.is_empty() {

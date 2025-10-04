@@ -7,8 +7,11 @@ pub fn get_en() -> Locale<'static> {
 pub fn get_de() -> Locale<'static> {
     serde_json::de::from_str(include_str!("de.json")).unwrap()
 }
+pub fn get_all() -> [(&'static str, Locale<'static>); 2] {
+    [("en", get_en()), ("de", get_de())]
+}
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Locale<'a> {
     pub bot_disclaimer: Cow<'a, str>,
     pub notes: Notes<'a>,
@@ -16,7 +19,7 @@ pub struct Locale<'a> {
     pub number_format: NumFormat,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Notes<'a> {
     pub tower: Cow<'a, str>,
     pub tower_mult: Cow<'a, str>,
@@ -34,7 +37,7 @@ pub struct Notes<'a> {
     pub mention: Cow<'a, str>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Format<'a> {
     pub capitalize_calc: bool,
     pub termial: Cow<'a, str>,
@@ -54,7 +57,7 @@ pub struct Format<'a> {
     pub all_that: Cow<'a, str>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct NumFormat {
     pub decimal: char,
 }

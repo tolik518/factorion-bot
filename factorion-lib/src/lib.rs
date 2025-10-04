@@ -29,6 +29,7 @@ pub mod recommended {
     pub use factorion_math::recommended::FLOAT_PRECISION;
 }
 
+#[derive(Debug, Clone)]
 pub struct Consts<'a> {
     pub float_precision: u32,
     pub upper_calculation_limit: Integer,
