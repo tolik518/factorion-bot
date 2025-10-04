@@ -426,11 +426,10 @@ impl<Meta> CommentCalculated<Meta> {
 
         // Calculate effective max length accounting for factorion message and
         // footer
-        let footer_len = FOOTER_TEXT.len();
         let factorion_msg_len = factorion_message.as_ref().map_or(0, |s| s.len());
         let effective_max_length = self
             .max_length
-            .saturating_sub(footer_len + factorion_msg_len);
+            .saturating_sub(factorion_msg_len);
 
         // Add Note
         let multiple = self.calculation_list.len() > 1;
