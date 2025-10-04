@@ -408,13 +408,15 @@ impl<Meta> CommentCalculated<Meta> {
             if !factorions.is_empty() {
                 Some(if factorions.len() == 1 {
                     format!(
-                        "\n**Interesting!** {} is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n",
-                        factorions[0]
+                        "\n**Interesting!** {} is a [factorion]({}) - a number that equals the sum of the factorial of its digits!\n",
+                        factorions[0],
+                        "https://en.wikipedia.org/wiki/Factorion"
                     )
                 } else {
                     format!(
-                        "\n**Interesting!** {} are [factorions](https://en.wikipedia.org/wiki/Factorion) - numbers that equal the sum of the factorial of their digits!\n",
-                        factorions.join(", ")
+                        "\n**Interesting!** {} are [factorions]({}) - numbers that equal the sum of the factorial of their digits!\n",
+                        factorions.join(", "),
+                        "https://en.wikipedia.org/wiki/Factorion"
                     )
                 })
             } else {
@@ -422,10 +424,13 @@ impl<Meta> CommentCalculated<Meta> {
             }
         };
 
-        // Calculate effective max length accounting for factorion message and footer
+        // Calculate effective max length accounting for factorion message and
+        // footer
         let footer_len = FOOTER_TEXT.len();
         let factorion_msg_len = factorion_message.as_ref().map_or(0, |s| s.len());
-        let effective_max_length = self.max_length.saturating_sub(footer_len + factorion_msg_len);
+        let effective_max_length = self
+            .max_length
+            .saturating_sub(footer_len + factorion_msg_len);
 
         // Add Note
         let multiple = self.calculation_list.len() > 1;

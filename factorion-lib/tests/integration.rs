@@ -1567,7 +1567,8 @@ fn test_factorion_detection_in_reply_single() {
             Calculation {
                 value: 12.into(),
                 steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(145)), // Result is the factorion 145
+                result: CalculationResult::Exact(Integer::from(145)), // Result is the
+                                                                                     // factorion 145
             }
         ],
         notify: None,
@@ -1580,7 +1581,7 @@ fn test_factorion_detection_in_reply_single() {
     
     // Check that the reply contains the factorion message
     assert!(reply.contains("**Interesting!**"));
-    assert!(reply.contains("145 is a factorion"));
+    assert!(reply.contains("145 is a [factorion]"));
     assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
     assert!(reply.contains("sum of the factorial of its digits"));
 }
@@ -1596,12 +1597,14 @@ fn test_factorion_detection_in_reply_multiple() {
             Calculation {
                 value: 145.into(),
                 steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(145)), // Factorion: 1! + 4! + 5! = 145
+                result: CalculationResult::Exact(Integer::from(145)), // Factorion:
+                                                                                     // 1! + 4! + 5! = 145
             },
             Calculation {
                 value: 40585.into(),
                 steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(40585)), // Factorion: 4! + 0! + 5! + 8! + 5! = 40585
+                result: CalculationResult::Exact(Integer::from(40585)), // Factorion:
+                                                                                      // 4! + 0! + 5! + 8! + 5! = 40585
             }
         ],
         notify: None,
@@ -1614,7 +1617,7 @@ fn test_factorion_detection_in_reply_multiple() {
     
     // Check that the reply mentions multiple factorions
     assert!(reply.contains("**Interesting!**"));
-    assert!(reply.contains("are factorions")); // plural form
+    assert!(reply.contains("are [factorions]")); // plural form with markdown
     assert!(reply.contains("145"));
     assert!(reply.contains("40585"));
     assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
@@ -1676,7 +1679,7 @@ fn test_factorion_detection_40585() {
     
     // Check that 40585 is detected as a factorion
     assert!(reply.contains("**Interesting!**"));
-    assert!(reply.contains("40585 is a factorion"));
+    assert!(reply.contains("40585 is a [factorion]"));
     assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
 }
 

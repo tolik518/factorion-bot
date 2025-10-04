@@ -276,11 +276,11 @@ impl Calculation {
     pub fn is_too_long(&self, too_big_number: &Integer) -> bool {
         self.result.is_too_long(too_big_number) || self.value.is_too_long(too_big_number)
     }
-    
-    /// Checks if the result is a factorion (a number that equals the sum of the factorial of its digits).
-    /// In base 10, only 1, 2, 145, and 40585 are factorions (proven).
-    /// We only check for 145 and 40585 as 1 and 2 are trivial cases.
-    /// Returns true if the result is 145 or 40585, false otherwise.
+
+    /// Checks if the result is a factorion (a number that equals the sum of the
+    /// factorial of its digits). In base 10, only 1, 2, 145, and 40585 are
+    /// factorions (proven). We only check for 145 and 40585 as 1 and 2 are
+    /// trivial cases. Returns true if the result is 145 or 40585, false otherwise.
     pub fn is_factorion(&self) -> bool {
         if let CalculationResult::Exact(ref result_num) = self.result {
             // Only 145 and 40585 are interesting factorions in base 10
