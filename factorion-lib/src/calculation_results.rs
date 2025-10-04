@@ -278,53 +278,15 @@ impl Calculation {
     }
     
     /// Checks if the result is a factorion (a number that equals the sum of the factorial of its digits).
-    /// Returns true if the result is an exact factorion, false otherwise.
-    /// Note: Only checks for exact integer results, not approximations.
+    /// In base 10, only 1, 2, 145, and 40585 are factorions (proven).
+    /// We only check for 145 and 40585 as 1 and 2 are trivial cases.
+    /// Returns true if the result is 145 or 40585, false otherwise.
     pub fn is_factorion(&self) -> bool {
         if let CalculationResult::Exact(ref result_num) = self.result {
-            // Only check small numbers to avoid expensive computation for very large numbers
-            // Factorions are rare and small (largest known is 40585)
-            if result_num > &Integer::from(1_000_000) || result_num < &Integer::from(1) {
-                return false;
-            }
-            
-            // Convert to string to get digits
-            let result_str = result_num.to_string();
-            
-            // Calculate sum of factorial of digits
-            let mut sum = Integer::from(0);
-            for digit_char in result_str.chars() {
-                if let Some(digit) = digit_char.to_digit(10) {
-                    let digit_factorial = Self::factorial_of_digit(digit as u8);
-                    sum += digit_factorial;
-                } else {
-                    // Invalid digit (shouldn't happen for positive integers)
-                    return false;
-                }
-            }
-            
-            // Check if sum equals the original number
-            sum == *result_num
+            // Only 145 and 40585 are interesting factorions in base 10
+            *result_num == Integer::from(145) || *result_num == Integer::from(40585)
         } else {
             false
-        }
-    }
-    
-    /// Helper function to calculate factorial of single digits (0! through 9!)
-    /// Since factorials of digits are small and frequently used, we can precompute them
-    fn factorial_of_digit(digit: u8) -> Integer {
-        match digit {
-            0 => Integer::from(1),   // 0! = 1
-            1 => Integer::from(1),   // 1! = 1
-            2 => Integer::from(2),   // 2! = 2
-            3 => Integer::from(6),   // 3! = 6
-            4 => Integer::from(24),  // 4! = 24
-            5 => Integer::from(120), // 5! = 120
-            6 => Integer::from(720), // 6! = 720
-            7 => Integer::from(5040), // 7! = 5040
-            8 => Integer::from(40320), // 8! = 40320
-            9 => Integer::from(362880), // 9! = 362880
-            _ => panic!("Invalid digit: {}", digit), // Should never happen
         }
     }
 }
@@ -1083,47 +1045,17 @@ mod test {
         let fl = Calculation {
             value: 1.into(),
             steps: vec![],
-            result: CalculationResult::Exact(1.into()),
+            result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 1.0).into()),
         };
         assert!(!fl.is_too_long(&TOO_BIG_NUMBER));
-    }
-
-    #[test]
-    fn test_factorial_of_digit() {
-        // Test all single digits factorial calculations
-        assert_eq!(Calculation::factorial_of_digit(0), Integer::from(1));   // 0! = 1
-        assert_eq!(Calculation::factorial_of_digit(1), Integer::from(1));   // 1! = 1  
-        assert_eq!(Calculation::factorial_of_digit(2), Integer::from(2));   // 2! = 2
-        assert_eq!(Calculation::factorial_of_digit(3), Integer::from(6));   // 3! = 6
-        assert_eq!(Calculation::factorial_of_digit(4), Integer::from(24));  // 4! = 24
-        assert_eq!(Calculation::factorial_of_digit(5), Integer::from(120)); // 5! = 120
-        assert_eq!(Calculation::factorial_of_digit(6), Integer::from(720)); // 6! = 720
-        assert_eq!(Calculation::factorial_of_digit(7), Integer::from(5040)); // 7! = 5040
-        assert_eq!(Calculation::factorial_of_digit(8), Integer::from(40320)); // 8! = 40320
-        assert_eq!(Calculation::factorial_of_digit(9), Integer::from(362880)); // 9! = 362880
     }
 
     #[test]
     fn test_is_factorion_known_factorions() {
         let _ = crate::init_default();
         
-        // Test known factorions in base 10: 1, 2, 145, 40585
-        
-        // 1 is a factorion: 1! = 1
-        let factorion_1 = Calculation {
-            value: 1.into(),
-            steps: vec![(1, 0)],
-            result: CalculationResult::Exact(1.into()),
-        };
-        assert!(factorion_1.is_factorion());
-
-        // 2 is a factorion: 2! = 2  
-        let factorion_2 = Calculation {
-            value: 2.into(),
-            steps: vec![(1, 0)],
-            result: CalculationResult::Exact(2.into()),
-        };
-        assert!(factorion_2.is_factorion());
+        // Test known interesting factorions in base 10: 145, 40585
+        // Note: 1 and 2 are also factorions but excluded as trivial cases
 
         // 145 is a factorion: 1! + 4! + 5! = 1 + 24 + 120 = 145
         let factorion_145 = Calculation {
@@ -1147,6 +1079,21 @@ mod test {
         let _ = crate::init_default();
         
         // Test numbers that are NOT factorions
+        
+        // 1 and 2 are factorions but excluded as trivial
+        let not_interesting_1 = Calculation {
+            value: 1.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(1.into()),
+        };
+        assert!(!not_interesting_1.is_factorion());
+
+        let not_interesting_2 = Calculation {
+            value: 2.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(2.into()),
+        };
+        assert!(!not_interesting_2.is_factorion());
         
         // 3 is not a factorion: 3! = 6 ≠ 3
         let not_factorion_3 = Calculation {
@@ -1179,21 +1126,13 @@ mod test {
         
         // Test edge cases
         
-        // 0 should not be considered a factorion (no digits or technically 0! = 1 ≠ 0)
+        // 0 is not a factorion
         let zero = Calculation {
             value: 0.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::Exact(0.into()),
         };
         assert!(!zero.is_factorion());
-
-        // Very large number should return false (performance optimization)
-        let large_num = Calculation {
-            value: 2000000.into(),
-            steps: vec![(1, 0)],
-            result: CalculationResult::Exact(2000000.into()),
-        };
-        assert!(!large_num.is_factorion());
 
         // Approximate result should return false
         let approximate = Calculation {

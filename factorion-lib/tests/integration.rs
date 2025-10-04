@@ -1560,23 +1560,12 @@ fn test_arbitrary_comment() {
 fn test_factorion_detection_in_reply_single() {
     let _ = factorion_lib::init_default();
     
-    // Test that when we calculate a result that happens to be 145 (a factorion),
-    // the bot includes the special factorion message
-    let comment = Comment::new(
-        "What is 145!?", // This would calculate the factorial of 145, but we need a case where the RESULT is 145
-        (),
-        Commands::NONE,
-        MAX_LENGTH,
-    )
-    .extract()
-    .calc();
-
-    // Manually create a comment with a factorion result for testing
+    // Create a comment with a factorion result (145) for testing
     let factorion_comment = Comment {
         meta: (),
         calculation_list: vec![
             Calculation {
-                value: 12.into(), // Doesn't matter what the input was
+                value: 12.into(),
                 steps: vec![(1, 0)],
                 result: CalculationResult::Exact(Integer::from(145)), // Result is the factorion 145
             }
@@ -1600,24 +1589,19 @@ fn test_factorion_detection_in_reply_single() {
 fn test_factorion_detection_in_reply_multiple() {
     let _ = factorion_lib::init_default();
     
-    // Test with multiple factorions in one reply
+    // Test with multiple factorions in one reply (145 and 40585)
     let multiple_factorion_comment = Comment {
         meta: (),
         calculation_list: vec![
             Calculation {
-                value: 1.into(),
-                steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(1)), // Factorion: 1! = 1
-            },
-            Calculation {
-                value: 2.into(), 
-                steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(2)), // Factorion: 2! = 2
-            },
-            Calculation {
                 value: 145.into(),
                 steps: vec![(1, 0)],
                 result: CalculationResult::Exact(Integer::from(145)), // Factorion: 1! + 4! + 5! = 145
+            },
+            Calculation {
+                value: 40585.into(),
+                steps: vec![(1, 0)],
+                result: CalculationResult::Exact(Integer::from(40585)), // Factorion: 4! + 0! + 5! + 8! + 5! = 40585
             }
         ],
         notify: None,
@@ -1631,7 +1615,8 @@ fn test_factorion_detection_in_reply_multiple() {
     // Check that the reply mentions multiple factorions
     assert!(reply.contains("**Interesting!**"));
     assert!(reply.contains("are factorions")); // plural form
-    assert!(reply.contains("1, 2, 145"));
+    assert!(reply.contains("145"));
+    assert!(reply.contains("40585"));
     assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
 }
 
