@@ -1053,7 +1053,7 @@ mod test {
     #[test]
     fn test_is_factorion_known_factorions() {
         let _ = crate::init_default();
-        
+
         // Test known interesting factorions in base 10: 145, 40585
         // Note: 1 and 2 are also factorions but excluded as trivial cases
 
@@ -1077,9 +1077,9 @@ mod test {
     #[test]
     fn test_is_factorion_non_factorions() {
         let _ = crate::init_default();
-        
+
         // Test numbers that are NOT factorions
-        
+
         // 1 and 2 are factorions but excluded as trivial
         let not_interesting_1 = Calculation {
             value: 1.into(),
@@ -1094,7 +1094,7 @@ mod test {
             result: CalculationResult::Exact(2.into()),
         };
         assert!(!not_interesting_2.is_factorion());
-        
+
         // 3 is not a factorion: 3! = 6 ≠ 3
         let not_factorion_3 = Calculation {
             value: 3.into(),
@@ -1123,9 +1123,9 @@ mod test {
     #[test]
     fn test_is_factorion_edge_cases() {
         let _ = crate::init_default();
-        
+
         // Test edge cases
-        
+
         // 0 is not a factorion
         let zero = Calculation {
             value: 0.into(),

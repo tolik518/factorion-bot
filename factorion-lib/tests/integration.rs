@@ -1559,18 +1559,15 @@ fn test_arbitrary_comment() {
 #[test]
 fn test_factorion_detection_in_reply_single() {
     let _ = factorion_lib::init_default();
-    
+
     // Create a comment with a factorion result (145) for testing
     let factorion_comment = Comment {
         meta: (),
-        calculation_list: vec![
-            Calculation {
-                value: 12.into(),
-                steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(145)), // Result is the
-                                                                                     // factorion 145
-            }
-        ],
+        calculation_list: vec![Calculation {
+            value: 12.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(Integer::from(145)), // Result is the factorion 145
+        }],
         notify: None,
         commands: Commands::NONE,
         max_length: MAX_LENGTH,
@@ -1597,15 +1594,13 @@ fn test_factorion_detection_in_reply_multiple() {
             Calculation {
                 value: 145.into(),
                 steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(145)), // Factorion:
-                                                                                     // 1! + 4! + 5! = 145
+                result: CalculationResult::Exact(Integer::from(145)), // Factorion: 1! + 4! + 5! = 145
             },
             Calculation {
                 value: 40585.into(),
                 steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(40585)), // Factorion:
-                                                                                      // 4! + 0! + 5! + 8! + 5! = 40585
-            }
+                result: CalculationResult::Exact(Integer::from(40585)), // Factorion: 4! + 0! + 5! + 8! + 5! = 40585
+            },
         ],
         notify: None,
         commands: Commands::NONE,
@@ -1662,13 +1657,11 @@ fn test_factorion_detection_40585() {
     // Test the largest known factorion: 40585
     let factorion_comment = Comment {
         meta: (),
-        calculation_list: vec![
-            Calculation {
-                value: 40585.into(),
-                steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(40585)), // 4! + 0! + 5! + 8! + 5! = 40585
-            }
-        ],
+        calculation_list: vec![Calculation {
+            value: 40585.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(Integer::from(40585)), // 4! + 0! + 5! + 8! + 5! = 40585
+        }],
         notify: None,
         commands: Commands::NONE,
         max_length: MAX_LENGTH,
@@ -1676,7 +1669,7 @@ fn test_factorion_detection_40585() {
     };
 
     let reply = factorion_comment.get_reply();
-    
+
     // Check that 40585 is detected as a factorion
     assert!(reply.contains("**Interesting!**"));
     assert!(reply.contains("40585 is a [factorion]"));
@@ -1690,16 +1683,18 @@ fn test_factorion_not_detected_for_approximations() {
     // Test that approximate results don't trigger factorion detection
     let approximate_comment = Comment {
         meta: (),
-        calculation_list: vec![
-            Calculation {
-                value: 145.into(),
-                steps: vec![(1, 0)],
-                result: CalculationResult::Approximate(
-                    factorion_math::rug::Float::with_val(factorion_lib::recommended::FLOAT_PRECISION, 145.0).into(),
-                    Integer::from(0),
-                ), // Approximate result, not exact
-            }
-        ],
+        calculation_list: vec![Calculation {
+            value: 145.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Approximate(
+                factorion_math::rug::Float::with_val(
+                    factorion_lib::recommended::FLOAT_PRECISION,
+                    145.0,
+                )
+                .into(),
+                Integer::from(0),
+            ), // Approximate result, not exact
+        }],
         notify: None,
         commands: Commands::NONE,
         max_length: MAX_LENGTH,
@@ -1707,7 +1702,7 @@ fn test_factorion_not_detected_for_approximations() {
     };
 
     let reply = approximate_comment.get_reply();
-    
+
     // Should not detect factorion for approximate results
     assert!(!reply.contains("**Interesting!**"));
     assert!(!reply.contains("factorion"));
