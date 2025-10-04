@@ -1,6 +1,6 @@
 [package]
 name = "factorion-lib"
-version = "1.0.3"
+version = "2.0.0"
 edition = "2024"
 description = "A library used to create bots to recognize and calculate factorials and related concepts"
 license = "MIT"
