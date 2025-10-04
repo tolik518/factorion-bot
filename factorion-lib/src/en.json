@@ -21,15 +21,17 @@
       "factorial": "factorial",
       "uple": "uple-{factorial}",
       "sub": "sub{factorial}",
+      "negative": "negative {factorial}",
       "num_overrides": {
         "2": "double-{factorial}",
         "3": "triple-{factorial}"
       },
-      "exact": "The {factorial} of {number} is {result}",
-      "rough": "The {factorial} of {number} is roughly {result}",
-      "approx": "The {factorial} of {number} is approximately {result}",
-      "digits": "The {factorial} of {number} has approximately {result} digits",
-      "order": "The {factorial} of {number} has on the order of {result} digits",
+      "nest": "{factorial} of {next}",
+      "exact": "{factorial} of {number} is {result}",
+      "rough": "{factorial} of {number} is roughly {result}",
+      "approx": "{factorial} of {number} is approximately {result}",
+      "digits": "{factorial} of {number} has approximately {result} digits",
+      "order": "{factorial} of {number} has on the order of {result} digits",
       "all_that": "All that of {number} has on the order of {result} digits",
       "rough_number": "roughly {number}"
     },

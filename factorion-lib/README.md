@@ -27,7 +27,7 @@ assert_eq!(comment.meta, "meta");
 // Useful status
 assert_eq!(comment.status, Status::FACTORIALS_FOUND);
 // Good looking reply (reddit markdown formatting).
-assert_eq!(reply, "Hey @you!\n\nThe termial of the factorial of 5 is 7260 \n\n\n*^(This action was performed by a bot.)*");
+assert_eq!(reply, "Hey @you!\n\nTermial of factorial of 5 is 7260 \n\n\n*^(This action was performed by a bot.)*");
 ```
 Or manually do the steps:
 ```rust
@@ -62,6 +62,6 @@ assert_eq!(results, [
 let result = results.remove(0);
 let mut formatted = String::new();
 // Write the formatted result to a string (for efficiency). We don't want to shorten anything below that huge number
-result.format(&mut formatted, false, false, &10000000000000000000u128.into(), &consts).unwrap();
-assert_eq!(formatted, "The factorial of 4 is 24 \n\n");
+result.format(&mut formatted, false, false, &10000000000000000000u128.into(), &consts, &consts.locales.get("en").unwrap().format).unwrap();
+assert_eq!(formatted, "Factorial of 4 is 24 \n\n");
 ```

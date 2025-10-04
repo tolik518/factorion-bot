@@ -204,8 +204,6 @@ impl Commands {
     }
 }
 
-const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot.)*";
-
 macro_rules! contains_comb {
     // top level (advance both separately)
     ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
@@ -269,7 +267,7 @@ impl<Meta> CommentConstructed<Meta> {
             calculation_list: text,
             status,
             commands,
-            max_length: max_length,
+            max_length,
             locale: locale.to_owned(),
         }
     }
@@ -335,7 +333,7 @@ impl<Meta> CommentConstructed<Meta> {
             calculation_list: text,
             status,
             commands,
-            max_length: max_length,
+            max_length,
             locale: String::new(),
         }
     }
@@ -359,7 +357,7 @@ impl<Meta> CommentExtracted<Meta> {
         } = self;
         let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
-            .flat_map(|calc| calc.execute(commands.steps, &consts))
+            .flat_map(|calc| calc.execute(commands.steps, consts))
             .filter_map(|x| {
                 if x.is_none() {
                     status.number_too_big_to_calculate = true;
@@ -398,7 +396,7 @@ impl<Meta> CommentCalculated<Meta> {
         let mut note = self
             .notify
             .as_ref()
-            .map(|user| locale.notes.mention.replace("{mention}", &user) + "\n\n")
+            .map(|user| locale.notes.mention.replace("{mention}", user) + "\n\n")
             .unwrap_or_default();
 
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
@@ -477,6 +475,7 @@ impl<Meta> CommentCalculated<Meta> {
                     false,
                     too_big_number,
                     consts,
+                    &locale.format,
                 );
                 acc
             });
@@ -496,20 +495,34 @@ impl<Meta> CommentCalculated<Meta> {
                 .calculation_list
                 .iter()
                 .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(&mut acc, true, false, too_big_number, consts);
+                    let _ = factorial.format(
+                        &mut acc,
+                        true,
+                        false,
+                        too_big_number,
+                        consts,
+                        &locale.format,
+                    );
                     acc
                 });
         }
 
         // Remove factorials until we can fit them in a comment
         if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length {
-            let note = locale.notes.remove.to_owned() + "\n\n";
+            let note = locale.notes.remove.clone().into_owned() + "\n\n";
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()
                 .map(|fact| {
                     let mut res = String::new();
-                    let _ = fact.format(&mut res, true, false, too_big_number, consts);
+                    let _ = fact.format(
+                        &mut res,
+                        true,
+                        false,
+                        too_big_number,
+                        consts,
+                        &locale.format,
+                    );
                     res
                 })
                 .collect();
@@ -524,20 +537,21 @@ impl<Meta> CommentCalculated<Meta> {
                     factorial_list.pop();
                     if factorial_list.is_empty() {
                         if self.calculation_list.len() == 1 {
-                            let note = locale.notes.tetration.to_owned() + "\n\n";
-                            reply = self.calculation_list.iter().fold(
-                                note.to_string(),
-                                |mut acc, factorial| {
-                                    let _ = factorial.format(
-                                        &mut acc,
-                                        true,
-                                        true,
-                                        too_big_number,
-                                        consts,
-                                    );
-                                    acc
-                                },
-                            );
+                            let note = locale.notes.tetration.clone().into_owned() + "\n\n";
+                            reply =
+                                self.calculation_list
+                                    .iter()
+                                    .fold(note, |mut acc, factorial| {
+                                        let _ = factorial.format(
+                                            &mut acc,
+                                            true,
+                                            true,
+                                            too_big_number,
+                                            consts,
+                                            &locale.format,
+                                        );
+                                        acc
+                                    });
                             if reply.len() <= self.max_length {
                                 break 'drop_last;
                             }
@@ -548,9 +562,7 @@ impl<Meta> CommentCalculated<Meta> {
                 }
                 reply = factorial_list
                     .iter()
-                    .fold(note.to_string(), |acc, factorial| {
-                        format!("{acc}{factorial}")
-                    });
+                    .fold(note, |acc, factorial| format!("{acc}{factorial}"));
             }
         }
 
