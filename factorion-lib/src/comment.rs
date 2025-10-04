@@ -386,6 +386,51 @@ impl<Meta> CommentCalculated<Meta> {
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
         let too_big_number = &too_big_number;
 
+        // Check if any of the calculated results are factorions and prepare message early
+        // so its length can be accounted for in max_length checks
+        let factorion_message: Option<String> = {
+            let factorions: Vec<String> = self
+                .calculation_list
+                .iter()
+                .filter_map(|calc| {
+                    if calc.is_factorion() {
+                        if let crate::calculation_results::CalculationResult::Exact(ref num) = calc.result {
+                            Some(num.to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if !factorions.is_empty() {
+                Some(if factorions.len() == 1 {
+                    format!(
+                        "\n**Interesting!** {} is a [factorion]({}) - a number that equals the sum of the factorial of its digits!\n",
+                        factorions[0],
+                        "https://en.wikipedia.org/wiki/Factorion"
+                    )
+                } else {
+                    format!(
+                        "\n**Interesting!** {} are [factorions]({}) - numbers that equal the sum of the factorial of their digits!\n",
+                        factorions.join(", "),
+                        "https://en.wikipedia.org/wiki/Factorion"
+                    )
+                })
+            } else {
+                None
+            }
+        };
+
+        // Calculate effective max length accounting for factorion message and
+        // footer
+        let factorion_msg_len = factorion_message.as_ref().map_or(0, |s| s.len());
+        let effective_max_length = self
+            .max_length
+            .saturating_sub(factorion_msg_len);
+
         // Add Note
         let multiple = self.calculation_list.len() > 1;
         if !self.commands.no_note {
@@ -448,7 +493,7 @@ impl<Meta> CommentCalculated<Meta> {
             });
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() > self.max_length
+        if reply.len() > effective_max_length
             && !self.commands.shorten
             && !self
                 .calculation_list
@@ -469,7 +514,7 @@ impl<Meta> CommentCalculated<Meta> {
 
         // Remove factorials until we can fit them in a comment
         let note = "If I posted all numbers, the comment would get too long. So I had to remove some of them. \n\n";
-        if reply.len() > self.max_length {
+        if reply.len() > effective_max_length {
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()
@@ -481,7 +526,7 @@ impl<Meta> CommentCalculated<Meta> {
                 .collect();
             'drop_last: {
                 while note.len() + factorial_list.iter().map(|s| s.len()).sum::<usize>()
-                    > self.max_length
+                    > effective_max_length
                 {
                     // remove last factorial (probably the biggest)
                     factorial_list.pop();
@@ -495,7 +540,7 @@ impl<Meta> CommentCalculated<Meta> {
                                     acc
                                 },
                             );
-                            if reply.len() <= self.max_length {
+                            if reply.len() <= effective_max_length {
                                 break 'drop_last;
                             }
                         }
@@ -509,6 +554,11 @@ impl<Meta> CommentCalculated<Meta> {
                         format!("{acc}{factorial}")
                     });
             }
+        }
+
+        // Add factorion message if any were detected
+        if let Some(msg) = factorion_message {
+            reply.push_str(&msg);
         }
 
         reply.push_str(FOOTER_TEXT);

@@ -276,6 +276,19 @@ impl Calculation {
     pub fn is_too_long(&self, too_big_number: &Integer) -> bool {
         self.result.is_too_long(too_big_number) || self.value.is_too_long(too_big_number)
     }
+
+    /// Checks if the result is a factorion (a number that equals the sum of the
+    /// factorial of its digits). In base 10, only 1, 2, 145, and 40585 are
+    /// factorions (proven). We only check for 145 and 40585 as 1 and 2 are
+    /// trivial cases. Returns true if the result is 145 or 40585, false otherwise.
+    pub fn is_factorion(&self) -> bool {
+        if let CalculationResult::Exact(ref result_num) = self.result {
+            // Only 145 and 40585 are interesting factorions in base 10
+            *result_num == Integer::from(145) || *result_num == Integer::from(40585)
+        } else {
+            false
+        }
+    }
 }
 
 impl Calculation {
@@ -1035,5 +1048,109 @@ mod test {
             result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 1.0).into()),
         };
         assert!(!fl.is_too_long(&TOO_BIG_NUMBER));
+    }
+
+    #[test]
+    fn test_is_factorion_known_factorions() {
+        let _ = crate::init_default();
+
+        // Test known interesting factorions in base 10: 145, 40585
+        // Note: 1 and 2 are also factorions but excluded as trivial cases
+
+        // 145 is a factorion: 1! + 4! + 5! = 1 + 24 + 120 = 145
+        let factorion_145 = Calculation {
+            value: 145.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(145.into()),
+        };
+        assert!(factorion_145.is_factorion());
+
+        // 40585 is a factorion: 4! + 0! + 5! + 8! + 5! = 24 + 1 + 120 + 40320 + 120 = 40585
+        let factorion_40585 = Calculation {
+            value: 40585.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(40585.into()),
+        };
+        assert!(factorion_40585.is_factorion());
+    }
+
+    #[test]
+    fn test_is_factorion_non_factorions() {
+        let _ = crate::init_default();
+
+        // Test numbers that are NOT factorions
+
+        // 1 and 2 are factorions but excluded as trivial
+        let not_interesting_1 = Calculation {
+            value: 1.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(1.into()),
+        };
+        assert!(!not_interesting_1.is_factorion());
+
+        let not_interesting_2 = Calculation {
+            value: 2.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(2.into()),
+        };
+        assert!(!not_interesting_2.is_factorion());
+
+        // 3 is not a factorion: 3! = 6 ≠ 3
+        let not_factorion_3 = Calculation {
+            value: 3.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(3.into()),
+        };
+        assert!(!not_factorion_3.is_factorion());
+
+        // 120 is not a factorion: 1! + 2! + 0! = 1 + 2 + 1 = 4 ≠ 120
+        let not_factorion_120 = Calculation {
+            value: 120.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(120.into()),
+        };
+        assert!(!not_factorion_120.is_factorion());
+
+        // 144 is not a factorion: 1! + 4! + 4! = 1 + 24 + 24 = 49 ≠ 144
+        let not_factorion_144 = Calculation {
+            value: 144.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(144.into()),
+        };
+        assert!(!not_factorion_144.is_factorion());
+    }
+
+    #[test]
+    fn test_is_factorion_edge_cases() {
+        let _ = crate::init_default();
+
+        // Test edge cases
+
+        // 0 is not a factorion
+        let zero = Calculation {
+            value: 0.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(0.into()),
+        };
+        assert!(!zero.is_factorion());
+
+        // Approximate result should return false
+        let approximate = Calculation {
+            value: 145.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Approximate(
+                Float::with_val(FLOAT_PRECISION, 145.0).into(),
+                0.into(),
+            ),
+        };
+        assert!(!approximate.is_factorion());
+
+        // Float result should return false
+        let float_result = Calculation {
+            value: 145.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 145.0).into()),
+        };
+        assert!(!float_result.is_factorion());
     }
 }
