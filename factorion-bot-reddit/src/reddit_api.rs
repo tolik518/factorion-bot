@@ -691,6 +691,7 @@ impl RedditClient {
                     subreddit: subreddit.to_owned(),
                 },
                 MAX_COMMENT_LEN,
+                "en",
             ))
         } else {
             already_replied_to_comments.push(dense_id);
@@ -906,7 +907,8 @@ mod tests {
                         author: "author".to_owned(),
                         subreddit: "subressit".to_owned()
                     },
-                    MAX_COMMENT_LEN
+                    MAX_COMMENT_LEN,
+                    "en"
                 )
                 .extract(&consts)
                 .calc(&consts),

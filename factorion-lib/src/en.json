@@ -17,6 +17,7 @@
       "mention": "Hey {mention}!"
     },
     "format": {
+      "capitalize_calc": false,
       "termial": "termial",
       "factorial": "factorial",
       "uple": "uple-{factorial}",

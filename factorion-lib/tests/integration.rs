@@ -468,7 +468,7 @@ fn test_comment_new_comma_decimals() {
         (),
         Commands::NONE,
         MAX_LENGTH,
-        "en",
+        "de",
     )
     .extract(&consts);
     assert_eq!(
@@ -1518,26 +1518,6 @@ fn test_get_reply_biggest_possible_reddit() {
 }
 
 #[test]
-fn test_subfactorial_confusion() {
-    let consts = Consts::default();
-    let comment = Comment::new(
-        "What is factorial of 287,491?",
-        (),
-        Commands::TERMIAL,
-        MAX_LENGTH,
-        "en",
-    )
-    .extract(&consts)
-    .calc(&consts);
-
-    let reply = comment.get_reply(&consts);
-    assert_eq!(
-        reply,
-        "Termial of 287.491 is approximately 41469.2830405 \n\n\n*^(This action was performed by a bot.)*"
-    );
-}
-
-#[test]
 fn test_ridiculous_input() {
     let consts = Consts::default();
     let comment = Comment::new(
@@ -1602,6 +1582,26 @@ fn test_get_reply_approximate_digits_from_mixed_types() {
     assert_eq!(
         reply,
         "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nFactorial of 37923648 is approximately 1.760585629143694 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot.)*"
+    );
+}
+
+#[test]
+fn test_german_locale() {
+    let consts = Consts::default();
+    let comment = Comment::new(
+        "Ein deutscher Kommentar mit Fakultäten. 5! 2,5!? 4!! !2",
+        (),
+        Commands::TERMIAL,
+        MAX_LENGTH,
+        "de",
+    )
+    .extract(&consts)
+    .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Subfakultät von 2 ist 1 \n\nDouble-fakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2.5 ist üngefähr 7.184006321612229 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
     );
 }
 

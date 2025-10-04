@@ -301,7 +301,12 @@ impl<Meta> CommentConstructed<Meta> {
             max_length,
             locale,
         } = self;
-        let pending_list: Vec<CalculationJob> = parse(&comment_text, commands.termial, consts);
+        let pending_list: Vec<CalculationJob> = parse(
+            &comment_text,
+            commands.termial,
+            consts,
+            &consts.locales.get(&locale).unwrap().number_format,
+        );
 
         if pending_list.is_empty() {
             status.no_factorial = true;
@@ -319,7 +324,7 @@ impl<Meta> CommentConstructed<Meta> {
     }
 
     /// Constructs an empty comment with [Status] already_replied_or_rejected set.
-    pub fn new_already_replied(meta: Meta, max_length: usize) -> Self {
+    pub fn new_already_replied(meta: Meta, max_length: usize, locale: &str) -> Self {
         let text = String::new();
         let status: Status = Status {
             already_replied_or_rejected: true,
@@ -334,7 +339,7 @@ impl<Meta> CommentConstructed<Meta> {
             status,
             commands,
             max_length,
-            locale: String::new(),
+            locale: locale.to_owned(),
         }
     }
 }
@@ -578,6 +583,7 @@ mod tests {
     use crate::{
         calculation_results::Number,
         calculation_tasks::{CalculationBase, CalculationJob},
+        locale::NumFormat,
     };
 
     const MAX_LENGTH: usize = 10_000;
@@ -589,7 +595,12 @@ mod tests {
     #[test]
     fn test_extraction_dedup() {
         let consts = Consts::default();
-        let jobs = parse("24! -24! 2!? (2!?)!", true, &consts);
+        let jobs = parse(
+            "24! -24! 2!? (2!?)!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [
@@ -677,7 +688,7 @@ mod tests {
 
     #[test]
     fn test_new_already_replied() {
-        let comment = Comment::new_already_replied((), MAX_LENGTH);
+        let comment = Comment::new_already_replied((), MAX_LENGTH, "en");
         assert_eq!(comment.calculation_list, "");
         assert!(comment.status.already_replied_or_rejected);
     }

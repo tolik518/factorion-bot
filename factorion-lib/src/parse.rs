@@ -1,5 +1,6 @@
 //! Parses text and extracts calculations
 
+use crate::locale::NumFormat;
 use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::Consts;
@@ -76,7 +77,12 @@ const POSTFIX_OPS: [char; 2] = ['!', '?'];
 
 const INTEGER_ONLY_OPS: [i32; 1] = [0];
 
-pub fn parse(mut text: &str, do_termial: bool, consts: &Consts) -> Vec<CalculationJob> {
+pub fn parse(
+    mut text: &str,
+    do_termial: bool,
+    consts: &Consts,
+    locale: &NumFormat,
+) -> Vec<CalculationJob> {
     // Parsing rules:
     // - prefix has precedence before suffix (unimplemented)
     // - anything within a spoiler should be ignored
@@ -335,11 +341,11 @@ pub fn parse(mut text: &str, do_termial: bool, consts: &Consts) -> Vec<Calculati
             // Prefix OP (6.)
             let Ok(level) = parse_op(&mut text, true, do_termial) else {
                 // also skip number to prevent stuff like "!!!1!" getting through
-                parse_num(&mut text, false, true, consts);
+                parse_num(&mut text, false, true, consts, locale);
                 continue;
             };
             // On number (6.1.)
-            if let Some(num) = parse_num(&mut text, false, true, consts) {
+            if let Some(num) = parse_num(&mut text, false, true, consts, locale) {
                 // set base (6.1.2.)
                 if let Some(CalculationBase::Calc(job)) = base.take() {
                     // multiple number, likely expression => poision paren
@@ -382,7 +388,7 @@ pub fn parse(mut text: &str, do_termial: bool, consts: &Consts) -> Vec<Calculati
             };
         } else {
             // Number (7.)
-            let Some(num) = parse_num(&mut text, had_text, false, consts) else {
+            let Some(num) = parse_num(&mut text, had_text, false, consts, locale) else {
                 had_text_before = true;
                 // advance one char to avoid loop
                 let mut end = 1;
@@ -504,7 +510,13 @@ fn parse_ops(text: &mut &str, prefix: bool, do_termial: bool) -> Option<Vec<i32>
     Some(res)
 }
 
-fn parse_num(text: &mut &str, had_text: bool, had_op: bool, consts: &Consts) -> Option<Number> {
+fn parse_num(
+    text: &mut &str,
+    had_text: bool,
+    had_op: bool,
+    consts: &Consts,
+    locale: &NumFormat,
+) -> Option<Number> {
     let prec = consts.float_precision;
     if text.starts_with(CONSTANT_STARTS) {
         let (n, x) = if text.starts_with("pi") {
@@ -537,7 +549,7 @@ fn parse_num(text: &mut &str, had_text: bool, had_op: bool, consts: &Consts) -> 
         *text = &text[end..];
         part
     };
-    let decimal_part = if text.starts_with(['.', ',']) {
+    let decimal_part = if text.starts_with(locale.decimal) {
         *text = &text[1..];
         let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
         let part = &text[..end];
@@ -644,13 +656,23 @@ mod test {
     #[test]
     fn test_text_only() {
         let consts = Consts::default();
-        let jobs = parse("just some words of encouragement!", true, &consts);
+        let jobs = parse(
+            "just some words of encouragement!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_factorial() {
         let consts = Consts::default();
-        let jobs = parse("a factorial 15!", true, &consts);
+        let jobs = parse(
+            "a factorial 15!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -663,7 +685,12 @@ mod test {
     #[test]
     fn test_multifactorial() {
         let consts = Consts::default();
-        let jobs = parse("a factorial 15!!! actually a multi", true, &consts);
+        let jobs = parse(
+            "a factorial 15!!! actually a multi",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -676,7 +703,12 @@ mod test {
     #[test]
     fn test_subfactorial() {
         let consts = Consts::default();
-        let jobs = parse("a factorial !15 actually a sub", true, &consts);
+        let jobs = parse(
+            "a factorial !15 actually a sub",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -689,13 +721,18 @@ mod test {
     #[test]
     fn test_submultifactorial() {
         let consts = Consts::default();
-        let jobs = parse("not well defined !!!15", true, &consts);
+        let jobs = parse(
+            "not well defined !!!15",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_termial() {
         let consts = Consts::default();
-        let jobs = parse("a termial 15?", true, &consts);
+        let jobs = parse("a termial 15?", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -708,13 +745,23 @@ mod test {
     #[test]
     fn test_no_termial() {
         let consts = Consts::default();
-        let jobs = parse("not enabled 15?", false, &consts);
+        let jobs = parse(
+            "not enabled 15?",
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_multitermial() {
         let consts = Consts::default();
-        let jobs = parse("a termial 15??? actually a multi", true, &consts);
+        let jobs = parse(
+            "a termial 15??? actually a multi",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -727,13 +774,23 @@ mod test {
     #[test]
     fn test_subtermial() {
         let consts = Consts::default();
-        let jobs = parse("a termial ?15 actually a sub", true, &consts);
+        let jobs = parse(
+            "a termial ?15 actually a sub",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_chain() {
         let consts = Consts::default();
-        let jobs = parse("a factorialchain (15!)!", true, &consts);
+        let jobs = parse(
+            "a factorialchain (15!)!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -750,7 +807,12 @@ mod test {
     #[test]
     fn test_mixed_chain() {
         let consts = Consts::default();
-        let jobs = parse("a factorialchain !(15!)", true, &consts);
+        let jobs = parse(
+            "a factorialchain !(15!)",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -767,7 +829,12 @@ mod test {
     #[test]
     fn test_postfix_chain() {
         let consts = Consts::default();
-        let jobs = parse("a factorialchain -15!?", true, &consts);
+        let jobs = parse(
+            "a factorialchain -15!?",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -784,7 +851,12 @@ mod test {
     #[test]
     fn test_negative() {
         let consts = Consts::default();
-        let jobs = parse("a factorial ---15!", true, &consts);
+        let jobs = parse(
+            "a factorial ---15!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -797,7 +869,12 @@ mod test {
     #[test]
     fn test_negative_gap() {
         let consts = Consts::default();
-        let jobs = parse("a factorial --- 15!", true, &consts);
+        let jobs = parse(
+            "a factorial --- 15!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -810,7 +887,12 @@ mod test {
     #[test]
     fn test_paren() {
         let consts = Consts::default();
-        let jobs = parse("a factorial (15)!", true, &consts);
+        let jobs = parse(
+            "a factorial (15)!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -823,7 +905,12 @@ mod test {
     #[test]
     fn test_in_paren() {
         let consts = Consts::default();
-        let jobs = parse("a factorial (15!)", true, &consts);
+        let jobs = parse(
+            "a factorial (15!)",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -836,7 +923,12 @@ mod test {
     #[test]
     fn test_decimal() {
         let consts = Consts::default();
-        let jobs = parse("a factorial 1.5!", true, &consts);
+        let jobs = parse(
+            "a factorial 1.5!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -849,7 +941,12 @@ mod test {
     #[test]
     fn test_paren_negation() {
         let consts = Consts::default();
-        let jobs = parse("a factorial -(--(-(-(-3))!))!", true, &consts);
+        let jobs = parse(
+            "a factorial -(--(-(-(-3))!))!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -866,13 +963,23 @@ mod test {
     #[test]
     fn test_tag() {
         let consts = Consts::default();
-        let jobs = parse(">!5 a factorial 15! !<", true, &consts);
+        let jobs = parse(
+            ">!5 a factorial 15! !<",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_incomplete_tag() {
         let consts = Consts::default();
-        let jobs = parse(">!5 a factorial 15!", true, &consts);
+        let jobs = parse(
+            ">!5 a factorial 15!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [
@@ -892,7 +999,12 @@ mod test {
     #[test]
     fn test_escaped_tag() {
         let consts = Consts::default();
-        let jobs = parse("\\>!5 a factorial 15! !<", true, &consts);
+        let jobs = parse(
+            "\\>!5 a factorial 15! !<",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [
@@ -912,7 +1024,12 @@ mod test {
     #[test]
     fn test_escaped_tag2() {
         let consts = Consts::default();
-        let jobs = parse(">!5 a factorial 15! \\!<", true, &consts);
+        let jobs = parse(
+            ">!5 a factorial 15! \\!<",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             jobs,
             [
@@ -937,6 +1054,7 @@ mod test {
             "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
             &consts,
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -944,7 +1062,7 @@ mod test {
     #[test]
     fn test_uri_poi_doesnt_cause_infinite_loop() {
         let consts = Consts::default();
-        let jobs = parse("84!:", true, &consts);
+        let jobs = parse("84!:", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -961,6 +1079,7 @@ mod test {
             "\\://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
             &consts,
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -975,14 +1094,19 @@ mod test {
     #[test]
     fn test_word_in_paren() {
         let consts = Consts::default();
-        let jobs = parse("(x-2)! (2 word)! ((x/k)-3)! (,x-4)!", true, &consts);
+        let jobs = parse(
+            "(x-2)! (2 word)! ((x/k)-3)! (,x-4)!",
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(jobs, []);
     }
 
     #[test]
     fn test_multi_number_paren() {
         let consts = Consts::default();
-        let jobs = parse("(5-2)!", true, &consts);
+        let jobs = parse("(5-2)!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(jobs, []);
     }
     #[test]
@@ -990,7 +1114,7 @@ mod test {
         let consts = Consts::default();
         arbtest(|u| {
             let text: &str = u.arbitrary()?;
-            let _ = parse(text, u.arbitrary()?, &consts);
+            let _ = parse(text, u.arbitrary()?, &consts, &NumFormat { decimal: '.' });
             Ok(())
         });
     }
@@ -998,14 +1122,14 @@ mod test {
     #[test]
     fn test_constant() {
         let consts = Consts::default();
-        let jobs = parse("!espi!", true, &consts);
+        let jobs = parse("!espi!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(jobs, []);
     }
 
     #[test]
     fn test_fraction() {
         let consts = Consts::default();
-        let jobs = parse("!5/6!", true, &consts);
+        let jobs = parse("!5/6!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [
@@ -1021,7 +1145,7 @@ mod test {
                 }
             ]
         );
-        let jobs = parse("5/6!", true, &consts);
+        let jobs = parse("5/6!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1030,7 +1154,7 @@ mod test {
                 negative: 0
             }]
         );
-        let jobs = parse("(10/2)!", true, &consts);
+        let jobs = parse("(10/2)!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1044,70 +1168,202 @@ mod test {
     #[test]
     fn test_parse_num() {
         let consts = Consts::default();
-        let num = parse_num(&mut "1.5more !", false, false, &consts);
+        let num = parse_num(
+            &mut "1.5more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into()))
         );
-        let num = parse_num(&mut "1,5more !", false, false, &consts);
+        let num = parse_num(
+            &mut "1,5more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: ',' },
+        );
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into()))
         );
-        let num = parse_num(&mut ".5more !", false, false, &consts);
+        let num = parse_num(
+            &mut ".5more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "1more !", false, true, &consts);
+        let num = parse_num(
+            &mut "1more !",
+            false,
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(1.into()));
-        let num = parse_num(&mut "1.0more !", true, false, &consts);
+        let num = parse_num(
+            &mut "1.0more !",
+            true,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(1.into()));
-        let num = parse_num(&mut "1.5e2more !", false, false, &consts);
+        let num = parse_num(
+            &mut "1.5e2more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(150.into()));
-        let num = parse_num(&mut "1e2more !", false, false, &consts);
+        let num = parse_num(
+            &mut "1e2more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(100.into()));
-        let num = parse_num(&mut "1.531e2more !", false, false, &consts);
+        let num = parse_num(
+            &mut "1.531e2more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
         };
         assert!(Float::abs(f.as_float().clone() - 153.1) < 0.0000001);
-        let num = parse_num(&mut "5e-1more !", false, false, &consts);
+        let num = parse_num(
+            &mut "5e-1more !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "e2more !", true, false, &consts);
+        let num = parse_num(
+            &mut "e2more !",
+            true,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, None);
-        let num = parse_num(&mut "es !", false, false, &consts);
+        let num = parse_num(
+            &mut "es !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, None);
-        let num = parse_num(&mut "e !", false, false, &consts);
+        let num = parse_num(
+            &mut "e !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(E(FLOAT_PRECISION)));
-        let num = parse_num(&mut "pi !", false, false, &consts);
+        let num = parse_num(
+            &mut "pi !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(PI(FLOAT_PRECISION)));
-        let num = parse_num(&mut "π !", false, false, &consts);
+        let num = parse_num(
+            &mut "π !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(PI(FLOAT_PRECISION)));
-        let num = parse_num(&mut "phi !", false, false, &consts);
+        let num = parse_num(
+            &mut "phi !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(PHI(FLOAT_PRECISION)));
-        let num = parse_num(&mut "ɸ !", false, false, &consts);
+        let num = parse_num(
+            &mut "ɸ !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(PHI(FLOAT_PRECISION)));
-        let num = parse_num(&mut "tau !", false, false, &consts);
+        let num = parse_num(
+            &mut "tau !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
-        let num = parse_num(&mut "τ !", false, false, &consts);
+        let num = parse_num(
+            &mut "τ !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
-        let num = parse_num(&mut "1/2 !", false, false, &consts);
+        let num = parse_num(
+            &mut "1/2 !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
-        let num = parse_num(&mut "10/2 !", false, false, &consts);
+        let num = parse_num(
+            &mut "10/2 !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(Number::Exact(5.into())));
-        let num = parse_num(&mut "1.5/2 !", false, false, &consts);
+        let num = parse_num(
+            &mut "1.5/2 !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             num,
             Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.75).into()))
         );
-        let num = parse_num(&mut "10e10000000000/2 !", false, false, &consts);
+        let num = parse_num(
+            &mut "10e10000000000/2 !",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(
             num,
             Some(Number::Approximate(
@@ -1115,9 +1371,21 @@ mod test {
                 10000000000u64.into()
             ))
         );
-        let num = parse_num(&mut "10/2 !", false, true, &consts);
+        let num = parse_num(
+            &mut "10/2 !",
+            false,
+            true,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(Number::Exact(10.into())));
-        let num = parse_num(&mut "10/2!", false, false, &consts);
+        let num = parse_num(
+            &mut "10/2!",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
         assert_eq!(num, Some(Number::Exact(2.into())));
     }
     #[allow(clippy::uninlined_format_args)]
@@ -1129,6 +1397,7 @@ mod test {
             true,
             false,
             &consts,
+            &NumFormat { decimal: '.' },
         );
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(
@@ -1136,6 +1405,7 @@ mod test {
             false,
             false,
             &consts,
+            &NumFormat { decimal: '.' },
         );
         assert!(num.is_some());
     }

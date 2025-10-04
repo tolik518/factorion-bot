@@ -29,6 +29,7 @@ pub struct Notes<'a> {
 
 #[derive(Deserialize)]
 pub struct Format<'a> {
+    pub capitalize_calc: bool,
     pub termial: Cow<'a, str>,
     pub factorial: Cow<'a, str>,
     pub uple: Cow<'a, str>,

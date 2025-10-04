@@ -335,7 +335,7 @@ impl Calculation {
                 replace(acc, start, "{factorial}", "negative {factorial}");
             }
 
-            replace(
+            let calc_start = replace(
                 acc,
                 start,
                 "{factorial}",
@@ -352,6 +352,14 @@ impl Calculation {
                     &locale.factorial
                 },
             );
+            if locale.capitalize_calc {
+                let mut ind = acc[calc_start..].char_indices();
+                if let Some((start, _)) = ind.next()
+                    && let Some((end, _)) = ind.next()
+                {
+                    acc[calc_start..][start..end].make_ascii_uppercase();
+                }
+            }
 
             if i != len - 1 {
                 start = replace(acc, start, "{next}", "{factorial}");

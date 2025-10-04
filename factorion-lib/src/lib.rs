@@ -54,10 +54,16 @@ impl Default for Consts<'_> {
             integer_construction_limit: parse::recommended::INTEGER_CONSTRUCTION_LIMIT(),
             number_decimals_scientific:
                 calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
-            locales: HashMap::from([(
-                "en".to_owned(),
-                serde_json::de::from_str(include_str!("en.json")).unwrap(),
-            )]),
+            locales: HashMap::from([
+                (
+                    "en".to_owned(),
+                    serde_json::de::from_str(include_str!("en.json")).unwrap(),
+                ),
+                (
+                    "de".to_owned(),
+                    serde_json::de::from_str(include_str!("de.json")).unwrap(),
+                ),
+            ]),
             default_locale: "en".to_owned(),
         }
     }
