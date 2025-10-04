@@ -309,6 +309,7 @@ impl<Meta> CommentConstructed<Meta> {
                 .locales
                 .get(&locale)
                 .unwrap_or(consts.locales.get(&consts.default_locale).unwrap())
+                .format
                 .number_format,
         );
 

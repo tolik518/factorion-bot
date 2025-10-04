@@ -16,7 +16,6 @@ pub struct Locale<'a> {
     pub bot_disclaimer: Cow<'a, str>,
     pub notes: Notes<'a>,
     pub format: Format<'a>,
-    pub number_format: NumFormat,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -55,6 +54,7 @@ pub struct Format<'a> {
     pub digits: Cow<'a, str>,
     pub order: Cow<'a, str>,
     pub all_that: Cow<'a, str>,
+    pub number_format: NumFormat,
 }
 
 #[derive(Deserialize, Debug, Clone)]

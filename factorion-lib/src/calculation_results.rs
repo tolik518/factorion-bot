@@ -118,15 +118,17 @@ impl CalculationResult {
         shorten: bool,
         agressive: bool,
         consts: &Consts,
+        locale: &locale::NumFormat,
     ) -> std::fmt::Result {
+        let mut start = acc.len();
         match &self {
             CalculationResult::Exact(factorial) => {
                 if shorten {
                     let (s, r) = truncate(factorial, consts);
                     *rough = r;
-                    acc.write_str(&s)
+                    acc.write_str(&s)?;
                 } else {
-                    write!(acc, "{factorial}")
+                    write!(acc, "{factorial}")?;
                 }
             }
             CalculationResult::Approximate(base, exponent) => {
@@ -140,9 +142,9 @@ impl CalculationResult {
                 if shorten {
                     acc.write_str("(")?;
                     acc.write_str(&truncate(exponent, consts).0)?;
-                    acc.write_str(")")
+                    acc.write_str(")")?;
                 } else {
-                    write!(acc, "{exponent}")
+                    write!(acc, "{exponent}")?;
                 }
             }
             CalculationResult::ApproximateDigits(_, digits) => {
@@ -151,7 +153,6 @@ impl CalculationResult {
                 } else {
                     write!(acc, "{digits}")?;
                 }
-                Ok(())
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
                 acc.write_str(if *negative { "-" } else { "" })?;
@@ -185,17 +186,25 @@ impl CalculationResult {
                     write!(acc, "{}", depth + extra)?;
                     acc.write_str(")10")?;
                 }
-                Ok(())
             }
             CalculationResult::Float(gamma) => {
                 if !gamma.as_float().to_f64().is_finite() {
-                    write!(acc, "{:.30}", gamma.as_float())
+                    write!(acc, "{:.30}", gamma.as_float())?;
                 } else {
-                    write!(acc, "{}", gamma.as_float().to_f64())
+                    write!(acc, "{}", gamma.as_float().to_f64())?;
                 }
             }
-            CalculationResult::ComplexInfinity => acc.write_str("∞\u{0303}"),
+            CalculationResult::ComplexInfinity => {
+                acc.write_str("∞\u{0303}")?;
+            }
         }
+        if locale.decimal != '.' {
+            let decimal = locale.decimal.to_string();
+            while start < acc.len() {
+                start = replace(acc, start, ".", &decimal);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -295,6 +304,7 @@ impl Calculation {
             force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
             agressive_shorten,
             consts,
+            &locale.number_format,
         )?;
         if rough {
             replace(acc, frame_start, "{number}", &locale.rough_number);
@@ -309,6 +319,7 @@ impl Calculation {
             force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
             agressive_shorten,
             consts,
+            &locale.number_format,
         )?;
         if rough {
             replace(acc, frame_start, "{number}", &locale.rough_number);

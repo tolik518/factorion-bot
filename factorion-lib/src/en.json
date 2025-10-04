@@ -17,6 +17,9 @@
       "mention": "Hey {mention}!"
     },
     "format": {
+      "number_format": {
+        "decimal": "."
+      },
       "capitalize_calc": false,
       "termial": "termial",
       "factorial": "factorial",
@@ -36,8 +39,5 @@
       "order": "{factorial} of {number} has on the order of {result} digits",
       "all_that": "All that of {number} has on the order of {result} digits",
       "rough_number": "roughly {number}"
-    },
-    "number_format": {
-      "decimal": "."
     }
 }

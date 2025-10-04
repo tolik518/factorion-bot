@@ -17,6 +17,9 @@
       "mention": "Hey {mention}!"
     },
     "format": {
+      "number_format": {
+        "decimal": ","
+      },
       "capitalize_calc": true,
       "termial": "termial",
       "factorial": "fakultät",
@@ -36,8 +39,5 @@
       "order": "{factorial} von {number} hat eine Größenordnug von {result} Ziffern",
       "all_that": "All das von {number} hat eine Größenordnug von {result} Ziffern",
       "rough_number": "grob {number}"
-    },
-    "number_format": {
-      "decimal": ","
     }
 }

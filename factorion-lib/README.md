@@ -37,7 +37,7 @@ use factorion_lib::{parse::parse, calculation_tasks::{CalculationJob, Calculatio
 let consts = Consts::default();
 let locale = consts.locales.get("en").unwrap();
 // Parse the text for calculations
-let calculations: Vec<CalculationJob> = parse("Some text with factorial 4!", true, &consts, &locale.number_format);
+let calculations: Vec<CalculationJob> = parse("Some text with factorial 4!", true, &consts, &locale.format.number_format);
 // These are given in an intemediate format for delayed calculation
 assert_eq!(calculations, [CalculationJob {
   // The base may be a number or another job
