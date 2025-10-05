@@ -72,7 +72,7 @@ impl CalculationJob {
                         Self::calculate_appropriate_factorial(num.clone(), level, negative, consts)
                             .map(|res| Calculation {
                                 value: num,
-                                steps: vec![(level, negative)],
+                                steps: vec![(level, negative % 2 == 1)],
                                 result: res,
                             }),
                     ];
@@ -103,7 +103,7 @@ impl CalculationJob {
                         res, level, negative, consts,
                     )
                     .map(|res| {
-                        steps.push((level, negative));
+                        steps.push((level, negative % 2 == 1));
                         Calculation {
                             value: number,
                             steps,

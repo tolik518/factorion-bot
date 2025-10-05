@@ -55,7 +55,7 @@ assert_eq!(results, [
     // The original value (innermost base)
     value: Number::Exact(4.into()),
     // The steps taken to get the result
-    steps: vec![(1, 0)],
+    steps: vec![(1, false)],
     // The result in different formats
     result: CalculationResult::Exact(24.into()),
   }

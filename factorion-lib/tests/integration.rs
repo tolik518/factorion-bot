@@ -30,12 +30,12 @@ fn test_comment_new() {
         vec![
             Calculation {
                 value: 5.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(Integer::from(120)),
             },
             Calculation {
                 value: 6.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(Integer::from(720)),
             },
         ],
@@ -59,7 +59,7 @@ fn test_comment_new_double_factorial() {
         comment.calculation_list,
         vec![Calculation {
             value: 6.into(),
-            steps: vec![(2, 0)],
+            steps: vec![(2, false)],
             result: CalculationResult::Exact(Integer::from(48)),
         }]
     );
@@ -82,7 +82,7 @@ fn test_comment_new_triple_factorial() {
         comment.calculation_list,
         vec![Calculation {
             value: 6.into(),
-            steps: vec![(3, 0)],
+            steps: vec![(3, false)],
             result: CalculationResult::Exact(Integer::from(18)),
         }]
     );
@@ -138,7 +138,7 @@ fn test_comment_new_subfactorial() {
         comment.calculation_list,
         vec![Calculation {
             value: 5.into(),
-            steps: vec![(0, 0)],
+            steps: vec![(0, false)],
             result: CalculationResult::Exact(Integer::from(44)),
         }]
     );
@@ -160,7 +160,7 @@ fn test_comment_new_termial() {
         comment.calculation_list,
         vec![Calculation {
             value: 5.into(),
-            steps: vec![(-1, 0)],
+            steps: vec![(-1, false)],
             result: CalculationResult::Exact(Integer::from(15)),
         }]
     );
@@ -182,7 +182,7 @@ fn test_comment_new_tripletermial() {
         comment.calculation_list,
         vec![Calculation {
             value: 5.into(),
-            steps: vec![(-3, 0)],
+            steps: vec![(-3, false)],
             result: CalculationResult::Exact(Integer::from(7)),
         }]
     );
@@ -205,22 +205,22 @@ fn test_comment_new_negative() {
         vec![
             Calculation {
                 value: Number::Exact(5.into()),
-                steps: vec![(-1, 1)],
+                steps: vec![(-1, true)],
                 result: CalculationResult::Exact((-15).into())
             },
             Calculation {
                 value: Number::Exact(5.into()),
-                steps: vec![(0, 1)],
+                steps: vec![(0, true)],
                 result: CalculationResult::Exact((-44).into())
             },
             Calculation {
                 value: Number::Exact(5.into()),
-                steps: vec![(1, 1)],
+                steps: vec![(1, true)],
                 result: CalculationResult::Exact((-120).into())
             },
             Calculation {
                 value: Number::Exact(10.into()),
-                steps: vec![(1, 2)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(3628800.into())
             }
         ]
@@ -244,24 +244,24 @@ fn test_comment_new_of_negative() {
         vec![
             Calculation {
                 value: (-5).into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::ComplexInfinity,
             },
             Calculation {
                 value: (-5).into(),
-                steps: vec![(2, 0)],
+                steps: vec![(2, false)],
                 result: CalculationResult::Float(
                     Float::with_val(FLOAT_PRECISION, 3).recip().into()
                 ),
             },
             Calculation {
                 value: (-5).into(),
-                steps: vec![(4, 0)],
+                steps: vec![(4, false)],
                 result: CalculationResult::Exact((-1).into()),
             },
             Calculation {
                 value: (-5).into(),
-                steps: vec![(5, 0)],
+                steps: vec![(5, false)],
                 result: CalculationResult::ComplexInfinity,
             }
         ]
@@ -345,7 +345,7 @@ fn test_comment_new_decimal_integer() {
         comment.calculation_list,
         vec![Calculation {
             value: Number::Exact(0.into()),
-            steps: vec![(1, 0)],
+            steps: vec![(1, false)],
             result: CalculationResult::Exact(1.into())
         }]
     );
@@ -527,12 +527,12 @@ fn test_comment_new_exponentials_positive() {
             [
                 Calculation {
                     value: Number::Exact(10.into()),
-                    steps: vec![(1, 1)],
+                    steps: vec![(1, true)],
                     result: CalculationResult::Exact((-3628800).into())
                 },
                 Calculation {
                     value: Number::Float(Float::with_val(FLOAT_PRECISION, Float::parse("112.342").unwrap()).into()),
-                    steps: vec![(1, 0)],
+                    steps: vec![(1, false)],
                     result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, Float::parse("993525073229285436539807503113271988267318728609930136156505804196109258655775654879896155361191576205057992198378530500089998766548809286881281158234109518671597164775130317741632313.7252607309857759503328865475739439663463350416381893570704080831760770928994102217701454569735908025174055229200345933253782907").unwrap()).into())
                 },
             ]
@@ -606,7 +606,7 @@ fn test_comment_new_big_number_and_normal_number() {
         comment.calculation_list,
         vec![Calculation {
             value: 6.into(),
-            steps: vec![(1, 0)],
+            steps: vec![(1, false)],
             result: CalculationResult::Exact(Integer::from(720))
         }]
     );
@@ -893,7 +893,7 @@ fn test_get_reply_for_multifactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 10.into(),
-            steps: vec![(3, 0)],
+            steps: vec![(3, false)],
             result: CalculationResult::Exact(Integer::from(280)),
         }],
         notify: None,
@@ -917,7 +917,7 @@ fn test_get_reply_for_subfactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 5.into(),
-            steps: vec![(0, 0)],
+            steps: vec![(0, false)],
             result: CalculationResult::Exact(Integer::from(44)),
         }],
         notify: None,
@@ -940,7 +940,7 @@ fn test_get_reply_for_termial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 5.into(),
-            steps: vec![(-1, 0)],
+            steps: vec![(-1, false)],
             result: CalculationResult::Exact(Integer::from(15)),
         }],
         notify: None,
@@ -963,7 +963,7 @@ fn test_get_reply_for_multitermial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 5.into(),
-            steps: vec![(-2, 0)],
+            steps: vec![(-2, false)],
             result: CalculationResult::Exact(Integer::from(9)),
         }],
         notify: None,
@@ -986,7 +986,7 @@ fn test_get_reply_for_big_subfactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 5000.into(),
-            steps: vec![(0, 0)],
+            steps: vec![(0, false)],
             result: CalculationResult::Exact(math::subfactorial(5000)),
         }],
         notify: None,
@@ -1010,7 +1010,7 @@ fn test_get_reply_for_high_multifactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 10.into(),
-            steps: vec![(12345, 0)],
+            steps: vec![(12345, false)],
             result: CalculationResult::Exact(Integer::from(10)),
         }],
         notify: None,
@@ -1035,12 +1035,12 @@ fn test_get_reply_for_multiple() {
         calculation_list: vec![
             Calculation {
                 value: 5.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(Integer::from(120)),
             },
             Calculation {
                 value: 6.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(Integer::from(720)),
             },
         ],
@@ -1066,17 +1066,17 @@ fn test_get_reply_too_long_with_multiple_numbers() {
         calculation_list: vec![
             Calculation {
                 value: 5.into(),
-                steps: vec![(2, 0)],
+                steps: vec![(2, false)],
                 result: CalculationResult::Exact(Integer::from(60)),
             },
             Calculation {
                 value: 6.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(Integer::from(720)),
             },
             Calculation {
                 value: 3249.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(math::factorial(3249, 1)),
             },
         ],
@@ -1545,17 +1545,17 @@ fn test_get_reply_approximate_digits_from_mixed_types() {
         calculation_list: vec![
             Calculation {
                 value: 8.into(),
-                steps: vec![(2, 0)],
+                steps: vec![(2, false)],
                 result: CalculationResult::Exact(Integer::from(384)),
             },
             Calculation {
                 value: 10000.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(math::factorial(10000, 1)),
             },
             Calculation {
                 value: 37923648.into(),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: {
                     let (base, exponent) =
                         math::approximate_factorial(37923648.into(), FLOAT_PRECISION);
@@ -1564,7 +1564,7 @@ fn test_get_reply_approximate_digits_from_mixed_types() {
             },
             Calculation {
                 value: 283462.into(),
-                steps: vec![(2, 0)],
+                steps: vec![(2, false)],
                 result: CalculationResult::ApproximateDigits(
                     false,
                     math::approximate_multifactorial_digits(283462.into(), 2, FLOAT_PRECISION),

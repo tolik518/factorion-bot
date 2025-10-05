@@ -995,7 +995,10 @@ mod tests {
         assert_eq!(comments[0].meta.author, "mentioner");
         assert_eq!(comments[0].notify.as_ref().unwrap(), "u/");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
-        assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (-1, 0)]);
+        assert_eq!(
+            comments[0].calculation_list[0].steps,
+            [(1, false), (-1, false)]
+        );
         assert_eq!(rate, (170.0, 7.0))
     }
 
@@ -1161,7 +1164,7 @@ mod tests {
             comments[0].calculation_list,
             [Calculation {
                 value: Number::Exact(1.into()),
-                steps: vec![(2, 0)],
+                steps: vec![(2, false)],
                 result: CalculationResult::Exact(1.into())
             }]
         );
@@ -1169,7 +1172,7 @@ mod tests {
             comments[1].calculation_list,
             [Calculation {
                 value: Number::Exact(2.into()),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(2.into())
             }]
         );
@@ -1177,7 +1180,7 @@ mod tests {
             comments[2].calculation_list,
             [Calculation {
                 value: Number::Exact(10.into()),
-                steps: vec![(0, 0)],
+                steps: vec![(0, false)],
                 result: CalculationResult::Exact(1334961.into())
             }]
         );
