@@ -1,4 +1,5 @@
-{
+{ "V1":
+  {
     "bot_disclaimer": "This action was performed by a bot.",
     "notes": {
       "tower": "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.",
@@ -40,4 +41,5 @@
       "all_that": "All that of {number} has on the order of {result} digits",
       "rough_number": "roughly {number}"
     }
+  }
 }

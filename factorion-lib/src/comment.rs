@@ -309,8 +309,8 @@ impl<Meta> CommentConstructed<Meta> {
                 .locales
                 .get(&locale)
                 .unwrap_or(consts.locales.get(&consts.default_locale).unwrap())
-                .format
-                .number_format,
+                .format()
+                .number_format(),
         );
 
         if pending_list.is_empty() {
@@ -406,7 +406,7 @@ impl<Meta> CommentCalculated<Meta> {
         let mut note = self
             .notify
             .as_ref()
-            .map(|user| locale.notes.mention.replace("{mention}", user) + "\n\n")
+            .map(|user| locale.notes().mention().replace("{mention}", user) + "\n\n")
             .unwrap_or_default();
 
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
@@ -421,10 +421,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_digit_tower)
             {
                 if multiple {
-                    let _ = note.write_str(&locale.notes.tower_mult);
+                    let _ = note.write_str(locale.notes().tower_mult());
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(&locale.notes.tower);
+                    let _ = note.write_str(locale.notes().tower());
                     let _ = note.write_str("\n\n");
                 }
             } else if self
@@ -433,10 +433,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_aproximate_digits)
             {
                 if multiple {
-                    let _ = note.write_str(&locale.notes.digits_mult);
+                    let _ = note.write_str(locale.notes().digits_mult());
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(&locale.notes.digits);
+                    let _ = note.write_str(locale.notes().digits());
                     let _ = note.write_str("\n\n");
                 }
             } else if self
@@ -445,18 +445,18 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_approximate)
             {
                 if multiple {
-                    let _ = note.write_str(&locale.notes.approx_mult);
+                    let _ = note.write_str(locale.notes().approx_mult());
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(&locale.notes.approx);
+                    let _ = note.write_str(locale.notes().approx());
                     let _ = note.write_str("\n\n");
                 }
             } else if self.calculation_list.iter().any(Calculation::is_rounded) {
                 if multiple {
-                    let _ = note.write_str(&locale.notes.round_mult);
+                    let _ = note.write_str(locale.notes().round_mult());
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(&locale.notes.round);
+                    let _ = note.write_str(locale.notes().round());
                     let _ = note.write_str("\n\n");
                 }
             } else if self
@@ -465,10 +465,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(|c| c.is_too_long(too_big_number))
             {
                 if multiple {
-                    let _ = note.write_str(&locale.notes.too_big_mult);
+                    let _ = note.write_str(locale.notes().too_big_mult());
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(&locale.notes.too_big);
+                    let _ = note.write_str(locale.notes().too_big());
                     let _ = note.write_str("\n\n");
                 }
             }
@@ -485,13 +485,13 @@ impl<Meta> CommentCalculated<Meta> {
                     false,
                     too_big_number,
                     consts,
-                    &locale.format,
+                    &locale.format(),
                 );
                 acc
             });
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length
+        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
             && !self.commands.shorten
             && !self
                 .calculation_list
@@ -499,7 +499,7 @@ impl<Meta> CommentCalculated<Meta> {
                 .all(|fact| fact.is_too_long(too_big_number))
         {
             if note.is_empty() && !self.commands.no_note {
-                let _ = note.write_str(&locale.notes.remove);
+                let _ = note.write_str(locale.notes().remove());
             };
             reply = self
                 .calculation_list
@@ -511,15 +511,15 @@ impl<Meta> CommentCalculated<Meta> {
                         false,
                         too_big_number,
                         consts,
-                        &locale.format,
+                        &locale.format(),
                     );
                     acc
                 });
         }
 
         // Remove factorials until we can fit them in a comment
-        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length {
-            let note = locale.notes.remove.clone().into_owned() + "\n\n";
+        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length {
+            let note = locale.notes().remove().clone().into_owned() + "\n\n";
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()
@@ -531,7 +531,7 @@ impl<Meta> CommentCalculated<Meta> {
                         false,
                         too_big_number,
                         consts,
-                        &locale.format,
+                        &locale.format(),
                     );
                     res
                 })
@@ -539,7 +539,7 @@ impl<Meta> CommentCalculated<Meta> {
             'drop_last: {
                 while note.len()
                     + factorial_list.iter().map(|s| s.len()).sum::<usize>()
-                    + locale.bot_disclaimer.len()
+                    + locale.bot_disclaimer().len()
                     + 16
                     > self.max_length
                 {
@@ -547,7 +547,7 @@ impl<Meta> CommentCalculated<Meta> {
                     factorial_list.pop();
                     if factorial_list.is_empty() {
                         if self.calculation_list.len() == 1 {
-                            let note = locale.notes.tetration.clone().into_owned() + "\n\n";
+                            let note = locale.notes().tetration().clone().into_owned() + "\n\n";
                             reply =
                                 self.calculation_list
                                     .iter()
@@ -558,7 +558,7 @@ impl<Meta> CommentCalculated<Meta> {
                                             true,
                                             too_big_number,
                                             consts,
-                                            &locale.format,
+                                            &locale.format(),
                                         );
                                         acc
                                     });
@@ -566,7 +566,7 @@ impl<Meta> CommentCalculated<Meta> {
                                 break 'drop_last;
                             }
                         }
-                        reply = locale.notes.no_post.to_string();
+                        reply = locale.notes().no_post().to_string();
                         break 'drop_last;
                     }
                 }
@@ -577,7 +577,7 @@ impl<Meta> CommentCalculated<Meta> {
         }
 
         reply.push_str("\n*^(");
-        reply.push_str(&locale.bot_disclaimer);
+        reply.push_str(locale.bot_disclaimer());
         reply.push_str(")*");
         reply
     }
@@ -604,7 +604,7 @@ mod tests {
             "24! -24! 2!? (2!?)!",
             true,
             &consts,
-            &NumFormat { decimal: '.' },
+            &NumFormat::V1(&crate::locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(
             jobs,
