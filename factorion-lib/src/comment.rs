@@ -575,10 +575,11 @@ impl<Meta> CommentCalculated<Meta> {
                     .fold(note, |acc, factorial| format!("{acc}{factorial}"));
             }
         }
-
-        reply.push_str("\n*^(");
-        reply.push_str(locale.bot_disclaimer());
-        reply.push_str(")*");
+        if !locale.bot_disclaimer().is_empty() {
+            reply.push_str("\n*^(");
+            reply.push_str(locale.bot_disclaimer());
+            reply.push_str(")*");
+        }
         reply
     }
 }
