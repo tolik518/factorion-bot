@@ -24,6 +24,19 @@ macro_rules! get_field {
         }
     };
 }
+macro_rules! set_field {
+    ($t:ty; $($var:ident),*; $field:ident: $ret:ty) => {
+        concat_idents::concat_idents!(set_fn = set_, $field {
+            impl<'a> $t {
+                pub fn set_fn(&'a mut self, v: $ret) {
+                    match self {
+                        $(Self::$var(this) => this.$field = v),*
+                    }
+                }
+            }
+        });
+    };
+}
 /// This can be used to retroactively add fields, that may not exist in older versions. (currently unused)
 #[allow(unused_macros)]
 macro_rules! maybe_get_field {
@@ -38,21 +51,46 @@ macro_rules! maybe_get_field {
         }
     };
 }
+macro_rules! maybe_set_field {
+    ($t:ty; $($var_not:ident),*; $($var_do:ident),*; $field:ident: $ret:ty) => {
+        concat_idents::concat_idents!(set_fn = set_, $field {
+            impl<'a> $t {
+                pub fn set_fn(&'a mut self, v: $ret) -> bool {
+                    match self {
+                        $(Self::$var_do(this) => {this.$field = v; true})*
+                        $(Slef::$var_not(_) => false),*
+                    }
+                }
+            }
+        });
+    };
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub enum Locale<'a> {
     V1(v1::Locale<'a>),
 }
 get_field!(Locale<'a>; V1; bot_disclaimer: Cow<'a, str> );
+set_field!(Locale<'a>; V1; bot_disclaimer: Cow<'a, str> );
 impl<'a> Locale<'a> {
     pub fn notes(&'a self) -> Notes<'a> {
         match self {
             Self::V1(this) => Notes::V1(&this.notes),
         }
     }
+    pub fn notes_mut(&'a mut self) -> NotesMut<'a> {
+        match self {
+            Self::V1(this) => NotesMut::V1(&mut this.notes),
+        }
+    }
     pub fn format(&'a self) -> Format<'a> {
         match self {
             Self::V1(this) => Format::V1(&this.format),
+        }
+    }
+    pub fn format_mut(&'a mut self) -> FormatMut<'a> {
+        match self {
+            Self::V1(this) => FormatMut::V1(&mut this.format),
         }
     }
 }
@@ -74,6 +112,24 @@ get_field!(Notes<'a>; V1; remove: Cow<'a, str>);
 get_field!(Notes<'a>; V1; tetration: Cow<'a, str>);
 get_field!(Notes<'a>; V1; no_post: Cow<'a, str>);
 get_field!(Notes<'a>; V1; mention: Cow<'a, str>);
+#[derive(Debug)]
+pub enum NotesMut<'a> {
+    V1(&'a mut v1::Notes<'a>),
+}
+set_field!(NotesMut<'a>; V1; tower: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; tower_mult: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; digits: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; digits_mult: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; approx: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; approx_mult: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; round: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; round_mult: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; too_big: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; too_big_mult: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; remove: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; tetration: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; no_post: Cow<'a, str>);
+set_field!(NotesMut<'a>; V1; mention: Cow<'a, str>);
 #[derive(Debug, Clone)]
 pub enum Format<'a> {
     V1(&'a v1::Format<'a>),
@@ -101,11 +157,43 @@ impl<'a> Format<'a> {
         }
     }
 }
+#[derive(Debug)]
+pub enum FormatMut<'a> {
+    V1(&'a mut v1::Format<'a>),
+}
+set_field!(FormatMut<'a>; V1; capitalize_calc: bool);
+set_field!(FormatMut<'a>; V1; termial: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; factorial: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; uple: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; sub: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; negative: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; num_overrides: HashMap<i32, Cow<'a, str>>);
+set_field!(FormatMut<'a>; V1; force_num: bool);
+set_field!(FormatMut<'a>; V1; nest: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; rough_number: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; exact: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; rough: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; approx: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; digits: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; order: Cow<'a, str>);
+set_field!(FormatMut<'a>; V1; all_that: Cow<'a, str>);
+impl<'a> FormatMut<'a> {
+    pub fn number_format_mut(&'a mut self) -> NumFormatMut<'a> {
+        match self {
+            Self::V1(this) => NumFormatMut::V1(&mut this.number_format),
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub enum NumFormat<'a> {
     V1(&'a v1::NumFormat),
 }
 get_field!(NumFormat<'a>; V1; decimal: char);
+#[derive(Debug)]
+pub enum NumFormatMut<'a> {
+    V1(&'a mut v1::NumFormat),
+}
+get_field!(NumFormatMut<'a>; V1; decimal: char);
 
 pub mod v1 {
     use serde::Deserialize;

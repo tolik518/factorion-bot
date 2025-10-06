@@ -13,6 +13,7 @@ categories = ["mathematics", "web-programming", "parser-implementations"]
 factorion-math = {path = "../factorion-math", version = "1.0"}
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
+concat-idents = "1.1.4"
 
 [dev-dependencies]
 arbtest = "0.3.2"
