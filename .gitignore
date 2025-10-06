@@ -4,3 +4,7 @@
 /.idea/
 cargo-test-*
 already_replied_ids.dat
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
