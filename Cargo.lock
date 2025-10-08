@@ -384,6 +384,8 @@ dependencies = [
  "env_logger",
  "factorion-lib",
  "log",
+ "serde",
+ "serde_json",
  "serenity",
  "tokio",
 ]

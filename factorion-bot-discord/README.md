@@ -77,6 +77,9 @@ Create a `.env` file in the project root (or in the `factorion-bot-discord` dire
 # Required
 DISCORD_TOKEN=<your_discord_bot_token>
 
+# Logging (recommended to reduce verbosity from serenity)
+RUST_LOG=info,serenity=warn,tracing=warn
+
 # Optional (with defaults shown)
 FLOAT_PRECISION=1000
 UPPER_CALCULATION_LIMIT=3000
@@ -117,6 +120,16 @@ You can also use commands to disable features:
 - `[no steps]` or `[no_steps]` - Hide intermediate steps
 - `[no termial]` or `[no_termial]` - Disable termial calculations
 - `[note]` - Show the footer note
+
+### Channel Configuration
+
+Server administrators with 'Manage Channels' permission can configure default settings per channel:
+
+- `!factorion config` - Show current channel configuration
+- `!factorion config shorten on/off` - Enable/disable default shortening for the channel
+- `!factorion config no_note on/off` - Enable/disable default no_note for the channel
+
+These settings apply to all calculations in the channel unless overridden by inline commands in individual messages. Configuration is saved to `channel_config.json` and persists across bot restarts.
 
 ## Examples
 

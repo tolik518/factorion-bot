@@ -1,5 +1,8 @@
 use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::fs;
+use std::path::PathBuf;
 
 use anyhow::Error;
 use factorion_lib::comment::{Commands, Comment, CommentConstructed};
@@ -11,11 +14,24 @@ use serenity::all::{
 use serenity::async_trait;
 use serenity::prelude::*;
 use tokio::sync::Mutex;
+use serde::{Deserialize, Serialize};
 
 const MAX_MESSAGE_LEN: usize = 2000;
 const EMBED_DESCRIPTION_LIMIT: usize = 4096;
 const EMBED_FIELD_VALUE_LIMIT: usize = 1024;
+const CONFIG_FILE: &str = "channel_config.json";
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
+pub struct ChannelConfig {
+    #[serde(default)]
+    pub default_shorten: bool,
+    #[serde(default)]
+    pub default_no_note: bool,
+}
+
+
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct MessageMeta {
     pub message_id: MessageId,
@@ -25,13 +41,51 @@ pub struct MessageMeta {
 
 pub struct Handler {
     processed_messages: Arc<Mutex<HashSet<MessageId>>>,
+    channel_configs: Arc<Mutex<HashMap<u64, ChannelConfig>>>,
+    config_path: PathBuf,
 }
 
 impl Handler {
     pub fn new() -> Self {
+        let config_path = PathBuf::from(CONFIG_FILE);
+        let channel_configs = Self::load_configs(&config_path);
+        
         Self {
             processed_messages: Arc::new(Mutex::new(HashSet::new())),
+            channel_configs: Arc::new(Mutex::new(channel_configs)),
+            config_path,
         }
+    }
+
+    fn load_configs(path: &PathBuf) -> HashMap<u64, ChannelConfig> {
+        if path.exists()
+            && let Ok(content) = fs::read_to_string(path)
+                && let Ok(configs) = serde_json::from_str(&content) {
+                    info!("Loaded channel configurations from {}", path.display());
+                    return configs;
+                }
+        info!("No existing channel configurations found, starting with defaults");
+        HashMap::new()
+    }
+
+    async fn save_configs(&self) -> Result<(), Error> {
+        let configs = self.channel_configs.lock().await;
+        let content = serde_json::to_string_pretty(&*configs)?;
+        fs::write(&self.config_path, content)?;
+        info!("Saved channel configurations to {}", self.config_path.display());
+        Ok(())
+    }
+
+    async fn get_channel_config(&self, channel_id: ChannelId) -> ChannelConfig {
+        let configs = self.channel_configs.lock().await;
+        configs.get(&channel_id.get()).cloned().unwrap_or_default()
+    }
+
+    async fn set_channel_config(&self, channel_id: ChannelId, config: ChannelConfig) -> Result<(), Error> {
+        let mut configs = self.channel_configs.lock().await;
+        configs.insert(channel_id.get(), config);
+        drop(configs);
+        self.save_configs().await
     }
 
     async fn process_message(&self, ctx: &Context, msg: &Message) -> Result<(), Error> {
@@ -45,14 +99,31 @@ impl Handler {
             return Ok(());
         }
 
+        // Check for configuration commands
+        if msg.content.starts_with("!factorion config") {
+            drop(processed);
+            return self.handle_config_command(ctx, msg).await;
+        }
+
         let meta = MessageMeta {
             message_id: msg.id,
             channel_id: msg.channel_id,
             author: msg.author.name.clone(),
         };
 
+        // Get channel config and apply default commands
+        let channel_config = self.get_channel_config(msg.channel_id).await;
+        let mut default_commands = Commands::NONE;
+        
+        if channel_config.default_shorten {
+            default_commands = default_commands | Commands::SHORTEN;
+        }
+        if channel_config.default_no_note {
+            default_commands = default_commands | Commands::NO_NOTE;
+        }
+
         let comment: CommentConstructed<MessageMeta> =
-            Comment::new(&msg.content, meta, Commands::NONE, MAX_MESSAGE_LEN);
+            Comment::new(&msg.content, meta, default_commands, MAX_MESSAGE_LEN);
 
         if comment.status.no_factorial {
             return Ok(());
@@ -65,6 +136,8 @@ impl Handler {
         }
 
         let comment = comment.calc();
+
+        info!("Comment -> {comment:?}");
 
         // Check if we should reply based on the comment's status
         if comment.status.not_replied {
@@ -86,6 +159,84 @@ impl Handler {
                 "Replied to message {} in channel {} by user {}",
                 msg.id, msg.channel_id, msg.author.name
             );
+        }
+
+        Ok(())
+    }
+
+    async fn handle_config_command(&self, ctx: &Context, msg: &Message) -> Result<(), Error> {
+        // Check if user has manage channel permissions
+        if let Some(guild_id) = msg.guild_id {
+            match guild_id.member(&ctx.http, msg.author.id).await {
+                Ok(member) => {
+                    let has_permission = if let Some(guild) = ctx.cache.guild(guild_id) {
+                        // Check base permissions in the guild (not considering channel overwrites)
+                        // Using member_permissions for guild-level check is appropriate here
+                        #[allow(deprecated)]
+                        guild.member_permissions(&member).manage_channels()
+                    } else {
+                        false
+                    };
+
+                    if !has_permission {
+                        msg.channel_id.say(&ctx.http, "You need 'Manage Channels' permission to configure channel settings.").await?;
+                        return Ok(());
+                    }
+                }
+                Err(_) => {
+                    msg.channel_id.say(&ctx.http, "Unable to verify member information.").await?;
+                    return Ok(());
+                }
+            }
+        } else {
+            msg.channel_id.say(&ctx.http, "This command can only be used in servers.").await?;
+            return Ok(());
+        }
+
+        let parts: Vec<&str> = msg.content.split_whitespace().collect();
+        
+        if parts.len() < 4 {
+            let config = self.get_channel_config(msg.channel_id).await;
+            let status = format!(
+                "**Channel Configuration**\n```\nDefault Shorten: {}\nDefault No Note: {}\n```\n\
+                Usage:\n\
+                `!factorion config shorten on/off` - Enable/disable default shortening\n\
+                `!factorion config no_note on/off` - Enable/disable default no note",
+                config.default_shorten,
+                config.default_no_note
+            );
+            msg.channel_id.say(&ctx.http, status).await?;
+            return Ok(());
+        }
+
+        let setting = parts[2];
+        let value = parts[3];
+        
+        let enabled = match value {
+            "on" | "true" | "1" | "yes" => true,
+            "off" | "false" | "0" | "no" => false,
+            _ => {
+                msg.channel_id.say(&ctx.http, "Invalid value. Use: on/off, true/false, yes/no, or 1/0").await?;
+                return Ok(());
+            }
+        };
+
+        let mut config = self.get_channel_config(msg.channel_id).await;
+        
+        match setting {
+            "shorten" | "short" => {
+                config.default_shorten = enabled;
+                self.set_channel_config(msg.channel_id, config).await?;
+                msg.channel_id.say(&ctx.http, format!("Default shorten has been turned **{}**", if enabled { "ON" } else { "OFF" })).await?;
+            }
+            "no_note" | "nonote" | "no-note" => {
+                config.default_no_note = enabled;
+                self.set_channel_config(msg.channel_id, config).await?;
+                msg.channel_id.say(&ctx.http, format!("Default no_note has been turned **{}**", if enabled { "ON" } else { "OFF" })).await?;
+            }
+            _ => {
+                msg.channel_id.say(&ctx.http, "Invalid setting. Available settings: shorten, no_note").await?;
+            }
         }
 
         Ok(())
@@ -245,8 +396,7 @@ impl Handler {
             .chars()
             .collect::<Vec<char>>()
             .chunks(EMBED_FIELD_VALUE_LIMIT - 50)
-            .enumerate()
-            .map(|(_i, chunk)| {
+            .map(|chunk| {
                 let chunk_str: String = chunk.iter().collect();
                 format!("```\n{}\n```", chunk_str)
             })
