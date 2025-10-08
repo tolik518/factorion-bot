@@ -1,5 +1,7 @@
 //! Parses comments and generates the reply.
 
+use serde::{Deserialize, Serialize};
+
 use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
@@ -118,7 +120,9 @@ impl Status {
     };
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, Serialize, Deserialize,
+)]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
     pub shorten: bool,
