@@ -1575,7 +1575,7 @@ fn test_factorion_detection_in_reply_single() {
     };
 
     let reply = factorion_comment.get_reply();
-    
+
     // Check that the reply contains the factorion message
     assert!(reply.contains("**Interesting!**"));
     assert!(reply.contains("145 is a [factorion]"));
@@ -1583,10 +1583,10 @@ fn test_factorion_detection_in_reply_single() {
     assert!(reply.contains("sum of the factorial of its digits"));
 }
 
-#[test] 
+#[test]
 fn test_factorion_detection_in_reply_multiple() {
     let _ = factorion_lib::init_default();
-    
+
     // Test with multiple factorions in one reply (145 and 40585)
     let multiple_factorion_comment = Comment {
         meta: (),
@@ -1609,7 +1609,7 @@ fn test_factorion_detection_in_reply_multiple() {
     };
 
     let reply = multiple_factorion_comment.get_reply();
-    
+
     // Check that the reply mentions multiple factorions
     assert!(reply.contains("**Interesting!**"));
     assert!(reply.contains("are [factorions]")); // plural form with markdown
@@ -1621,17 +1621,15 @@ fn test_factorion_detection_in_reply_multiple() {
 #[test]
 fn test_no_factorion_message_for_normal_numbers() {
     let _ = factorion_lib::init_default();
-    
+
     // Test that normal factorial results don't trigger factorion message
     let normal_comment = Comment {
         meta: (),
-        calculation_list: vec![
-            Calculation {
-                value: 5.into(),
-                steps: vec![(1, 0)],
-                result: CalculationResult::Exact(Integer::from(120)), // 5! = 120, not a factorion
-            }
-        ],
+        calculation_list: vec![Calculation {
+            value: 5.into(),
+            steps: vec![(1, 0)],
+            result: CalculationResult::Exact(Integer::from(120)), // 5! = 120, not a factorion
+        }],
         notify: None,
         commands: Commands::NONE,
         max_length: MAX_LENGTH,
@@ -1639,12 +1637,12 @@ fn test_no_factorion_message_for_normal_numbers() {
     };
 
     let reply = normal_comment.get_reply();
-    
+
     // Check that there's no factorion message
     assert!(!reply.contains("**Interesting!**"));
     assert!(!reply.contains("factorion"));
     assert!(!reply.contains("https://en.wikipedia.org/wiki/Factorion"));
-    
+
     // But should still contain the normal factorial result
     assert!(reply.contains("120"));
     assert!(reply.contains("This action was performed by a bot"));
@@ -1653,7 +1651,7 @@ fn test_no_factorion_message_for_normal_numbers() {
 #[test]
 fn test_factorion_detection_40585() {
     let _ = factorion_lib::init_default();
-    
+
     // Test the largest known factorion: 40585
     let factorion_comment = Comment {
         meta: (),
@@ -1679,7 +1677,7 @@ fn test_factorion_detection_40585() {
 #[test]
 fn test_factorion_not_detected_for_approximations() {
     let _ = factorion_lib::init_default();
-    
+
     // Test that approximate results don't trigger factorion detection
     let approximate_comment = Comment {
         meta: (),

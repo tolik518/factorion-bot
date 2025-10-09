@@ -394,7 +394,9 @@ impl<Meta> CommentCalculated<Meta> {
                 .iter()
                 .filter_map(|calc| {
                     if calc.is_factorion() {
-                        if let crate::calculation_results::CalculationResult::Exact(ref num) = calc.result {
+                        if let crate::calculation_results::CalculationResult::Exact(ref num) =
+                            calc.result
+                        {
                             Some(num.to_string())
                         } else {
                             None
@@ -409,8 +411,7 @@ impl<Meta> CommentCalculated<Meta> {
                 Some(if factorions.len() == 1 {
                     format!(
                         "\n**Interesting!** {} is a [factorion]({}) - a number that equals the sum of the factorial of its digits!\n",
-                        factorions[0],
-                        "https://en.wikipedia.org/wiki/Factorion"
+                        factorions[0], "https://en.wikipedia.org/wiki/Factorion"
                     )
                 } else {
                     format!(
@@ -427,9 +428,7 @@ impl<Meta> CommentCalculated<Meta> {
         // Calculate effective max length accounting for factorion message and
         // footer
         let factorion_msg_len = factorion_message.as_ref().map_or(0, |s| s.len());
-        let effective_max_length = self
-            .max_length
-            .saturating_sub(factorion_msg_len);
+        let effective_max_length = self.max_length.saturating_sub(factorion_msg_len);
 
         // Add Note
         let multiple = self.calculation_list.len() > 1;
