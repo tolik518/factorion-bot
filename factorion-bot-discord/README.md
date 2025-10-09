@@ -39,17 +39,17 @@ This bot is part of the [factorion-bot](https://github.com/tolik518/factorion-bo
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Click "New Application" and give it a name
 3. Go to the "Bot" section in the left sidebar
-4. Click "Add Bot" and confirm
-5. Under the bot's username, click "Reset Token" to get your bot token (save this securely)
-6. Enable the following Privileged Gateway Intents:
+4. Under the bot's username, click "Reset Token" to get your bot token (save this securely)
+5. Enable the following Privileged Gateway Intents:
    - Message Content Intent (required to read message content)
-7. Go to OAuth2 > URL Generator
-8. Select the following scopes:
+6. Go to OAuth2 > URL Generator
+7. Select the following scopes:
    - `bot`
-9. Select the following bot permissions:
+8. Select "User Install" on "Intgration Type"
+9. Select the following "Bot permissions":
    - Send Messages
    - Read Message History
-   - Read Messages/View Channels
+   - View Channels
 10. Copy the generated URL and open it in your browser to invite the bot to your server
 
 ### Installation
@@ -60,13 +60,6 @@ This bot is part of the [factorion-bot](https://github.com/tolik518/factorion-bo
 cd factorion-bot
 cargo build --release -p factorion-bot-discord
 # The binary will be in target/release/factorion-bot-discord
-```
-
-#### Manually
-
-```bash
-cd factorion-bot/factorion-bot-discord
-cargo build --release
 ```
 
 ### Configuration
