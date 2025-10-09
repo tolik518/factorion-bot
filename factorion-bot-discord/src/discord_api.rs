@@ -482,12 +482,32 @@ impl Handler {
         results: Vec<String>,
     ) -> Result<CreateEmbed, Error> {
         for (i, result) in results.iter().enumerate() {
-            let field_value = if result.len() > EMBED_FIELD_VALUE_LIMIT {
-                format!("```\n{}...\n```", &result[..EMBED_FIELD_VALUE_LIMIT - 20])
-            } else {
-                format!("```\n{}\n```", result)
-            };
+            if result.len() > EMBED_FIELD_VALUE_LIMIT {
+                let chunks: Vec<String> = result
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .chunks(EMBED_FIELD_VALUE_LIMIT - 50)
+                    .map(|chunk| {
+                        let chunk_str: String = chunk.iter().collect();
+                        format!("```\n{}\n```", chunk_str)
+                    })
+                    .collect();
 
+                for (j, chunk) in chunks.iter().take(10).enumerate() {
+                    embed = embed.field(
+                        format!(
+                            "📐 Calculation {} Part {}/{}",
+                            i + 1,
+                            j + 1,
+                            chunks.len().min(10)
+                        ),
+                        chunk,
+                        false,
+                    );
+                }
+                break;
+            }
+            let field_value = format!("```\n{}\n```", result);
             embed = embed.field(format!("📐 Calculation {}", i + 1), field_value, false);
         }
 
@@ -500,14 +520,10 @@ impl Handler {
         desc_len: usize,
     ) -> Result<CreateEmbed, Error> {
         let combined = results.join("\n");
-        let result_text = if combined.len() > EMBED_DESCRIPTION_LIMIT - desc_len - 20 {
-            format!(
-                "```\n{}...\n```",
-                &combined[..EMBED_DESCRIPTION_LIMIT - desc_len - 30]
-            )
-        } else {
-            format!("```\n{}\n```", combined)
-        };
+        if combined.len() > EMBED_FIELD_VALUE_LIMIT - desc_len - 20 {
+            return Self::add_chunked_results(embed, &combined);
+        }
+        let result_text = format!("```\n{}\n```", combined);
 
         Ok(embed.field("📐 Results", result_text, false))
     }
