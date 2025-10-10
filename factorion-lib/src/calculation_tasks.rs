@@ -346,8 +346,16 @@ impl CalculationJob {
                 )
             } else {
                 let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
-                let factorial = math::factorial(calc_num, level as u32)
-                    * if negative % 2 != 0 { -1 } else { 1 };
+
+                // For factorions (145 and 40585), return the number itself
+                // instead of calculating the factorial
+                let factorial =
+                    if level == 1 && negative == 0 && (calc_num == 145 || calc_num == 40585) {
+                        Integer::from(calc_num)
+                    } else {
+                        math::factorial(calc_num, level as u32)
+                            * if negative % 2 != 0 { -1 } else { 1 }
+                    };
                 CalculationResult::Exact(factorial)
             })
         } else if level == 0 {

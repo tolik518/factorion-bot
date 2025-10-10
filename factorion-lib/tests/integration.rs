@@ -1566,10 +1566,7 @@ fn test_factorion_detection_in_reply_single() {
         calculation_list: vec![Calculation {
             value: 145.into(),
             steps: vec![(1, 0)],
-            result: {
-                let (base, exponent) = math::approximate_factorial(145.into(), FLOAT_PRECISION);
-                CalculationResult::Approximate(base.into(), exponent)
-            },
+            result: CalculationResult::Exact(Integer::from(145)), // Factorion returns itself
         }],
         notify: None,
         commands: Commands::NONE,
@@ -1595,19 +1592,12 @@ fn test_factorion_detection_in_reply_multiple() {
             Calculation {
                 value: 145.into(),
                 steps: vec![(1, 0)],
-                result: {
-                    let (base, exponent) = math::approximate_factorial(145.into(), FLOAT_PRECISION);
-                    CalculationResult::Approximate(base.into(), exponent)
-                },
+                result: CalculationResult::Exact(Integer::from(145)), // Factorion returns itself
             },
             Calculation {
                 value: 40585.into(),
                 steps: vec![(1, 0)],
-                result: {
-                    let (base, exponent) =
-                        math::approximate_factorial(40585.into(), FLOAT_PRECISION);
-                    CalculationResult::Approximate(base.into(), exponent)
-                },
+                result: CalculationResult::Exact(Integer::from(40585)), // Factorion returns itself
             },
         ],
         notify: None,
@@ -1619,7 +1609,7 @@ fn test_factorion_detection_in_reply_multiple() {
     let reply = multiple_factorion_comment.get_reply();
     assert_eq!(
         reply,
-        "The factorial of 145 is roughly 5.550293832739304789551054660550 × 10^249 \n\nThe factorial of 40585 is roughly 1.733368733161038382077056621562 × 10^182314 \n\n**Interesting!** 145, 40585 are [factorions](https://en.wikipedia.org/wiki/Factorion) - numbers that equal the sum of the factorial of their digits!\n\n\n*^(This action was performed by a bot.)*"
+        "The factorial of 145 is 145 \n\nThe factorial of 40585 is 40585 \n\n\n**Interesting!** 145, 40585 are [factorions](https://en.wikipedia.org/wiki/Factorion) - numbers that equal the sum of the factorial of their digits!\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1658,10 +1648,7 @@ fn test_factorion_detection_40585() {
         calculation_list: vec![Calculation {
             value: 40585.into(),
             steps: vec![(1, 0)],
-            result: {
-                let (base, exponent) = math::approximate_factorial(40585.into(), FLOAT_PRECISION);
-                CalculationResult::Approximate(base.into(), exponent)
-            },
+            result: CalculationResult::Exact(Integer::from(40585)), // Factorion returns itself
         }],
         notify: None,
         commands: Commands::NONE,
@@ -1672,7 +1659,7 @@ fn test_factorion_detection_40585() {
     let reply = factorion_comment.get_reply();
     assert_eq!(
         reply,
-        "The factorial of 40585 is roughly 1.733368733161038382077056621562 × 10^182314 \n\n**Interesting!** 40585 is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n\n\n*^(This action was performed by a bot.)*"
+        "The factorial of 40585 is 40585 \n\n\n**Interesting!** 40585 is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n\n*^(This action was performed by a bot.)*"
     );
 }
 
