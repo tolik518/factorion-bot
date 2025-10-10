@@ -1564,7 +1564,7 @@ fn test_factorion_detection_in_reply_single() {
     let factorion_comment = Comment {
         meta: (),
         calculation_list: vec![Calculation {
-            value: 12.into(),
+            value: 145.into(),
             steps: vec![(1, 0)],
             result: CalculationResult::Exact(Integer::from(145)), // Result is the factorion 145
         }],
@@ -1575,12 +1575,10 @@ fn test_factorion_detection_in_reply_single() {
     };
 
     let reply = factorion_comment.get_reply();
-
-    // Check that the reply contains the factorion message
-    assert!(reply.contains("**Interesting!**"));
-    assert!(reply.contains("145 is a [factorion]"));
-    assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
-    assert!(reply.contains("sum of the factorial of its digits"));
+    assert_eq!(
+        reply,
+        "The factorial of 145 is roughly 5.550293832739304789551054660550 × 10^249 \n\n**Interesting!** 145 is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n\n\n*^(This action was performed by a bot.)*"
+    );
 }
 
 #[test]
@@ -1609,13 +1607,10 @@ fn test_factorion_detection_in_reply_multiple() {
     };
 
     let reply = multiple_factorion_comment.get_reply();
-
-    // Check that the reply mentions multiple factorions
-    assert!(reply.contains("**Interesting!**"));
-    assert!(reply.contains("are [factorions]")); // plural form with markdown
-    assert!(reply.contains("145"));
-    assert!(reply.contains("40585"));
-    assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+    assert_eq!(
+        reply,
+        "The factorial of 145 is roughly 5.550293832739304789551054660550 × 10^249 \n\nThe factorial of 40585 is roughly 1.733368733161038382077056621562 × 10^182314 \n\n**Interesting!** 145, 40585 are [factorions](https://en.wikipedia.org/wiki/Factorion) - numbers that equal the sum of the factorial of their digits!\n\n\n*^(This action was performed by a bot.)*"
+    );
 }
 
 #[test]
@@ -1637,15 +1632,10 @@ fn test_no_factorion_message_for_normal_numbers() {
     };
 
     let reply = normal_comment.get_reply();
-
-    // Check that there's no factorion message
-    assert!(!reply.contains("**Interesting!**"));
-    assert!(!reply.contains("factorion"));
-    assert!(!reply.contains("https://en.wikipedia.org/wiki/Factorion"));
-
-    // But should still contain the normal factorial result
-    assert!(reply.contains("120"));
-    assert!(reply.contains("This action was performed by a bot"));
+    assert_eq!(
+        reply,
+        "The factorial of 5 is 120 \n\n\n*^(This action was performed by a bot.)*"
+    );
 }
 
 #[test]
@@ -1667,11 +1657,10 @@ fn test_factorion_detection_40585() {
     };
 
     let reply = factorion_comment.get_reply();
-
-    // Check that 40585 is detected as a factorion
-    assert!(reply.contains("**Interesting!**"));
-    assert!(reply.contains("40585 is a [factorion]"));
-    assert!(reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+    assert_eq!(
+        reply,
+        "The factorial of 40585 is roughly 1.733368733161038382077056621562 × 10^182314 \n\n**Interesting!** 40585 is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n\n\n*^(This action was performed by a bot.)*"
+    );
 }
 
 #[test]
@@ -1700,9 +1689,8 @@ fn test_factorion_not_detected_for_approximations() {
     };
 
     let reply = approximate_comment.get_reply();
-
-    // Should not detect factorion for approximate results
-    assert!(!reply.contains("**Interesting!**"));
-    assert!(!reply.contains("factorion"));
-    assert!(!reply.contains("https://en.wikipedia.org/wiki/Factorion"));
+    assert_eq!(
+        reply,
+        "The factorial of 145 is roughly 5.550293832739304789551054660550 × 10^249 \n\n\n*^(This action was performed by a bot.)*"
+    );
 }
