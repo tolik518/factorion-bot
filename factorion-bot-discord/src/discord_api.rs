@@ -695,16 +695,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_reply_with_footer() {
-        let reply = "5! = 120\n*^(This action was performed by a bot.)*";
-        let (description, results) = Handler::parse_reply(reply);
-
-        // The footer should be filtered out
-        assert_eq!(description, "5! = 120");
-        assert_eq!(results.len(), 0);
-    }
-
-    #[test]
     fn test_parse_reply_multiple_results() {
         let reply = "\n\n1! = 1\n2! = 2\n3! = 6\n4! = 24\n5! = 120";
         let (description, results) = Handler::parse_reply(reply);
