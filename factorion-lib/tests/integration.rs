@@ -1691,6 +1691,6 @@ fn test_factorion_not_detected_for_approximations() {
     let reply = approximate_comment.get_reply();
     assert_eq!(
         reply,
-        "The factorial of 145 is roughly 5.550293832739304789551054660550 × 10^249 \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nThe factorial of 145 is approximately 5.550293832739305 × 10^249 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
