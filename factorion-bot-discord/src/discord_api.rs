@@ -8,6 +8,7 @@ use anyhow::Error;
 use factorion_lib::Consts;
 use factorion_lib::comment::{Commands, Comment, CommentConstructed};
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use serenity::all::{
     ChannelId, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, GatewayIntents, Message,
     MessageId, Ready, Timestamp,
@@ -31,9 +32,15 @@ pub struct MessageMeta {
 
 pub struct Handler<'a> {
     processed_messages: Arc<Mutex<HashSet<MessageId>>>,
-    channel_configs: Arc<Mutex<HashMap<u64, (Commands, String)>>>,
+    channel_configs: Arc<Mutex<HashMap<u64, Config>>>,
     config_path: PathBuf,
     consts: Consts<'a>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    commands: Commands,
+    locale: String,
 }
 
 impl<'a> Handler<'a> {
@@ -49,7 +56,7 @@ impl<'a> Handler<'a> {
         }
     }
 
-    fn load_configs(path: &PathBuf) -> HashMap<u64, (Commands, String)> {
+    fn load_configs(path: &PathBuf) -> HashMap<u64, Config> {
         if path.exists()
             && let Ok(content) = fs::read_to_string(path)
             && let Ok(configs) = serde_json::from_str(&content)
@@ -72,19 +79,15 @@ impl<'a> Handler<'a> {
         Ok(())
     }
 
-    async fn get_channel_config(&self, channel_id: ChannelId) -> (Commands, String) {
+    async fn get_channel_config(&self, channel_id: ChannelId) -> Config {
         let configs = self.channel_configs.lock().await;
-        configs
-            .get(&channel_id.get())
-            .cloned()
-            .unwrap_or((Commands::NONE, "en".to_owned()))
+        configs.get(&channel_id.get()).cloned().unwrap_or(Config {
+            commands: Commands::NONE,
+            locale: "en".to_owned(),
+        })
     }
 
-    async fn set_channel_config(
-        &self,
-        channel_id: ChannelId,
-        config: (Commands, String),
-    ) -> Result<(), Error> {
+    async fn set_channel_config(&self, channel_id: ChannelId, config: Config) -> Result<(), Error> {
         let mut configs = self.channel_configs.lock().await;
         configs.insert(channel_id.get(), config);
         drop(configs);
@@ -115,7 +118,10 @@ impl<'a> Handler<'a> {
         };
 
         // Get channel config to use as default commands
-        let (default_commands, locale) = self.get_channel_config(msg.channel_id).await;
+        let Config {
+            commands: default_commands,
+            locale,
+        } = self.get_channel_config(msg.channel_id).await;
 
         let comment: CommentConstructed<MessageMeta> = Comment::new(
             &msg.content,
@@ -217,12 +223,12 @@ impl<'a> Handler<'a> {
                 Usage:\n\
                 `!factorion config <setting> <on/off>`\n\
                 Available settings: shorten, steps, termial, no_note, post_only",
-                config.0.shorten,
-                config.0.steps,
-                config.0.termial,
-                config.0.no_note,
-                config.0.post_only,
-                config.1
+                config.commands.shorten,
+                config.commands.steps,
+                config.commands.termial,
+                config.commands.no_note,
+                config.commands.post_only,
+                config.locale
             );
             msg.channel_id.say(&ctx.http, status).await?;
             return Ok(());
@@ -255,7 +261,7 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
-                config.0.shorten = enabled;
+                config.commands.shorten = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -277,7 +283,7 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
-                config.0.steps = enabled;
+                config.commands.steps = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -299,7 +305,7 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
-                config.0.termial = enabled;
+                config.commands.termial = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -321,7 +327,7 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
-                config.0.no_note = enabled;
+                config.commands.no_note = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -343,7 +349,7 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
-                config.0.post_only = enabled;
+                config.commands.post_only = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -365,7 +371,7 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
-                config.1 = locale.clone();
+                config.locale = locale.clone();
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(&ctx.http, format!("Locale has been set to **{}**", locale))
