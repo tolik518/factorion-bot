@@ -82,10 +82,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 for (key, value) in files
                     .map(|file| {
                         let file = file.unwrap();
-                        let locale: Locale<'static> = serde_json::de::from_str(
+                        let mut locale: Locale<'static> = serde_json::de::from_str(
                             std::fs::read_to_string(file.path()).unwrap().leak(),
                         )
                         .unwrap();
+                        locale.set_bot_disclaimer("".into());
                         (file.file_name().into_string().unwrap(), locale)
                     })
                     .collect::<Box<_>>()
@@ -96,7 +97,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             })
             .unwrap_or_else(|_| {
                 factorion_lib::locale::get_all()
-                    .map(|(k, v)| (k.to_owned(), v))
+                    .map(|(k, mut v)| {
+                        v.set_bot_disclaimer("".into());
+                        (k.to_owned(), v)
+                    })
                     .into()
             }),
         default_locale: "en".to_owned(),

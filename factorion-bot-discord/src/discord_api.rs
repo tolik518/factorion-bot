@@ -149,7 +149,18 @@ impl<'a> Handler<'a> {
         processed.insert(msg.id);
 
         // Send formatted response
-        if let Err(why) = self.send_formatted_reply(ctx, msg, &reply_text).await {
+        if let Err(why) = self
+            .send_formatted_reply(
+                ctx,
+                msg,
+                &reply_text,
+                comment
+                    .calculation_list
+                    .iter()
+                    .any(|x| x.is_digit_tower() || x.is_aproximate_digits() || x.is_approximate()),
+            )
+            .await
+        {
             error!(
                 "Failed to send message to channel {}: {:?}",
                 msg.channel_id, why
@@ -385,6 +396,7 @@ impl<'a> Handler<'a> {
         ctx: &Context,
         msg: &Message,
         reply_text: &str,
+        approx: bool,
     ) -> Result<(), Error> {
         // Check if the reply is short enough for a simple message
         if Self::should_use_simple_reply(reply_text) {
@@ -392,7 +404,7 @@ impl<'a> Handler<'a> {
         }
 
         // For longer/complex replies, use an embed
-        let embed = self.create_embed(reply_text)?;
+        let embed = self.create_embed(reply_text, approx)?;
 
         // Send the embed
         let builder = CreateMessage::new().embed(embed).reference_message(msg);
@@ -411,18 +423,13 @@ impl<'a> Handler<'a> {
         msg: &Message,
         reply_text: &str,
     ) -> Result<(), Error> {
-        let formatted = format!(
-            "**📊 Calculation Result**\n```\n{}\n```",
-            reply_text
-                .trim_end_matches("*^(This action was performed by a bot.)*")
-                .trim()
-        );
+        let formatted = format!("**📊 Calculation Result**\n```\n{}\n```", reply_text.trim());
 
         msg.channel_id.say(&ctx.http, formatted).await?;
         Ok(())
     }
 
-    fn create_embed(&self, reply_text: &str) -> Result<CreateEmbed, Error> {
+    fn create_embed(&self, reply_text: &str, approx: bool) -> Result<CreateEmbed, Error> {
         let mut embed = CreateEmbed::new()
             .colour(Colour::from_rgb(88, 101, 242))
             .timestamp(Timestamp::now())
@@ -434,7 +441,7 @@ impl<'a> Handler<'a> {
         let (description, results) = Self::parse_reply(reply_text);
 
         // Add title based on content
-        embed = Self::add_title(embed, &description, results.len());
+        embed = Self::add_title(embed, results.len(), approx);
 
         // Add description if we have a note
         let desc_len = description.len();
@@ -457,11 +464,6 @@ impl<'a> Handler<'a> {
         for line in lines {
             let trimmed = line.trim();
 
-            // Skip the footer
-            if trimmed.contains("This action was performed by a bot") {
-                continue;
-            }
-
             // Empty line marks end of note section
             if trimmed.is_empty() {
                 in_note = false;
@@ -481,8 +483,8 @@ impl<'a> Handler<'a> {
         (description, results)
     }
 
-    fn add_title(embed: CreateEmbed, description: &str, result_count: usize) -> CreateEmbed {
-        if description.contains("approximate") || description.contains("large") {
+    fn add_title(embed: CreateEmbed, result_count: usize, approx: bool) -> CreateEmbed {
+        if approx {
             embed.title("🔢 Factorial Calculations (Approximated)")
         } else if result_count > 1 {
             embed.title("🔢 Multiple Factorial Calculations")
@@ -521,9 +523,7 @@ impl<'a> Handler<'a> {
         mut embed: CreateEmbed,
         reply_text: &str,
     ) -> Result<CreateEmbed, Error> {
-        let full_text = reply_text
-            .trim_end_matches("*^(This action was performed by a bot.)*")
-            .trim();
+        let full_text = reply_text.trim();
 
         if full_text.len() > EMBED_DESCRIPTION_LIMIT {
             embed = Self::add_chunked_results(embed, full_text)?;
@@ -714,7 +714,7 @@ mod tests {
         let embed = CreateEmbed::new();
         let description = "Note: approximate values shown for large numbers";
 
-        let _result = Handler::add_title(embed, description, 1);
+        let _result = Handler::add_title(embed, 1, true);
 
         // Check that the title contains "Approximated"
         // Note: We can't directly inspect the title, so we're testing the function runs
@@ -726,7 +726,7 @@ mod tests {
         let embed = CreateEmbed::new();
         let description = "";
 
-        let _result = Handler::add_title(embed, description, 5);
+        let _result = Handler::add_title(embed, 5, true);
 
         // Function should complete without error
         assert_eq!(description, "");
@@ -737,7 +737,7 @@ mod tests {
         let embed = CreateEmbed::new();
         let description = "";
 
-        let _result = Handler::add_title(embed, description, 1);
+        let _result = Handler::add_title(embed, 1, true);
 
         // Function should complete without error
         assert_eq!(description, "");

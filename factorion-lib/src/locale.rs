@@ -33,7 +33,7 @@ macro_rules! set_field {
     ($t:ty; $($var:ident),*; $field:ident: $ret:ty) => {
         concat_idents::concat_idents!(set_fn = set_, $field {
             impl<'a> $t {
-                pub fn set_fn(&'a mut self, v: $ret) {
+                pub fn set_fn(&mut self, v: $ret) {
                     match self {
                         $(Self::$var(this) => this.$field = v),*
                     }
@@ -61,7 +61,7 @@ macro_rules! maybe_set_field {
     ($t:ty; $($var_not:ident),*; $($var_do:ident),*; $field:ident: $ret:ty) => {
         concat_idents::concat_idents!(set_fn = set_, $field {
             impl<'a> $t {
-                pub fn set_fn(&'a mut self, v: $ret) -> bool {
+                pub fn set_fn(&mut self, v: $ret) -> bool {
                     match self {
                         $(Self::$var_do(this) => {this.$field = v; true})*
                         $(Slef::$var_not(_) => false),*
