@@ -56,7 +56,9 @@ impl Default for Consts<'_> {
             number_decimals_scientific:
                 calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
             locales: HashMap::from([
+                #[cfg(any(feature = "serde", test))]
                 ("en".to_owned(), locale::get_en()),
+                #[cfg(any(feature = "serde", test))]
                 ("de".to_owned(), locale::get_de()),
             ]),
             default_locale: "en".to_owned(),

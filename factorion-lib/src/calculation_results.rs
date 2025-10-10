@@ -1,5 +1,8 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 
+#[cfg(any(feature = "serde", test))]
+use serde::{Deserialize, Serialize};
+
 use crate::rug::float::OrdFloat;
 use crate::rug::ops::{NegAssign, NotAssign, Pow};
 use crate::rug::{Float, Integer};
@@ -54,6 +57,7 @@ impl fmt::Debug for CalculationResult {
 
 /// The result of a calculation in various formats.
 #[derive(Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum CalculationResult {
     Exact(Integer),
     /// a * 10^b
@@ -209,6 +213,7 @@ impl CalculationResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Ord, Eq, Hash, PartialOrd)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Calculation {
     /// The base number
     pub value: Number,

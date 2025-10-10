@@ -1,13 +1,18 @@
 use std::{borrow::Cow, collections::HashMap};
 
+#[cfg(any(feature = "serde", test))]
 use serde::Deserialize;
+use serde::Serialize;
 
+#[cfg(any(feature = "serde", test))]
 pub fn get_en() -> Locale<'static> {
     serde_json::de::from_str(include_str!("en.json")).unwrap()
 }
+#[cfg(any(feature = "serde", test))]
 pub fn get_de() -> Locale<'static> {
     serde_json::de::from_str(include_str!("de.json")).unwrap()
 }
+#[cfg(any(feature = "serde", test))]
 pub fn get_all() -> [(&'static str, Locale<'static>); 2] {
     [("en", get_en()), ("de", get_de())]
 }
@@ -51,6 +56,7 @@ macro_rules! maybe_get_field {
         }
     };
 }
+#[allow(unused_macros)]
 macro_rules! maybe_set_field {
     ($t:ty; $($var_not:ident),*; $($var_do:ident),*; $field:ident: $ret:ty) => {
         concat_idents::concat_idents!(set_fn = set_, $field {
@@ -66,7 +72,8 @@ macro_rules! maybe_set_field {
     };
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum Locale<'a> {
     V1(v1::Locale<'a>),
 }
@@ -196,17 +203,21 @@ pub enum NumFormatMut<'a> {
 get_field!(NumFormatMut<'a>; V1; decimal: char);
 
 pub mod v1 {
+    #[cfg(any(feature = "serde", test))]
     use serde::Deserialize;
+    use serde::Serialize;
     use std::{borrow::Cow, collections::HashMap};
 
-    #[derive(Deserialize, Debug, Clone)]
+    #[derive(Debug, Clone)]
+    #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
     pub struct Locale<'a> {
         pub bot_disclaimer: Cow<'a, str>,
         pub notes: Notes<'a>,
         pub format: Format<'a>,
     }
 
-    #[derive(Deserialize, Debug, Clone)]
+    #[derive(Debug, Clone)]
+    #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
     pub struct Notes<'a> {
         pub tower: Cow<'a, str>,
         pub tower_mult: Cow<'a, str>,
@@ -224,7 +235,8 @@ pub mod v1 {
         pub mention: Cow<'a, str>,
     }
 
-    #[derive(Deserialize, Debug, Clone)]
+    #[derive(Debug, Clone)]
+    #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
     pub struct Format<'a> {
         pub capitalize_calc: bool,
         pub termial: Cow<'a, str>,
@@ -245,7 +257,8 @@ pub mod v1 {
         pub number_format: NumFormat,
     }
 
-    #[derive(Deserialize, Debug, Clone)]
+    #[derive(Debug, Clone)]
+    #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
     pub struct NumFormat {
         pub decimal: char,
     }

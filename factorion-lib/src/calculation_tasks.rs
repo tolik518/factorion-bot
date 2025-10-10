@@ -1,5 +1,8 @@
 //! This module handles the calulation of pending calculation tasks
 
+#[cfg(any(feature = "serde", test))]
+use serde::{Deserialize, Serialize};
+
 use crate::calculation_results::Number;
 
 use crate::Consts;
@@ -31,6 +34,7 @@ pub mod recommended {
 
 /// Representation of the calculation to be done
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct CalculationJob {
     pub base: CalculationBase,
     /// Type of the calculation
@@ -40,6 +44,7 @@ pub struct CalculationJob {
 }
 /// The basis of a calculation, wheter [Number] or [CalculationJob].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum CalculationBase {
     Num(Number),
     Calc(Box<CalculationJob>),

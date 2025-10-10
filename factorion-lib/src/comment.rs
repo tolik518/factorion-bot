@@ -1,5 +1,8 @@
 //! Parses comments and generates the reply.
 
+#[cfg(any(feature = "serde", test))]
+use serde::{Deserialize, Serialize};
+
 use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
@@ -46,6 +49,7 @@ macro_rules! impl_all_bitwise {
 ///
 /// Uses three type-states exposed as the aliases [CommentConstructed], [CommentExtracted], and [CommentCalculated].
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Comment<Meta, S> {
     /// Metadata (generic)
     pub meta: Meta,
@@ -67,6 +71,7 @@ pub type CommentExtracted<Meta> = Comment<Meta, Vec<CalculationJob>>;
 pub type CommentCalculated<Meta> = Comment<Meta, Vec<Calculation>>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Status {
     pub already_replied_or_rejected: bool,
     pub not_replied: bool,
@@ -121,6 +126,7 @@ impl Status {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
     pub shorten: bool,
