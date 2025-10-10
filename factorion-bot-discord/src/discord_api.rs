@@ -59,8 +59,8 @@ impl<'a> Handler<'a> {
     fn load_configs(path: &PathBuf) -> HashMap<u64, Config> {
         if path.exists()
             && let Ok(content) = fs::read_to_string(path)
-            && let Ok(configs) = serde_json::from_str(&content)
         {
+            let configs = serde_json::from_str(&content).expect("Malformed channel configuration");
             info!("Loaded channel configurations from {}", path.display());
             return configs;
         }
