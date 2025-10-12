@@ -282,9 +282,9 @@ impl Calculation {
     /// factorions (proven). We only check for 145 and 40585 as 1 and 2 are
     /// trivial cases. Returns true if the result is 145 or 40585, false otherwise.
     pub fn is_factorion(&self) -> bool {
-        if let CalculationResult::Exact(ref result_num) = self.result {
-            // Only 145 and 40585 are interesting factorions in base 10
-            *result_num == Integer::from(145) || *result_num == Integer::from(40585)
+        // Check if the input value (not result) is a factorion
+        if let Number::Exact(ref input_num) = self.value {
+            *input_num == Integer::from(145) || *input_num == Integer::from(40585)
         } else {
             false
         }
