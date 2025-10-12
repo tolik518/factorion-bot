@@ -1566,10 +1566,14 @@ fn test_factorion_detection_in_reply_single() {
         calculation_list: vec![Calculation {
             value: 145.into(),
             steps: vec![(1, 0)],
-            result: {
-                let (base, exponent) = math::approximate_factorial(145.into(), FLOAT_PRECISION);
-                CalculationResult::Approximate(base.into(), exponent)
-            },
+            result: CalculationResult::Approximate(
+                factorion_math::rug::Float::with_val(
+                    factorion_lib::recommended::FLOAT_PRECISION,
+                    5.550293832739304789551054660550,
+                )
+                .into(),
+                Integer::from(249),
+            ),
         }],
         notify: None,
         commands: Commands::NONE,
@@ -1595,18 +1599,26 @@ fn test_factorion_detection_in_reply_multiple() {
             Calculation {
                 value: 145.into(),
                 steps: vec![(1, 0)],
-                result: {
-                    let (base, exponent) = math::approximate_factorial(145.into(), FLOAT_PRECISION);
-                    CalculationResult::Approximate(base.into(), exponent)
-                },
+                result: CalculationResult::Approximate(
+                    factorion_math::rug::Float::with_val(
+                        factorion_lib::recommended::FLOAT_PRECISION,
+                        5.550293832739304789551054660550,
+                    )
+                    .into(),
+                    Integer::from(249),
+                ),
             },
             Calculation {
                 value: 40585.into(),
                 steps: vec![(1, 0)],
-                result: {
-                    let (base, exponent) = math::approximate_factorial(40585.into(), FLOAT_PRECISION);
-                    CalculationResult::Approximate(base.into(), exponent)
-                },
+                result: CalculationResult::Approximate(
+                    factorion_math::rug::Float::with_val(
+                        factorion_lib::recommended::FLOAT_PRECISION,
+                        1.733368733161038382077056621562,
+                    )
+                    .into(),
+                    Integer::from(182314),
+                ),
             },
         ],
         notify: None,
@@ -1657,7 +1669,14 @@ fn test_factorion_detection_40585() {
         calculation_list: vec![Calculation {
             value: 40585.into(),
             steps: vec![(1, 0)],
-            result: CalculationResult::Exact(Integer::from(40585)), // Factorion returns itself
+            result: CalculationResult::Approximate(
+                factorion_math::rug::Float::with_val(
+                    factorion_lib::recommended::FLOAT_PRECISION,
+                    1.733368733161038382077056621562,
+                )
+                .into(),
+                Integer::from(182314),
+            ),
         }],
         notify: None,
         commands: Commands::NONE,
@@ -1668,7 +1687,7 @@ fn test_factorion_detection_40585() {
     let reply = factorion_comment.get_reply();
     assert_eq!(
         reply,
-        "The factorial of 40585 is 40585 \n\n\n**Interesting!** 40585 is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n\n*^(This action was performed by a bot.)*"
+        "The factorial of 40585 is roughly 1.733368733161038382077056621562 × 10^182314 \n\n**Interesting!** 40585 is a [factorion](https://en.wikipedia.org/wiki/Factorion) - a number that equals the sum of the factorial of its digits!\n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
