@@ -11,9 +11,14 @@ pub fn get_en() -> Locale<'static> {
 pub fn get_de() -> Locale<'static> {
     serde_json::de::from_str(include_str!("de.json")).unwrap()
 }
+
 #[cfg(any(feature = "serde", test))]
-pub fn get_all() -> [(&'static str, Locale<'static>); 2] {
-    [("en", get_en()), ("de", get_de())]
+pub fn get_ru() -> Locale<'static> {
+    serde_json::de::from_str(include_str!("ru.json")).unwrap()
+}
+#[cfg(any(feature = "serde", test))]
+pub fn get_all() -> [(&'static str, Locale<'static>); 3] {
+    [("en", get_en()), ("de", get_de()), ("ru", get_ru())]
 }
 
 /// This can be used to retroactively add fields, that exist in all versions.
