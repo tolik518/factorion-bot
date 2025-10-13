@@ -1,8 +1,7 @@
 use std::{borrow::Cow, collections::HashMap};
 
 #[cfg(any(feature = "serde", test))]
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[cfg(any(feature = "serde", test))]
 pub fn get_en() -> Locale<'static> {
@@ -204,8 +203,7 @@ get_field!(NumFormatMut<'a>; V1; decimal: char);
 
 pub mod v1 {
     #[cfg(any(feature = "serde", test))]
-    use serde::Deserialize;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use std::{borrow::Cow, collections::HashMap};
 
     #[derive(Debug, Clone)]
