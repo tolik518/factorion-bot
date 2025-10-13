@@ -19,6 +19,7 @@ use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
 use serde_json::{Value, from_str, json};
 use tokio::join;
+use tokio::sync::Mutex;
 
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
@@ -594,13 +595,27 @@ impl RedditClient {
                 if let Some((locale, commands)) = subs.get(sub) {
                     (*locale, *commands)
                 } else {
-                    let request = self.client.get(format!("{REDDIT_OAUTH_URL}/r/{sub}/about"));
-                    let reply = request.bearer_auth(&self.token.access_token).send().await?;
-                    reply_body = reply.json::<Value>().await?;
-                    (
-                        reply_body["data"]["lang"].as_str().unwrap_or("en"),
-                        Commands::NONE,
-                    )
+                    // To minimize the need to clone, we store leaked strings.
+                    // That is acceptable, as it cleanup of this would be hard,
+                    // and the amount of data leaked is very small
+                    // (2 Bytes plus effectively up to 30 Bytes ca. 9 times a day
+                    // => ca. 100 kB a year)
+                    static LANG_CACHE: LazyLock<Mutex<HashMap<String, &str>>> =
+                        LazyLock::new(|| Mutex::new(HashMap::new()));
+                    if let Some(locale) = LANG_CACHE.lock().await.get(sub) {
+                        (*locale, Commands::NONE)
+                    } else {
+                        let request = self.client.get(format!("{REDDIT_OAUTH_URL}/r/{sub}/about"));
+                        let reply = request.bearer_auth(&self.token.access_token).send().await?;
+                        reply_body = reply.json::<Value>().await?;
+                        let locale = reply_body["data"]["lang"]
+                            .as_str()
+                            .map(|x| &*x.to_owned().leak())
+                            .unwrap_or("en");
+                        LANG_CACHE.lock().await.insert(sub.to_owned(), locale);
+                        info!("Added to lang cache {sub}:{locale}");
+                        (locale, Commands::NONE)
+                    }
                 }
             } else {
                 ("en", Commands::NONE)
