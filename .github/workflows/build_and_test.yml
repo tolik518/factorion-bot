@@ -91,7 +91,7 @@ jobs:
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           # Fetch the base branch version of Cargo.toml and diff files
           git fetch origin "$BASE_BRANCH"
-          for DIR in ["factorion-bot-reddit", "factorion-lib", "factorion-math", "factorion-bot-discord"]
+          for DIR in "factorion-bot-reddit" "factorion-lib" "factorion-math" "factorion-bot-discord"
           do
             # Get list of changed files between base branch and the current commit
             CHANGED_FILES=$(git diff --name-only origin/"$BASE_BRANCH"...HEAD -- "$DIR")
