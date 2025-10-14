@@ -1,7 +1,7 @@
 //! Parses text and extracts calculations
 
 use crate::locale::{self, NumFormat};
-use crate::rug::{integer::IntegerExt64, Complete, Float, Integer};
+use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::Consts;
 use crate::{
