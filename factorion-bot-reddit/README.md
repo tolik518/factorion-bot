@@ -111,6 +111,7 @@ UPPER_TERMIAL_LIMIT=<maximum_number_to_precisely_calculate_termial_exponent> 100
 UPPER_TERMIAL_APPROXIMATION_LIMIT=<maximum_number_to_approximate_termial_bits> 1073741822
 INTEGER_CONSTRUCTION_LIMIT=<maximum_integer_to_parse_exponent> 100000000
 NUMBER_DECIMALS_SCIENTIFIC=<how_many_decimals_to_display> 30
+LOCALES_DIR=<directory_containing_locale_json_files>
 
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test
@@ -164,7 +165,7 @@ docker compose up -d
 # Contributing
 
 Feel free to submit issues or pull requests if you would like to contribute to this project.
-Help with ideas, math, code, documentation, etc. is greatly appreciated.
+Help with ideas, math, code, documentation, translations, etc. is greatly appreciated.
 If you are unsure about how to start, visit [Contributing](CONTRIBUTING.md)
 
 ## Nix Devshell

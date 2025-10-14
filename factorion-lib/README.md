@@ -1,8 +1,6 @@
 # Factorion
 A library to create factorion-bots, contains logic for parsing, calculation, and formatting.
 
-Before using any functions, you must initialize constants (float precision, limits, and number of decimals) using the `init` or `init_default` function.
-
 ## Usage
 You can use the given abstraction for comments in [comment]:
 ```rust

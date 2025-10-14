@@ -1,3 +1,4 @@
+#![doc = include_str!("../Locales.md")]
 use std::{borrow::Cow, collections::HashMap};
 
 #[cfg(any(feature = "serde", test))]
@@ -76,6 +77,9 @@ macro_rules! maybe_set_field {
     };
 }
 
+/// Versioned total locale
+///
+/// Use the getter methods to (maybe) access the fields or setters to (maybe) override them
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum Locale<'a> {
@@ -105,6 +109,9 @@ impl<'a> Locale<'a> {
         }
     }
 }
+/// Versioned locale just for the notes at the beginning of posts
+///
+/// Use the getter methods to (maybe) access fields
 #[derive(Debug, Clone)]
 pub enum Notes<'a> {
     V1(&'a v1::Notes<'a>),
@@ -123,6 +130,9 @@ get_field!(Notes<'a>; V1; remove: Cow<'a, str>);
 get_field!(Notes<'a>; V1; tetration: Cow<'a, str>);
 get_field!(Notes<'a>; V1; no_post: Cow<'a, str>);
 get_field!(Notes<'a>; V1; mention: Cow<'a, str>);
+/// Versioned locale for the notes at the beginning of posts
+///
+/// Use the setter methods to (maybe) override them
 #[derive(Debug)]
 pub enum NotesMut<'a> {
     V1(&'a mut v1::Notes<'a>),
@@ -141,6 +151,9 @@ set_field!(NotesMut<'a>; V1; remove: Cow<'a, str>);
 set_field!(NotesMut<'a>; V1; tetration: Cow<'a, str>);
 set_field!(NotesMut<'a>; V1; no_post: Cow<'a, str>);
 set_field!(NotesMut<'a>; V1; mention: Cow<'a, str>);
+/// Versioned locale for the formatting of individual calculations
+///
+/// Use the getter methods to (maybe) access fields
 #[derive(Debug, Clone)]
 pub enum Format<'a> {
     V1(&'a v1::Format<'a>),
@@ -168,6 +181,9 @@ impl<'a> Format<'a> {
         }
     }
 }
+/// Versioned locale for the formatting of individual calculations
+///
+/// Use the setter methods to (maybe) override them
 #[derive(Debug)]
 pub enum FormatMut<'a> {
     V1(&'a mut v1::Format<'a>),
@@ -195,17 +211,24 @@ impl<'a> FormatMut<'a> {
         }
     }
 }
+/// Versioned locale for how numbers are formatted
+///
+/// Use the getter methods to (maybe) access fields
 #[derive(Debug, Clone)]
 pub enum NumFormat<'a> {
     V1(&'a v1::NumFormat),
 }
 get_field!(NumFormat<'a>; V1; decimal: char);
+/// Versioned locale for how numbers are formatted
+///
+/// Use the setter methods to (maybe) override them
 #[derive(Debug)]
 pub enum NumFormatMut<'a> {
     V1(&'a mut v1::NumFormat),
 }
 get_field!(NumFormatMut<'a>; V1; decimal: char);
 
+/// v1 of locales
 pub mod v1 {
     #[cfg(any(feature = "serde", test))]
     use serde::{Deserialize, Serialize};
