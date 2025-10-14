@@ -69,7 +69,7 @@ macro_rules! maybe_set_field {
                 pub fn set_fn(&mut self, v: $ret) -> bool {
                     match self {
                         $(Self::$var_do(this) => {this.$field = v; true})*
-                        $(Slef::$var_not(_) => false),*
+                        $(Self::$var_not(_) => false),*
                     }
                 }
             }
