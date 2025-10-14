@@ -395,7 +395,7 @@ impl Calculation {
             "vigin",
             "trigin",
             "quadragin",
-            "quagin",
+            "quinquagin",
             "sexagin",
             "septuagin",
             "octogin",
@@ -405,6 +405,7 @@ impl Calculation {
             "",
             "cen",
             "ducen",
+            // Note this differs from the wikipedia list to disambiguate from 103, which continuing the pattern should be trecentuple
             "tricen",
             "quadringen",
             "quingen",
@@ -413,9 +414,24 @@ impl Calculation {
             "octingen ",
             "nongen",
         ];
+        // Note that other than milluple, these are not found in a list, but continue the pattern from mill with different starts
         const THOUSANDS: [&str; 10] = [
             "", "mill", "bill", "trill", "quadrill", "quintill", "sextill", "septill", "octill",
             "nonill",
+        ];
+        const BINDING_T: [[bool; 10]; 4] = [
+            // Singles
+            [
+                false, false, false, false, false, false, false, false, false, false,
+            ],
+            // Tens
+            [false, false, true, true, true, true, true, true, true, true],
+            // Hundreds
+            [false, true, true, true, true, true, true, true, true, true],
+            // Thousands
+            [
+                false, false, false, false, false, false, false, false, false, false,
+            ],
         ];
         if let Some(s) = locale.num_overrides().get(&level) {
             return s.as_ref().into();
@@ -439,7 +455,14 @@ impl Calculation {
                 let th = n % 10;
                 acc.write_str(THOUSANDS[th as usize]).unwrap();
                 // Check if we need tuple not uple
-                if th == 0 && (h != 0 || (t != 0 && t != 1)) {
+                let last_written = [s, t, h, th]
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .rev()
+                    .find(|(_, n)| *n != 0)
+                    .unwrap();
+                if BINDING_T[last_written.0][last_written.1 as usize] {
                     acc.write_str("t").unwrap();
                 }
                 acc.write_str(locale.uple()).unwrap();
@@ -588,16 +611,28 @@ mod tests {
             "triple-{factorial}"
         );
         assert_eq!(
+            Calculation::get_factorial_level_string(10, &en.format()),
+            "decuple-{factorial}"
+        );
+        assert_eq!(
             Calculation::get_factorial_level_string(45, &en.format()),
             "quinquadragintuple-{factorial}"
         );
         assert_eq!(
             Calculation::get_factorial_level_string(50, &en.format()),
-            "quagintuple-{factorial}"
+            "quinquagintuple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(100, &en.format()),
+            "centuple-{factorial}"
         );
         assert_eq!(
             Calculation::get_factorial_level_string(521, &en.format()),
             "unviginquingentuple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(1000, &en.format()),
+            "milluple-{factorial}"
         );
         assert_eq!(
             Calculation::get_factorial_level_string(4321, &en.format()),
