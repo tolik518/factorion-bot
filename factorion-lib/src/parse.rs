@@ -1,7 +1,7 @@
 //! Parses text and extracts calculations
 
 use crate::locale::{self, NumFormat};
-use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
+use crate::rug::{integer::IntegerExt64, Complete, Float, Integer};
 
 use crate::Consts;
 use crate::{
@@ -141,6 +141,7 @@ pub fn parse(
         text = text.trim_start();
         if text.len() != last_len {
             current_negative = 0;
+            had_text_before = false;
         }
         // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
@@ -388,6 +389,11 @@ pub fn parse(
             };
         } else {
             // Number (7.)
+            if text.starts_with('.') && !text[1..].starts_with(char::is_numeric) {
+                // Is a period
+                text = &text[1..];
+                continue;
+            }
             let Some(num) = parse_num(&mut text, had_text, false, consts, locale) else {
                 had_text_before = true;
                 // advance one char to avoid loop
@@ -1149,6 +1155,23 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(jobs, []);
+        let jobs = parse(
+            "some. pi!",
+            true,
+            &consts,
+            &consts.locales.get("en").unwrap().format().number_format(),
+        );
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(Number::Float(
+                    Float::with_val(FLOAT_PRECISION, factorion_math::rug::float::Constant::Pi)
+                        .into()
+                )),
+                level: 1,
+                negative: 0
+            }]
+        );
     }
 
     #[test]
