@@ -11,7 +11,7 @@ Locales contain a few different kinds of settings:
 - Map, a list of key value pairs for certain settings, used for overrides
 
 ## V1
-```json
+```jsonc
 // Version number
 { "V1":
   {
