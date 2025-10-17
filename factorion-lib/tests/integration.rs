@@ -882,7 +882,7 @@ fn test_reply_too_long() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n\n*^(This action was performed by a bot.)*"
+        "Sorry, but the reply text for all those numbers would be _really_ long, so I'd rather not even try posting lmao\n\n*^(This action was performed by a bot.)*"
     );
 }
 

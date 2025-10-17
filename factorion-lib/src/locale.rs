@@ -132,7 +132,7 @@ get_field!(Notes<'a>; V1; no_post: Cow<'a, str>);
 get_field!(Notes<'a>; V1; mention: Cow<'a, str>);
 /// Versioned locale for the notes at the beginning of posts
 ///
-/// Use the setter methods to (maybe) override them
+/// Use the setter methods to (possibly) override them
 #[derive(Debug)]
 pub enum NotesMut<'a> {
     V1(&'a mut v1::Notes<'a>),
@@ -183,7 +183,7 @@ impl<'a> Format<'a> {
 }
 /// Versioned locale for the formatting of individual calculations
 ///
-/// Use the setter methods to (maybe) override them
+/// Use the setter methods to (possibly) override them
 #[derive(Debug)]
 pub enum FormatMut<'a> {
     V1(&'a mut v1::Format<'a>),
@@ -221,7 +221,7 @@ pub enum NumFormat<'a> {
 get_field!(NumFormat<'a>; V1; decimal: char);
 /// Versioned locale for how numbers are formatted
 ///
-/// Use the setter methods to (maybe) override them
+/// Use the setter methods to (possibly) override them
 #[derive(Debug)]
 pub enum NumFormatMut<'a> {
     V1(&'a mut v1::NumFormat),

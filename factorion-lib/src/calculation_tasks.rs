@@ -1,4 +1,4 @@
-//! This module handles the calulation of pending calculation tasks
+//! This module handles the calculation of pending calculation tasks
 
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ pub struct CalculationJob {
     /// Number of negations encountered
     pub negative: u32,
 }
-/// The basis of a calculation, wheter [Number] or [CalculationJob].
+/// The basis of a calculation, whether [Number] or [CalculationJob].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum CalculationBase {

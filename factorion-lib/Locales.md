@@ -1,8 +1,8 @@
 # Factorion Locale Format
-Factorion uses a versioned Locale format for backwards compatability, it is recommended to use the most up-to-date version.
-Locales can theoretically be supplied in any format, the specific bot supports, but preffered and supported by official bots is json.
+Factorion uses a versioned Locale format for backwards compatibility, it is recommended to use the most up-to-date version.
+Locales can theoretically be supplied in any format, the specific bot supports, but preferred and supported by official bots is JSON.
 
-Here listed is the english locale in all versions, with comments explaining the settings.
+Here listed is the English locale in all versions, with comments explaining the settings.
 Locales contain a few different kinds of settings:
 - Simple text
 - Templated text, where some "{template}" (like "{factorial}") is replaced by other text
@@ -31,7 +31,7 @@ Locales contain a few different kinds of settings:
       "too_big_mult": "If I post the whole numbers, the comment would get too long. So I had to turn them into scientific notation.",
       "remove": "If I posted all numbers, the comment would get too long. So I had to remove some of them.",
       "tetration": "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!",
-      "no_post": "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao",
+      "no_post": "Sorry, but the reply text for all those numbers would be _really_ long, so I'd rather not even try posting lmao",
       // How to call out to a user (when mentioning them). "{mention}" is replaced by the user string formatted as a mention
       "mention": "Hey {mention}!"
     },
@@ -42,7 +42,7 @@ Locales contain a few different kinds of settings:
         // The number decimal separator (also used when parsing). Must be a single character
         "decimal": "."
       },
-      // Whether to capitalize the start of the calculation word (sub, uple, terimal or factorial) (ASCII only)
+      // Whether to capitalize the start of the calculation word (sub, uple, termial or factorial) (ASCII only)
       "capitalize_calc": false,
       "termial": "termial",
       "factorial": "factorial",
@@ -59,27 +59,27 @@ Locales contain a few different kinds of settings:
       },
       // Turn off automatic tuple names (use overrides and numbers)
       "force_num": false,
-      // How to write nested factorials. "{factorial}" is replaced by the outer calculation, "{next}" by the inner (both being negative, sub, uple, terimal or factorial)
+      // How to write nested factorials. "{factorial}" is replaced by the outer calculation, "{next}" by the inner (both being negative, sub, uple, termial or factorial)
       "nest": "{factorial} of {next}",
-      // How to write a calculation with an exact result. "{factorial}" is replaced by nest, negative, sub, uple, terimal or factorial,
-      // "{number}" by the input to the calcultion or rough_number and "{result}" by the result
+      // How to write a calculation with an exact result. "{factorial}" is replaced by nest, negative, sub, uple, termial or factorial,
+      // "{number}" by the input to the calculation or rough_number and "{result}" by the result
       "exact": "{factorial} of {number} is {result}",
-      // How to write a calculation with a shortened result. "{factorial}" is replaced by nest, negative, sub, uple, terimal or factorial,
-      // "{number}" by the input to the calcultion or rough_number and "{result}" by the result
+      // How to write a calculation with a shortened result. "{factorial}" is replaced by nest, negative, sub, uple, termial or factorial,
+      // "{number}" by the input to the calculation or rough_number and "{result}" by the result
       "rough": "{factorial} of {number} is roughly {result}",
-      // How to write a calculation with an approximate result. "{factorial}" is replaced by nest, negative, sub, uple, terimal or factorial,
-      // "{number}" by the input to the calcultion or rough_number and "{result}" by the result
+      // How to write a calculation with an approximate result. "{factorial}" is replaced by nest, negative, sub, uple, termial or factorial,
+      // "{number}" by the input to the calculation or rough_number and "{result}" by the result
       "approx": "{factorial} of {number} is approximately {result}",
-      // How to write a calculation with a result given in approximate number of digits. "{factorial}" is replaced by nest, negative, sub, uple, terimal or factorial,
-      // "{number}" by the input to the calcultion or rough_number and "{result}" by the result
+      // How to write a calculation with a result given in approximate number of digits. "{factorial}" is replaced by nest, negative, sub, uple, termial or factorial,
+      // "{number}" by the input to the calculation or rough_number and "{result}" by the result
       "digits": "{factorial} of {number} has approximately {result} digits",
       // How to write a calculation with a result given in a power-of-ten tower number of digits.
-      // "{factorial}" is replaced by nest, negative, sub, uple, terimal or factorial,
-      // "{number}" by the input to the calcultion or rough_number and "{result}" by the result
+      // "{factorial}" is replaced by nest, negative, sub, uple, termial or factorial,
+      // "{number}" by the input to the calculation or rough_number and "{result}" by the result
       "order": "{factorial} of {number} has on the order of {result} digits",
       // How to write a calculation with a result given in tetration of ten number of digits, and no calculation steps.
-      // "{factorial}" is replaced by nest, negative, sub, uple, terimal or factorial,
-      // "{number}" by the input to the calcultion or rough_number and "{result}" by the result
+      // "{factorial}" is replaced by nest, negative, sub, uple, termial or factorial,
+      // "{number}" by the input to the calculation or rough_number and "{result}" by the result
       "all_that": "All that of {number} has on the order of {result} digits",
       // How to write a shortened number. "{number}" is replaced by the input to the calculation
       "rough_number": "roughly {number}"
