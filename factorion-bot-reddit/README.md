@@ -96,6 +96,7 @@ REDDIT_USERNAME=<reddit_app_username>
 REDDIT_PASSWORD=<reddit_app_password>
 
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
+// example: SUBREDDITS=test:en+testingground4bots:ru:no_note,termial
 SUBREDDITS=<subreddits>
 TERMIAL_SUBREDDITS=<subreddits_with_termials>
 CHECK_MENTIONS=<check_mentions>
