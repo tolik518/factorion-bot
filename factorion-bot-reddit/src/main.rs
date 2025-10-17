@@ -177,7 +177,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &mut last_ids,
             )
             .await
-            .unwrap_or_default();
+            .unwrap_or((Default::default(), (60.0, 0.0)));
         let end = SystemTime::now();
 
         influxdb::log_time_consumed(influx_client, start, end, "get_comments").await?;
@@ -259,22 +259,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 };
                 sleep(Duration::from_secs(pause as u64)).await;
                 if !dont_reply {
-                    match reddit_client.reply_to_comment(comment, &reply).await {
-                        Ok(t) => {
-                            if let Some(t) = t {
-                                rate = t;
-                            } else {
-                                warn!("Missing ratelimit");
+                    'reply: loop {
+                        match reddit_client.reply_to_comment(&comment, &reply).await {
+                            Ok(t) => {
+                                if let Some(t) = t {
+                                    rate = t;
+                                } else {
+                                    warn!("Missing ratelimit");
+                                }
+                                influxdb::log_comment_reply(
+                                    influx_client,
+                                    &comment_id,
+                                    &comment_author,
+                                    &comment_subreddit,
+                                )
+                                .await?;
                             }
-                            influxdb::log_comment_reply(
-                                influx_client,
-                                &comment_id,
-                                &comment_author,
-                                &comment_subreddit,
-                            )
-                            .await?;
+                            Err(e) => match e.downcast::<reddit_api::RateLimitErr>() {
+                                Ok(_) => {
+                                    error!("Hit the ratelimit!");
+                                    sleep(Duration::from_secs(rate.0.ceil() as u64)).await;
+                                    continue 'reply;
+                                }
+                                Err(e) => error!("Failed to reply to comment: {e:?}"),
+                            },
                         }
-                        Err(e) => error!("Failed to reply to comment: {e:?}"),
+                        break 'reply;
                     }
                 }
                 continue;

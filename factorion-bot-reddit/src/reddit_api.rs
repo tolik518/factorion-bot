@@ -57,6 +57,14 @@ pub(crate) struct RedditClient {
     client: Client,
     token: Token,
 }
+#[derive(Debug, Clone)]
+pub(crate) struct RateLimitErr;
+impl std::fmt::Display for RateLimitErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Ratelimit hit! Got 429.")
+    }
+}
+impl std::error::Error for RateLimitErr {}
 
 impl RedditClient {
     /// Creates a new client using the env variables APP_CLIENT_ID and APP_SECRET.
@@ -286,37 +294,46 @@ impl RedditClient {
                     res.extend(posts);
                 }
                 if let Some(ids) = ids {
-                    let response = self
-                        .client
-                        .get(format!(
-                            "{}/api/info?id={}",
-                            REDDIT_OAUTH_URL,
-                            ids.iter()
-                                .map(|(id, _)| id)
-                                .fold(String::new(), |mut a, e| {
-                                    let _ = write!(a, "{e}");
-                                    a
-                                })
-                        ))
-                        .bearer_auth(&self.token.access_token)
-                        .send()
-                        .await
-                        .expect("Failed to get comment");
-                    if Self::check_response_status(&response).is_ok() {
-                        let (comments, _, t, _) = self
-                            .extract_comments(
-                                response,
-                                already_replied_to_comments,
-                                true,
-                                SUBREDDIT_COMMANDS.get().unwrap(),
-                                &ids.into_iter().collect(),
-                            )
+                    'get_summons: loop {
+                        let response = self
+                            .client
+                            .get(format!(
+                                "{}/api/info?id={}",
+                                REDDIT_OAUTH_URL,
+                                ids.iter()
+                                    .map(|(id, _)| id)
+                                    .fold(String::new(), |mut a, e| {
+                                        let _ = write!(a, "{e}");
+                                        a
+                                    })
+                            ))
+                            .bearer_auth(&self.token.access_token)
+                            .send()
                             .await
-                            .expect("Failed to extract comments");
+                            .expect("Failed to get comment");
+                        if Self::check_response_status(&response).is_ok() {
+                            let (comments, _, t, _) = self
+                                .extract_comments(
+                                    response,
+                                    already_replied_to_comments,
+                                    true,
+                                    SUBREDDIT_COMMANDS.get().unwrap(),
+                                    &ids.into_iter().collect(),
+                                )
+                                .await
+                                .expect("Failed to extract comments");
 
-                        reset_timer = Self::update_reset_timer(reset_timer, t);
+                            reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                        res.extend(comments);
+                            res.extend(comments);
+                        } else if response.status().as_u16() == 429 {
+                            tokio::time::sleep(std::time::Duration::from_secs(
+                                reset_timer.0.ceil() as u64,
+                            ))
+                            .await;
+                            continue 'get_summons;
+                        }
+                        break 'get_summons;
                     }
                 }
                 if let Some(mentions) = mentions {
@@ -356,7 +373,7 @@ impl RedditClient {
     /// May panic on a malformed response is received from the api.
     pub(crate) async fn reply_to_comment(
         &mut self,
-        comment: CommentCalculated<Meta>,
+        comment: &CommentCalculated<Meta>,
         reply: &str,
     ) -> Result<Option<(f64, f64)>, Error> {
         #[cfg(not(test))]
@@ -382,6 +399,10 @@ impl RedditClient {
             .form(&params)
             .send()
             .await?;
+
+        if response.status().as_u16() == 429 {
+            Err(RateLimitErr)?
+        };
 
         let response_headers = response.headers();
         let ratelimit_remaining: Option<f64> = response_headers
@@ -931,25 +952,23 @@ mod tests {
                 expiration_time: Utc::now(),
             },
         };
+        let comment = Comment::new_already_replied(
+            Meta {
+                id: "t1_some_id".to_owned(),
+                author: "author".to_owned(),
+                subreddit: "subressit".to_owned(),
+            },
+            MAX_COMMENT_LEN,
+            "en",
+        )
+        .extract(&consts)
+        .calc(&consts);
         let (status, reply_status) = join!(
             dummy_server(&[(
                 "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 32\r\n\r\ntext=I+relpy&thing_id=t1_some_id",
                 "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 200\n\n{\"success\": true}"
             )]),
-            client.reply_to_comment(
-                Comment::new_already_replied(
-                    Meta {
-                        id: "t1_some_id".to_owned(),
-                        author: "author".to_owned(),
-                        subreddit: "subressit".to_owned()
-                    },
-                    MAX_COMMENT_LEN,
-                    "en"
-                )
-                .extract(&consts)
-                .calc(&consts),
-                "I relpy"
-            )
+            client.reply_to_comment(&comment, "I relpy")
         );
         status.unwrap();
         let reply_status = reply_status.unwrap();
