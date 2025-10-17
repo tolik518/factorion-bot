@@ -45,7 +45,7 @@ This bot is part of the [factorion-bot](https://github.com/tolik518/factorion-bo
 6. Go to OAuth2 > URL Generator
 7. Select the following scopes:
    - `bot`
-8. Select "User Install" on "Intgration Type"
+8. Select "User Install" on "Integration Type"
 9. Select the following "Bot permissions":
    - Send Messages
    - Read Message History

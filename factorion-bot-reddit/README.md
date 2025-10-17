@@ -56,7 +56,7 @@ Follow these steps to set up and run the Factorion bot on your local machine and
 
 
 ## Installation
-You might need to install some build dependecies: openssl, gmp, m4, pkg-config
+You might need to install some build dependencies: openssl, gmp, m4, pkg-config
 ### With Cargo (crates.io)
 ```bash
 cargo install --locked factorion-bot-reddit
@@ -97,7 +97,7 @@ REDDIT_PASSWORD=<reddit_app_password>
 
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
 SUBREDDITS=<subreddits>
-TERMIAL_SUBREDDITS=<subbreddits_with_termials>
+TERMIAL_SUBREDDITS=<subreddits_with_termials>
 CHECK_MENTIONS=<check_mentions>
 CHECK_POSTS=<check_posts>
 MENTIONS_EVERY=<check_mentions_every_nth_loop>
@@ -105,7 +105,7 @@ POSTS_EVERY=<check_posts_every_nth_loop>
 
 FLOAT_PRECISION=<the_precision_floats_use> 1024
 UPPER_CALCULATION_LIMIT=<maximum_number_to_precisely_calculate> 1000000
-UPPER_APPROXIMATION_LIMIT=<maximum_number_to_approximte_exponent> 300
+UPPER_APPROXIMATION_LIMIT=<maximum_number_to_approximate_exponent> 300
 UPPER_SUBFACTORIAL_LIMIT=<maximum_number_to_precisely_calculate_subfactorial> 1000000
 UPPER_TERMIAL_LIMIT=<maximum_number_to_precisely_calculate_termial_exponent> 10000
 UPPER_TERMIAL_APPROXIMATION_LIMIT=<maximum_number_to_approximate_termial_bits> 1073741822
@@ -122,7 +122,7 @@ RUST_LOG=<factorion_bot|info|debug|trace|error|warn>
 
 Replace with the values you received from the Reddit App creation.
 InfluxDB is optional and can be removed if not needed.
-The limits, precision and number of deciamls are optional, and will use default values if left away.
+The limits, precision and number of decimals are optional, and will use default values if left away.
 The `_EVERY` variables are optional and default to `1`.
 They control how often posts/mentions are checked compared to comments.
 Setting them to `0` will result in a crash.

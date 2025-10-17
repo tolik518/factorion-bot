@@ -91,7 +91,7 @@ impl RedditClient {
     /// Fetches comments from the `SUBREDDITS` and mentions with the set limit of `COMMENT_COUNT`, and creates/calculates the factorials from the response.
     /// And adds the comments to `already_replied_to_comments` to ignore them in the future.
     /// # Panic
-    /// Panics if `SUBREDDITS` or `COMMENT_COUNT` is uninitialized, if the env vars APP_CLIENT_ID or APP_SECRET are unset, or if it recieves a malformed response from the api.
+    /// Panics if `SUBREDDITS` or `COMMENT_COUNT` is uninitialized, if the env vars APP_CLIENT_ID or APP_SECRET are unset, or if it receives a malformed response from the api.
     pub(crate) async fn get_comments(
         &mut self,
         already_replied_to_comments: &mut Vec<DenseId>,
