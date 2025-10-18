@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable};
 use std::{sync::LazyLock, time::SystemTime};
 
+pub const SOURCE: &str = "reddit";
+
 pub static INFLUX_CLIENT: LazyLock<Option<InfluxDbClient>> = LazyLock::new(|| {
     let host = std::env::var("INFLUXDB_HOST").ok()?;
     let bucket = std::env::var("INFLUXDB_BUCKET").ok()?;
@@ -13,6 +15,7 @@ pub static INFLUX_CLIENT: LazyLock<Option<InfluxDbClient>> = LazyLock::new(|| {
 pub struct TimeMeasurement {
     pub time: DateTime<Utc>,
     pub time_consumed: f64,
+    pub source: String,
 }
 
 #[derive(InfluxDbWriteable)]
@@ -23,6 +26,10 @@ pub struct CommentMeasurement {
     pub author: String,
     #[influxdb(tag)]
     pub subreddit: String,
+    #[influxdb(tag)]
+    pub language: String,
+    #[influxdb(tag)]
+    pub source: String,
 }
 
 pub async fn log_comment_reply(
@@ -30,6 +37,7 @@ pub async fn log_comment_reply(
     comment_id: &str,
     author: &str,
     subreddit: &str,
+    language: &str,
 ) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
@@ -39,6 +47,8 @@ pub async fn log_comment_reply(
                     comment_id: comment_id.to_string(),
                     author: author.to_string(),
                     subreddit: subreddit.to_string(),
+                    language: language.to_string(),
+                    source: SOURCE.to_string(),
                 }
                 .into_query("replied_to_comment"),
             ])
@@ -59,6 +69,7 @@ pub async fn log_time_consumed(
                 TimeMeasurement {
                     time: Utc::now(),
                     time_consumed: end.duration_since(start).unwrap().as_secs_f64(),
+                    source: SOURCE.to_string(),
                 }
                 .into_query(metric_name),
             ])
