@@ -4,12 +4,14 @@ use factorion_lib::Consts;
 use factorion_lib::locale::Locale;
 use factorion_lib::rug::integer::IntegerExt64;
 use factorion_lib::rug::{Complete, Integer};
-use log::{error, info};
+use log::{error, info, warn};
 use std::collections::HashMap;
 use std::error::Error;
 use std::panic;
+use influxdb::INFLUX_CLIENT;
 
 mod discord_api;
+mod influxdb;
 
 fn init() {
     dotenv().ok();
@@ -110,7 +112,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Starting Discord bot...");
 
-    discord_api::start_bot(token, consts).await?;
+    let influx_client = &*INFLUX_CLIENT;
+
+    if influx_client.is_none() {
+        warn!("InfluxDB client not configured. No influxdb metrics will be logged.");
+    } else {
+        info!("InfluxDB client configured. Metrics will be logged.");
+    }
+
+    discord_api::start_bot(token, consts, influx_client.clone()).await?;
 
     Ok(())
 }

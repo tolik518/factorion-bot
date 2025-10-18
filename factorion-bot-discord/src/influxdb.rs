@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable};
+pub(crate) use influxdb::{Client as InfluxDbClient, Error as InfluxDbError, InfluxDbWriteable};
 use std::{sync::LazyLock, time::SystemTime};
 
-pub const SOURCE: &str = "reddit";
+pub const SOURCE: &str = "discord";
 
 pub static INFLUX_CLIENT: LazyLock<Option<InfluxDbClient>> = LazyLock::new(|| {
     let host = std::env::var("INFLUXDB_HOST").ok()?;
@@ -19,37 +19,37 @@ pub struct TimeMeasurement {
 }
 
 #[derive(InfluxDbWriteable)]
-pub struct CommentMeasurement {
+pub struct MessageMeasurement {
     pub time: DateTime<Utc>,
-    pub comment_id: String,
+    pub message_id: String,
     #[influxdb(tag)]
     pub author: String,
     #[influxdb(tag)]
-    pub subreddit: String,
+    pub channel: String,
     #[influxdb(tag)]
     pub language: String,
     pub source: String,
 }
 
-pub async fn log_comment_reply(
+pub async fn log_message_reply(
     influx_client: &Option<InfluxDbClient>,
-    comment_id: &str,
+    message_id: &str,
     author: &str,
-    subreddit: &str,
+    channel: &str,
     language: &str,
 ) -> Result<(), InfluxDbError> {
     if let Some(influx_client) = influx_client {
         influx_client
             .query(vec![
-                CommentMeasurement {
+                MessageMeasurement {
                     time: Utc::now(),
-                    comment_id: comment_id.to_string(),
+                    message_id: message_id.to_string(),
                     author: author.to_string(),
-                    subreddit: subreddit.to_string(),
+                    channel: channel.to_string(),
                     language: language.to_string(),
                     source: SOURCE.to_string(),
                 }
-                .into_query("replied_to_comment"),
+                .into_query("replied_to_message"),
             ])
             .await?;
     }

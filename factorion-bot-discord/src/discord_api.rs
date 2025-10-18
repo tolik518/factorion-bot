@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::Error;
 use factorion_lib::Consts;
@@ -16,6 +17,8 @@ use serenity::all::{
 use serenity::async_trait;
 use serenity::prelude::*;
 use tokio::sync::Mutex;
+
+use crate::influxdb;
 
 const MAX_MESSAGE_LEN: usize = 2000;
 const EMBED_DESCRIPTION_LIMIT: usize = 4096;
@@ -35,6 +38,7 @@ pub struct Handler<'a> {
     channel_configs: Arc<Mutex<HashMap<u64, Config>>>,
     config_path: PathBuf,
     consts: Consts<'a>,
+    influx_client: Arc<Option<influxdb::InfluxDbClient>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,7 +48,7 @@ pub struct Config {
 }
 
 impl<'a> Handler<'a> {
-    pub fn new(consts: Consts<'a>) -> Self {
+    pub fn new(consts: Consts<'a>, influx_client: Option<influxdb::InfluxDbClient>) -> Self {
         let config_path = PathBuf::from(CONFIG_FILE);
         let channel_configs = Self::load_configs(&config_path);
 
@@ -53,6 +57,7 @@ impl<'a> Handler<'a> {
             channel_configs: Arc::new(Mutex::new(channel_configs)),
             config_path,
             consts,
+            influx_client: Arc::new(influx_client),
         }
     }
 
@@ -95,6 +100,8 @@ impl<'a> Handler<'a> {
     }
 
     async fn process_message(&self, ctx: &Context, msg: &Message) -> Result<(), Error> {
+        let start = SystemTime::now();
+        
         let mut processed = self.processed_messages.lock().await;
 
         if processed.contains(&msg.id) {
@@ -135,13 +142,21 @@ impl<'a> Handler<'a> {
             return Ok(());
         }
 
+        let extract_start = SystemTime::now();
         let comment = comment.extract(&self.consts);
+        let extract_end = SystemTime::now();
+        
+        influxdb::log_time_consumed(&self.influx_client, extract_start, extract_end, "extract_factorials").await.ok();
 
         if comment.status.no_factorial {
             return Ok(());
         }
 
+        let calc_start = SystemTime::now();
         let comment = comment.calc(&self.consts);
+        let calc_end = SystemTime::now();
+        
+        influxdb::log_time_consumed(&self.influx_client, calc_start, calc_end, "calculate_factorials").await.ok();
 
         info!("Comment -> {comment:?}");
 
@@ -151,6 +166,7 @@ impl<'a> Handler<'a> {
         }
 
         let reply_text = comment.get_reply(&self.consts);
+        let message_locale = comment.locale.clone();
 
         processed.insert(msg.id);
 
@@ -176,7 +192,21 @@ impl<'a> Handler<'a> {
                 "Replied to message {} in channel {} by user {}",
                 msg.id, msg.channel_id, msg.author.name
             );
+            
+            // Log the reply to InfluxDB
+            influxdb::log_message_reply(
+                &self.influx_client,
+                &msg.id.to_string(),
+                &msg.author.name,
+                &msg.channel_id.to_string(),
+                &message_locale,
+            )
+            .await
+            .ok();
         }
+
+        let end = SystemTime::now();
+        influxdb::log_time_consumed(&self.influx_client, start, end, "process_message").await.ok();
 
         Ok(())
     }
@@ -631,7 +661,7 @@ impl EventHandler for Handler<'_> {
     }
 }
 
-pub async fn start_bot(token: String, consts: Consts<'static>) -> Result<(), Error> {
+pub async fn start_bot(token: String, consts: Consts<'static>, influx_client: Option<influxdb::InfluxDbClient> ) -> Result<(), Error> {
     // Configure gateway intents
     // MESSAGE_CONTENT is a privileged intent that must be enabled in Discord Developer Portal:
     // 1. Go to https://discord.com/developers/applications/{your_app_id}/bot
@@ -642,7 +672,7 @@ pub async fn start_bot(token: String, consts: Consts<'static>) -> Result<(), Err
         GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = Client::builder(&token, intents)
-        .event_handler(Handler::new(consts))
+        .event_handler(Handler::new(consts, influx_client))
         .await?;
 
     info!("Starting Discord bot...");
@@ -792,7 +822,8 @@ mod tests {
     #[test]
     fn test_handler_new() {
         let consts = Consts::default();
-        let _handler = Handler::new(consts);
+        let influx_client: Option<influxdb::InfluxDbClient> = None;
+        let _handler = Handler::new(consts, influx_client);
 
         // Handler should be created successfully
         // We can't directly test the internal state, but we can verify it doesn't panic
