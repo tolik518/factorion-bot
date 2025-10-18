@@ -4,11 +4,11 @@ use factorion_lib::Consts;
 use factorion_lib::locale::Locale;
 use factorion_lib::rug::integer::IntegerExt64;
 use factorion_lib::rug::{Complete, Integer};
+use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::error::Error;
 use std::panic;
-use influxdb::INFLUX_CLIENT;
 
 mod discord_api;
 mod influxdb;
