@@ -112,15 +112,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Starting Discord bot...");
 
-    let influx_client = &*INFLUX_CLIENT;
-
-    if influx_client.is_none() {
+    if INFLUX_CLIENT.is_none() {
         warn!("InfluxDB client not configured. No influxdb metrics will be logged.");
     } else {
         info!("InfluxDB client configured. Metrics will be logged.");
     }
 
-    discord_api::start_bot(token, consts, influx_client.clone()).await?;
+    discord_api::start_bot(token, consts, &*INFLUX_CLIENT).await?;
 
     Ok(())
 }
