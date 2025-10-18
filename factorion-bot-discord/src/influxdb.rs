@@ -15,6 +15,7 @@ pub static INFLUX_CLIENT: LazyLock<Option<InfluxDbClient>> = LazyLock::new(|| {
 pub struct TimeMeasurement {
     pub time: DateTime<Utc>,
     pub time_consumed: f64,
+    #[influxdb(tag)]
     pub source: String,
 }
 
@@ -28,6 +29,7 @@ pub struct MessageMeasurement {
     pub channel: String,
     #[influxdb(tag)]
     pub language: String,
+    #[influxdb(tag)]
     pub source: String,
 }
 
