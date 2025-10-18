@@ -1,16 +1,16 @@
-//! This module handles the calulation of pending calculation tasks
-use std::sync::OnceLock;
+//! This module handles the calculation of pending calculation tasks
+
+#[cfg(any(feature = "serde", test))]
+use serde::{Deserialize, Serialize};
 
 use crate::calculation_results::Number;
 
+use crate::Consts;
 use crate::{
     calculation_results::{Calculation, CalculationResult},
     math,
 };
 
-use crate::FLOAT_PRECISION;
-
-use crate::rug::Integer;
 use crate::rug::{Float, ops::Pow};
 
 pub mod recommended {
@@ -32,52 +32,9 @@ pub mod recommended {
     pub static UPPER_TERMIAL_APPROXIMATION_LIMIT: u32 = 1073741822;
 }
 
-static UPPER_CALCULATION_LIMIT: OnceLock<Integer> = OnceLock::new();
-static UPPER_APPROXIMATION_LIMIT: OnceLock<Integer> = OnceLock::new();
-static UPPER_SUBFACTORIAL_LIMIT: OnceLock<Integer> = OnceLock::new();
-static UPPER_TERMIAL_LIMIT: OnceLock<Integer> = OnceLock::new();
-static UPPER_TERMIAL_APPROXIMATION_LIMIT: OnceLock<u32> = OnceLock::new();
-
-use crate::AlreadyInit;
-pub fn init(
-    upper_calculation_limit: Integer,
-    upper_approximation_limit: Integer,
-    upper_subfactorial_limit: Integer,
-    upper_termial_limit: Integer,
-    upper_termial_approximation_limit: u32,
-) -> Result<(), AlreadyInit> {
-    static INITIALIZING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _guard = INITIALIZING.lock();
-    UPPER_CALCULATION_LIMIT
-        .set(upper_calculation_limit)
-        .map_err(|_| AlreadyInit)?;
-    UPPER_APPROXIMATION_LIMIT
-        .set(upper_approximation_limit)
-        .map_err(|_| AlreadyInit)?;
-    UPPER_SUBFACTORIAL_LIMIT
-        .set(upper_subfactorial_limit)
-        .map_err(|_| AlreadyInit)?;
-    UPPER_TERMIAL_LIMIT
-        .set(upper_termial_limit)
-        .map_err(|_| AlreadyInit)?;
-    UPPER_TERMIAL_APPROXIMATION_LIMIT
-        .set(upper_termial_approximation_limit)
-        .map_err(|_| AlreadyInit)?;
-    Ok(())
-}
-pub fn init_default() -> Result<(), AlreadyInit> {
-    use recommended::*;
-    init(
-        UPPER_CALCULATION_LIMIT(),
-        UPPER_APPROXIMATION_LIMIT(),
-        UPPER_SUBFACTORIAL_LIMIT(),
-        UPPER_TERMIAL_LIMIT(),
-        UPPER_TERMIAL_APPROXIMATION_LIMIT,
-    )
-}
-
 /// Representation of the calculation to be done
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct CalculationJob {
     pub base: CalculationBase,
     /// Type of the calculation
@@ -85,8 +42,9 @@ pub struct CalculationJob {
     /// Number of negations encountered
     pub negative: u32,
 }
-/// The basis of a calculation, wheter [Number] or [CalculationJob].
+/// The basis of a calculation, whether [Number] or [CalculationJob].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum CalculationBase {
     Num(Number),
     Calc(Box<CalculationJob>),
@@ -95,7 +53,7 @@ pub enum CalculationBase {
 impl CalculationJob {
     /// Execute the calculation. \
     /// If include_steps is enabled, will return all intermediate results.
-    pub fn execute(self, include_steps: bool) -> Vec<Option<Calculation>> {
+    pub fn execute(self, include_steps: bool, consts: &Consts) -> Vec<Option<Calculation>> {
         let CalculationJob {
             mut base,
             mut level,
@@ -116,13 +74,12 @@ impl CalculationJob {
             match base {
                 CalculationBase::Num(num) => {
                     break vec![
-                        Self::calculate_appropriate_factorial(num.clone(), level, negative).map(
-                            |res| Calculation {
+                        Self::calculate_appropriate_factorial(num.clone(), level, negative, consts)
+                            .map(|res| Calculation {
                                 value: num,
-                                steps: vec![(level, negative)],
+                                steps: vec![(level, negative % 2 == 1)],
                                 result: res,
-                            },
-                        ),
+                            }),
                     ];
                 }
                 CalculationBase::Calc(calc) => {
@@ -147,15 +104,17 @@ impl CalculationJob {
                     mut steps,
                     value: number,
                 })) => {
-                    let factorial = Self::calculate_appropriate_factorial(res, level, negative)
-                        .map(|res| {
-                            steps.push((level, negative));
-                            Calculation {
-                                value: number,
-                                steps,
-                                result: res,
-                            }
-                        });
+                    let factorial = Self::calculate_appropriate_factorial(
+                        res, level, negative, consts,
+                    )
+                    .map(|res| {
+                        steps.push((level, negative % 2 == 1));
+                        Calculation {
+                            value: number,
+                            steps,
+                            result: res,
+                        }
+                    });
                     calcs.push(factorial);
                 }
                 _ => return calcs,
@@ -167,10 +126,9 @@ impl CalculationJob {
         num: Number,
         level: i32,
         negative: u32,
+        consts: &Consts,
     ) -> Option<CalculationResult> {
-        let prec = *FLOAT_PRECISION
-            .get()
-            .expect("Limit uninitialized, use init");
+        let prec = consts.float_precision;
         let calc_num = match &num {
             CalculationResult::Approximate(base, exponent) => {
                 let res = base.as_float() * Float::with_val(prec, 10).pow(exponent);
@@ -284,6 +242,7 @@ impl CalculationJob {
                             Number::Exact(-calc_num.clone() - level),
                             level,
                             negative,
+                            consts,
                         )?;
                         res = match res {
                             CalculationResult::Exact(n) => {
@@ -321,20 +280,12 @@ impl CalculationJob {
                         .unwrap_or(CalculationResult::ComplexInfinity),
                 }
                 // Check if we can approximate the number of digits
-            } else if calc_num
-                > *UPPER_APPROXIMATION_LIMIT
-                    .get()
-                    .expect("Limit uninitialized, use init")
-            {
+            } else if calc_num > consts.upper_approximation_limit {
                 let factorial =
                     math::approximate_multifactorial_digits(calc_num.clone(), level as u32, prec);
                 CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
             // Check if the number is within a reasonable range to compute
-            } else if calc_num
-                > *UPPER_CALCULATION_LIMIT
-                    .get()
-                    .expect("Limit uninitialized, use init")
-            {
+            } else if calc_num > consts.upper_calculation_limit {
                 let factorial = if level == 0 {
                     math::approximate_factorial(calc_num.clone(), prec)
                 } else {
@@ -353,18 +304,10 @@ impl CalculationJob {
         } else if level == 0 {
             Some(if calc_num < 0 {
                 CalculationResult::ComplexInfinity
-            } else if calc_num
-                > *UPPER_APPROXIMATION_LIMIT
-                    .get()
-                    .expect("Limit uninitialized, use init")
-            {
+            } else if calc_num > consts.upper_approximation_limit {
                 let factorial = math::approximate_multifactorial_digits(calc_num.clone(), 1, prec);
                 CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
-            } else if calc_num
-                > *UPPER_SUBFACTORIAL_LIMIT
-                    .get()
-                    .expect("Limit uninitialized, use init")
-            {
+            } else if calc_num > consts.upper_subfactorial_limit {
                 let factorial = math::approximate_subfactorial(calc_num.clone(), prec);
                 CalculationResult::Approximate(
                     ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
@@ -378,18 +321,10 @@ impl CalculationJob {
             })
         } else if level < 0 {
             Some(
-                if calc_num.significant_bits()
-                    > *UPPER_TERMIAL_APPROXIMATION_LIMIT
-                        .get()
-                        .expect("Limit uninitialized, use init")
-                {
+                if calc_num.significant_bits() > consts.upper_termial_approximation_limit {
                     let termial = math::approximate_termial_digits(calc_num, -level as u32, prec);
                     CalculationResult::ApproximateDigits(negative % 2 != 0, termial)
-                } else if calc_num
-                    > *UPPER_TERMIAL_LIMIT
-                        .get()
-                        .expect("Limit uninitialized, use init")
-                {
+                } else if calc_num > consts.upper_termial_limit {
                     let termial = math::approximate_termial(calc_num, -level as u32, prec);
                     CalculationResult::Approximate(
                         ((termial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
@@ -418,25 +353,26 @@ mod tests {
 
     #[test]
     fn test_unsupported_calcs() {
+        let consts = Consts::default();
         // Subfactorial
         let job = CalculationJob {
             base: CalculationBase::Num(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into())),
             level: 0,
             negative: 0,
         };
-        assert_eq!(job.execute(false), vec![None]);
+        assert_eq!(job.execute(false, &consts), vec![None]);
         // Multitermial
         let job = CalculationJob {
             base: CalculationBase::Num(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into())),
             level: -2,
             negative: 0,
         };
-        assert_eq!(job.execute(false), vec![None]);
+        assert_eq!(job.execute(false, &consts), vec![None]);
         let job = CalculationJob {
             base: CalculationBase::Num(Number::Float(Float::with_val(FLOAT_PRECISION, 1.5).into())),
             level: -51,
             negative: 0,
         };
-        assert_eq!(job.execute(false), vec![None]);
+        assert_eq!(job.execute(false, &consts), vec![None]);
     }
 }

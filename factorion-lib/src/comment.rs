@@ -1,10 +1,12 @@
 //! Parses comments and generates the reply.
 
+#[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
 
 use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
+use crate::Consts;
 use crate::calculation_results::Calculation;
 use crate::calculation_tasks::CalculationJob;
 use crate::parse::parse;
@@ -47,6 +49,7 @@ macro_rules! impl_all_bitwise {
 ///
 /// Uses three type-states exposed as the aliases [CommentConstructed], [CommentExtracted], and [CommentCalculated].
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Comment<Meta, S> {
     /// Metadata (generic)
     pub meta: Meta,
@@ -58,6 +61,7 @@ pub struct Comment<Meta, S> {
     pub commands: Commands,
     /// How long the reply may at most be
     pub max_length: usize,
+    pub locale: String,
 }
 /// Base [Comment], contains the comment text, if it might have a calculation. Use [extract](Comment::extract).
 pub type CommentConstructed<Meta> = Comment<Meta, String>;
@@ -67,6 +71,7 @@ pub type CommentExtracted<Meta> = Comment<Meta, Vec<CalculationJob>>;
 pub type CommentCalculated<Meta> = Comment<Meta, Vec<Calculation>>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Status {
     pub already_replied_or_rejected: bool,
     pub not_replied: bool,
@@ -120,9 +125,8 @@ impl Status {
     };
 }
 
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
     pub shorten: bool,
@@ -206,8 +210,6 @@ impl Commands {
     }
 }
 
-const FOOTER_TEXT: &str = "\n*^(This action was performed by a bot.)*";
-
 macro_rules! contains_comb {
     // top level (advance both separately)
     ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
@@ -245,7 +247,13 @@ macro_rules! contains_comb {
 
 impl<Meta> CommentConstructed<Meta> {
     /// Takes a raw comment, finds the factorials and commands, and packages it, also checks if it might have something to calculate.
-    pub fn new(comment_text: &str, meta: Meta, pre_commands: Commands, max_length: usize) -> Self {
+    pub fn new(
+        comment_text: &str,
+        meta: Meta,
+        pre_commands: Commands,
+        max_length: usize,
+        locale: &str,
+    ) -> Self {
         let command_overrides = Commands::overrides_from_comment_text(comment_text);
         let commands: Commands =
             (Commands::from_comment_text(comment_text) | pre_commands) & command_overrides;
@@ -265,7 +273,8 @@ impl<Meta> CommentConstructed<Meta> {
             calculation_list: text,
             status,
             commands,
-            max_length: max_length - FOOTER_TEXT.len() - 10,
+            max_length,
+            locale: locale.to_owned(),
         }
     }
 
@@ -288,7 +297,7 @@ impl<Meta> CommentConstructed<Meta> {
     }
 
     /// Extracts the calculations using [parse](mod@crate::parse).
-    pub fn extract(self) -> CommentExtracted<Meta> {
+    pub fn extract(self, consts: &Consts) -> CommentExtracted<Meta> {
         let Comment {
             meta,
             calculation_list: comment_text,
@@ -296,8 +305,19 @@ impl<Meta> CommentConstructed<Meta> {
             mut status,
             commands,
             max_length,
+            locale,
         } = self;
-        let pending_list: Vec<CalculationJob> = parse(&comment_text, commands.termial);
+        let pending_list: Vec<CalculationJob> = parse(
+            &comment_text,
+            commands.termial,
+            consts,
+            &consts
+                .locales
+                .get(&locale)
+                .unwrap_or(consts.locales.get(&consts.default_locale).unwrap())
+                .format()
+                .number_format(),
+        );
 
         if pending_list.is_empty() {
             status.no_factorial = true;
@@ -310,11 +330,12 @@ impl<Meta> CommentConstructed<Meta> {
             status,
             commands,
             max_length,
+            locale,
         }
     }
 
     /// Constructs an empty comment with [Status] already_replied_or_rejected set.
-    pub fn new_already_replied(meta: Meta, max_length: usize) -> Self {
+    pub fn new_already_replied(meta: Meta, max_length: usize, locale: &str) -> Self {
         let text = String::new();
         let status: Status = Status {
             already_replied_or_rejected: true,
@@ -328,7 +349,8 @@ impl<Meta> CommentConstructed<Meta> {
             calculation_list: text,
             status,
             commands,
-            max_length: max_length - FOOTER_TEXT.len() - 10,
+            max_length,
+            locale: locale.to_owned(),
         }
     }
 }
@@ -339,7 +361,7 @@ impl<Meta, S> Comment<Meta, S> {
 }
 impl<Meta> CommentExtracted<Meta> {
     /// Does the calculations using [calculation_tasks](crate::calculation_tasks).
-    pub fn calc(self) -> CommentCalculated<Meta> {
+    pub fn calc(self, consts: &Consts) -> CommentCalculated<Meta> {
         let Comment {
             meta,
             calculation_list: pending_list,
@@ -347,10 +369,11 @@ impl<Meta> CommentExtracted<Meta> {
             mut status,
             commands,
             max_length,
+            locale,
         } = self;
         let mut calculation_list: Vec<Calculation> = pending_list
             .into_iter()
-            .flat_map(|calc| calc.execute(commands.steps))
+            .flat_map(|calc| calc.execute(commands.steps, consts))
             .filter_map(|x| {
                 if x.is_none() {
                     status.number_too_big_to_calculate = true;
@@ -375,16 +398,21 @@ impl<Meta> CommentExtracted<Meta> {
             status,
             commands,
             max_length,
+            locale,
         }
     }
 }
 impl<Meta> CommentCalculated<Meta> {
     /// Does the formatting for the reply using [calculation_result](crate::calculation_results).
-    pub fn get_reply(&self) -> String {
+    pub fn get_reply(&self, consts: &Consts) -> String {
+        let locale = consts
+            .locales
+            .get(&self.locale)
+            .unwrap_or(consts.locales.get(&consts.default_locale).unwrap());
         let mut note = self
             .notify
             .as_ref()
-            .map(|user| format!("Hey {user}! \n\n"))
+            .map(|user| locale.notes().mention().replace("{mention}", user) + "\n\n")
             .unwrap_or_default();
 
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
@@ -399,9 +427,11 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_digit_tower)
             {
                 if multiple {
-                    let _ = note.write_str("Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\n");
+                    let _ = note.write_str(locale.notes().tower_mult());
+                    let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str("That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\n");
+                    let _ = note.write_str(locale.notes().tower());
+                    let _ = note.write_str("\n\n");
                 }
             } else if self
                 .calculation_list
@@ -409,9 +439,11 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_aproximate_digits)
             {
                 if multiple {
-                    let _ = note.write_str("Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\n");
+                    let _ = note.write_str(locale.notes().digits_mult());
+                    let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str("That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\n");
+                    let _ = note.write_str(locale.notes().digits());
+                    let _ = note.write_str("\n\n");
                 }
             } else if self
                 .calculation_list
@@ -419,25 +451,31 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_approximate)
             {
                 if multiple {
-                    let _ = note.write_str(
-                "Some of those are so large, that I can't calculate them, so I'll have to approximate.\n\n",
-            );
+                    let _ = note.write_str(locale.notes().approx_mult());
+                    let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(
-                "That is so large, that I can't calculate it, so I'll have to approximate.\n\n",
-            );
+                    let _ = note.write_str(locale.notes().approx());
+                    let _ = note.write_str("\n\n");
                 }
             } else if self.calculation_list.iter().any(Calculation::is_rounded) {
-                let _ = note.write_str("I can't calculate that large factorials of decimals. So I had to round at some point.\n\n");
+                if multiple {
+                    let _ = note.write_str(locale.notes().round_mult());
+                    let _ = note.write_str("\n\n");
+                } else {
+                    let _ = note.write_str(locale.notes().round());
+                    let _ = note.write_str("\n\n");
+                }
             } else if self
                 .calculation_list
                 .iter()
                 .any(|c| c.is_too_long(too_big_number))
             {
                 if multiple {
-                    let _ = note.write_str("If I post the whole numbers, the comment would get too long. So I had to turn them into scientific notation.\n\n");
+                    let _ = note.write_str(locale.notes().too_big_mult());
+                    let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str("If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\n");
+                    let _ = note.write_str(locale.notes().too_big());
+                    let _ = note.write_str("\n\n");
                 }
             }
         }
@@ -447,12 +485,19 @@ impl<Meta> CommentCalculated<Meta> {
             .calculation_list
             .iter()
             .fold(note.clone(), |mut acc, factorial| {
-                let _ = factorial.format(&mut acc, self.commands.shorten, false, too_big_number);
+                let _ = factorial.format(
+                    &mut acc,
+                    self.commands.shorten,
+                    false,
+                    too_big_number,
+                    consts,
+                    &locale.format(),
+                );
                 acc
             });
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() > self.max_length
+        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
             && !self.commands.shorten
             && !self
                 .calculation_list
@@ -460,62 +505,87 @@ impl<Meta> CommentCalculated<Meta> {
                 .all(|fact| fact.is_too_long(too_big_number))
         {
             if note.is_empty() && !self.commands.no_note {
-                let _ = note.write_str("If I post the whole numbers, the comment would get too long. So I had to turn them into scientific notation.\n\n");
+                let _ = note.write_str(locale.notes().remove());
             };
             reply = self
                 .calculation_list
                 .iter()
                 .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(&mut acc, true, false, too_big_number);
+                    let _ = factorial.format(
+                        &mut acc,
+                        true,
+                        false,
+                        too_big_number,
+                        consts,
+                        &locale.format(),
+                    );
                     acc
                 });
         }
 
         // Remove factorials until we can fit them in a comment
-        let note = "If I posted all numbers, the comment would get too long. So I had to remove some of them. \n\n";
-        if reply.len() > self.max_length {
+        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length {
+            let note = locale.notes().remove().clone().into_owned() + "\n\n";
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()
                 .map(|fact| {
                     let mut res = String::new();
-                    let _ = fact.format(&mut res, true, false, too_big_number);
+                    let _ = fact.format(
+                        &mut res,
+                        true,
+                        false,
+                        too_big_number,
+                        consts,
+                        &locale.format(),
+                    );
                     res
                 })
                 .collect();
             'drop_last: {
-                while note.len() + factorial_list.iter().map(|s| s.len()).sum::<usize>()
+                while note.len()
+                    + factorial_list.iter().map(|s| s.len()).sum::<usize>()
+                    + locale.bot_disclaimer().len()
+                    + 16
                     > self.max_length
                 {
                     // remove last factorial (probably the biggest)
                     factorial_list.pop();
                     if factorial_list.is_empty() {
                         if self.calculation_list.len() == 1 {
-                            let note = "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\n";
-                            reply = self.calculation_list.iter().fold(
-                                note.to_string(),
-                                |mut acc, factorial| {
-                                    let _ = factorial.format(&mut acc, true, true, too_big_number);
-                                    acc
-                                },
-                            );
+                            let note = locale.notes().tetration().clone().into_owned() + "\n\n";
+                            reply =
+                                self.calculation_list
+                                    .iter()
+                                    .fold(note, |mut acc, factorial| {
+                                        let _ = factorial.format(
+                                            &mut acc,
+                                            true,
+                                            true,
+                                            too_big_number,
+                                            consts,
+                                            &locale.format(),
+                                        );
+                                        acc
+                                    });
                             if reply.len() <= self.max_length {
                                 break 'drop_last;
                             }
                         }
-                        reply = "Sorry, but the reply text for all those number would be _really_ long, so I'd rather not even try posting lmao\n".to_string();
+                        reply = locale.notes().no_post().to_string();
                         break 'drop_last;
                     }
                 }
                 reply = factorial_list
                     .iter()
-                    .fold(note.to_string(), |acc, factorial| {
-                        format!("{acc}{factorial}")
-                    });
+                    .fold(note, |acc, factorial| format!("{acc}{factorial}"));
             }
         }
-
-        reply.push_str(FOOTER_TEXT);
+        if !locale.bot_disclaimer().is_empty() {
+            reply.push_str("\n*^(");
+            reply.push_str(locale.bot_disclaimer());
+            reply.push_str(")*");
+        }
         reply
     }
 }
@@ -525,6 +595,7 @@ mod tests {
     use crate::{
         calculation_results::Number,
         calculation_tasks::{CalculationBase, CalculationJob},
+        locale::NumFormat,
     };
 
     const MAX_LENGTH: usize = 10_000;
@@ -535,8 +606,13 @@ mod tests {
 
     #[test]
     fn test_extraction_dedup() {
-        let _ = crate::init_default();
-        let jobs = parse("24! -24! 2!? (2!?)!", true);
+        let consts = Consts::default();
+        let jobs = parse(
+            "24! -24! 2!? (2!?)!",
+            true,
+            &consts,
+            &NumFormat::V1(&crate::locale::v1::NumFormat { decimal: '.' }),
+        );
         assert_eq!(
             jobs,
             [
@@ -578,7 +654,6 @@ mod tests {
 
     #[test]
     fn test_commands_from_comment_text() {
-        let _ = crate::init_default();
         let cmd1 = Commands::from_comment_text("!shorten!all !triangle !no_note");
         assert!(cmd1.shorten);
         assert!(cmd1.steps);
@@ -608,7 +683,6 @@ mod tests {
 
     #[test]
     fn test_commands_overrides_from_comment_text() {
-        let _ = crate::init_default();
         let cmd1 = Commands::overrides_from_comment_text("long no_steps no_termial note");
         assert!(cmd1.shorten);
         assert!(cmd1.steps);
@@ -619,7 +693,6 @@ mod tests {
 
     #[test]
     fn test_might_have_factorial() {
-        let _ = crate::init_default();
         assert!(Comment::might_have_factorial("5!"));
         assert!(Comment::might_have_factorial("3?"));
         assert!(!Comment::might_have_factorial("!?"));
@@ -627,8 +700,7 @@ mod tests {
 
     #[test]
     fn test_new_already_replied() {
-        let _ = crate::init_default();
-        let comment = Comment::new_already_replied((), MAX_LENGTH);
+        let comment = Comment::new_already_replied((), MAX_LENGTH, "en");
         assert_eq!(comment.calculation_list, "");
         assert!(comment.status.already_replied_or_rejected);
     }

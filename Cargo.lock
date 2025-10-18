@@ -227,6 +227,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
+name = "concat-idents"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f76990911f2267d837d9d0ad060aa63aaad170af40904b29461734c339030d4d"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -377,7 +387,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-discord"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -392,7 +402,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-reddit"
-version = "4.0.9"
+version = "5.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -412,16 +422,18 @@ dependencies = [
 
 [[package]]
 name = "factorion-lib"
-version = "1.0.5"
+version = "2.0.0"
 dependencies = [
  "arbtest",
+ "concat-idents",
  "factorion-math",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "factorion-math"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "gmp-mpfr-sys",
  "rug",
@@ -1489,6 +1501,7 @@ dependencies = [
  "gmp-mpfr-sys",
  "libc",
  "libm",
+ "serde",
 ]
 
 [[package]]

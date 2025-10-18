@@ -1,6 +1,6 @@
 [package]
 name = "factorion-math"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 description = "The math (factorials and related functions) used by factorion"
 license = "MIT"
@@ -12,3 +12,6 @@ categories = ["mathematics"]
 [dependencies]
 rug = { version = "1.27.0", features = ["integer", "float"], default-features = false }
 gmp-mpfr-sys = "=1.6.4"
+
+[features]
+serde = ["rug/serde"]

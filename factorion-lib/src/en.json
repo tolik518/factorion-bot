@@ -1,0 +1,45 @@
+{ "V1":
+  {
+    "bot_disclaimer": "This action was performed by a bot.",
+    "notes": {
+      "tower": "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.",
+      "tower_mult": "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.",
+      "digits": "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.",
+      "digits_mult": "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.",
+      "approx": "That is so large, that I can't calculate it, so I'll have to approximate.",
+      "approx_mult": "Some of those are so large, that I can't calculate them, so I'll have to approximate.",
+      "round": "I can't calculate such a large factorial of decimals. So I had to round at some point.",
+      "round_mult": "I can't calculate that large factorials of decimals. So I had to round at some point.",
+      "too_big": "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.",
+      "too_big_mult": "If I post the whole numbers, the comment would get too long. So I had to turn them into scientific notation.",
+      "remove": "If I posted all numbers, the comment would get too long. So I had to remove some of them.",
+      "tetration": "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!",
+      "no_post": "Sorry, but the reply text for all those numbers would be _really_ long, so I'd rather not even try posting lmao",
+      "mention": "Hey {mention}!"
+    },
+    "format": {
+      "number_format": {
+        "decimal": "."
+      },
+      "capitalize_calc": false,
+      "termial": "termial",
+      "factorial": "factorial",
+      "uple": "uple-{factorial}",
+      "sub": "sub{factorial}",
+      "negative": "negative {factorial}",
+      "num_overrides": {
+        "2": "double-{factorial}",
+        "3": "triple-{factorial}"
+      },
+      "force_num": false,
+      "nest": "{factorial} of {next}",
+      "exact": "{factorial} of {number} is {result}",
+      "rough": "{factorial} of {number} is roughly {result}",
+      "approx": "{factorial} of {number} is approximately {result}",
+      "digits": "{factorial} of {number} has approximately {result} digits",
+      "order": "{factorial} of {number} has on the order of {result} digits",
+      "all_that": "All that of {number} has on the order of {result} digits",
+      "rough_number": "roughly {number}"
+    }
+  }
+}

@@ -4,6 +4,7 @@
 /.idea/
 cargo-test-*
 already_replied_ids.dat
+channel_config.json
 
 
 #Ignore vscode AI rules

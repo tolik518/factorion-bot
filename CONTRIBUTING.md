@@ -24,6 +24,13 @@ Just write a comment on the issue in question with the formula and your reasonin
 That is, in many cases, already a lot of help.
 
 The math with reasoning and derivation is separately documented in [Math](MATH.md).
+## Translation
+Alternatively you can provide translations.
+While we prefer if you make a PR, you can also just put the locale json text in an issue.
+(Please put \`\`\`json \`\`\` around the locale)
+If you have any problems making one, just put what you can in an issue, and we will go from there.
+
+The locale file format is documented in [Locale](factorion-lib/Locales.md)
 # Code Structure
 ## Modules
 ### General server stuff and API (factorion-bot-reddit)

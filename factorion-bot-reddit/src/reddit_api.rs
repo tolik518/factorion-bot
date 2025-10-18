@@ -19,6 +19,7 @@ use reqwest::{Client, RequestBuilder, Response, Url};
 use serde::Deserialize;
 use serde_json::{Value, from_str, json};
 use tokio::join;
+use tokio::sync::Mutex;
 
 #[derive(Deserialize, Debug)]
 struct TokenResponse {
@@ -90,7 +91,7 @@ impl RedditClient {
     /// Fetches comments from the `SUBREDDITS` and mentions with the set limit of `COMMENT_COUNT`, and creates/calculates the factorials from the response.
     /// And adds the comments to `already_replied_to_comments` to ignore them in the future.
     /// # Panic
-    /// Panics if `SUBREDDITS` or `COMMENT_COUNT` is uninitialized, if the env vars APP_CLIENT_ID or APP_SECRET are unset, or if it recieves a malformed response from the api.
+    /// Panics if `SUBREDDITS` or `COMMENT_COUNT` is uninitialized, if the env vars APP_CLIENT_ID or APP_SECRET are unset, or if it receives a malformed response from the api.
     pub(crate) async fn get_comments(
         &mut self,
         already_replied_to_comments: &mut Vec<DenseId>,
@@ -103,7 +104,7 @@ impl RedditClient {
                 .get()
                 .expect("Subreddit commands uninitialized")
                 .iter()
-                .filter(|(_, commands)| !commands.post_only)
+                .filter(|(_, commands)| !commands.1.post_only)
                 .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             subreddits.sort();
@@ -232,15 +233,16 @@ impl RedditClient {
             ) {
             Ok(_) => {
                 let (mentions, ids) = if let Some(mentions_response) = mentions_response {
-                    let (a, b, t, id) = RedditClient::extract_comments(
-                        mentions_response,
-                        already_replied_to_comments,
-                        true,
-                        SUBREDDIT_COMMANDS.get().unwrap(),
-                        &HashMap::new(),
-                    )
-                    .await
-                    .expect("Failed to extract comments");
+                    let (a, b, t, id) = self
+                        .extract_comments(
+                            mentions_response,
+                            already_replied_to_comments,
+                            true,
+                            SUBREDDIT_COMMANDS.get().unwrap(),
+                            &HashMap::new(),
+                        )
+                        .await
+                        .expect("Failed to extract comments");
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
@@ -252,15 +254,16 @@ impl RedditClient {
                     (None, None)
                 };
                 let mut res = if let Some(subs_response) = subs_response {
-                    let (a, _, t, id) = RedditClient::extract_comments(
-                        subs_response,
-                        already_replied_to_comments,
-                        false,
-                        SUBREDDIT_COMMANDS.get().unwrap(),
-                        &HashMap::new(),
-                    )
-                    .await
-                    .expect("Failed to extract comments");
+                    let (a, _, t, id) = self
+                        .extract_comments(
+                            subs_response,
+                            already_replied_to_comments,
+                            false,
+                            SUBREDDIT_COMMANDS.get().unwrap(),
+                            &HashMap::new(),
+                        )
+                        .await
+                        .expect("Failed to extract comments");
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
@@ -272,15 +275,16 @@ impl RedditClient {
                     Vec::new()
                 };
                 if let Some(posts_response) = posts_response {
-                    let (posts, _, t, id) = RedditClient::extract_comments(
-                        posts_response,
-                        already_replied_to_comments,
-                        false,
-                        SUBREDDIT_COMMANDS.get().unwrap(),
-                        &HashMap::new(),
-                    )
-                    .await
-                    .expect("Failed to extract comments");
+                    let (posts, _, t, id) = self
+                        .extract_comments(
+                            posts_response,
+                            already_replied_to_comments,
+                            false,
+                            SUBREDDIT_COMMANDS.get().unwrap(),
+                            &HashMap::new(),
+                        )
+                        .await
+                        .expect("Failed to extract comments");
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
@@ -308,15 +312,16 @@ impl RedditClient {
                             .await
                             .expect("Failed to get comment");
                         if Self::check_response_status(&response).is_ok() {
-                            let (comments, _, t, _) = Self::extract_comments(
-                                response,
-                                already_replied_to_comments,
-                                true,
-                                SUBREDDIT_COMMANDS.get().unwrap(),
-                                &ids.into_iter().collect(),
-                            )
-                            .await
-                            .expect("Failed to extract comments");
+                            let (comments, _, t, _) = self
+                                .extract_comments(
+                                    response,
+                                    already_replied_to_comments,
+                                    true,
+                                    SUBREDDIT_COMMANDS.get().unwrap(),
+                                    &ids.into_iter().collect(),
+                                )
+                                .await
+                                .expect("Failed to extract comments");
 
                             reset_timer = Self::update_reset_timer(reset_timer, t);
 
@@ -570,10 +575,11 @@ impl RedditClient {
         Some(parent_id)
     }
     async fn extract_comments(
+        &self,
         response: Response,
         already_replied_to_comments: &mut Vec<DenseId>,
         is_mention: bool,
-        commands: &HashMap<&str, Commands>,
+        subs: &HashMap<&str, (&str, Commands)>,
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Result<
         (
@@ -604,14 +610,46 @@ impl RedditClient {
         for comment in comments_json {
             let kind = comment["kind"].as_str().unwrap_or_default();
             let msg_type = comment["data"]["type"].as_str().unwrap_or_default();
+            let reply_body;
+            let (locale, commands) = if matches!(kind, "t1" | "t3") {
+                let sub = comment["data"]["subreddit"].as_str().unwrap_or_default();
+                if let Some((locale, commands)) = subs.get(sub) {
+                    (*locale, *commands)
+                } else {
+                    // To minimize the need to clone, we store leaked strings.
+                    // That is acceptable, as it cleanup of this would be hard,
+                    // and the amount of data leaked is very small
+                    // (2 Bytes plus effectively up to 30 Bytes ca. 9 times a day
+                    // => ca. 100 kB a year)
+                    static LANG_CACHE: LazyLock<Mutex<HashMap<String, &str>>> =
+                        LazyLock::new(|| Mutex::new(HashMap::new()));
+                    if let Some(locale) = LANG_CACHE.lock().await.get(sub) {
+                        (*locale, Commands::NONE)
+                    } else {
+                        let request = self.client.get(format!("{REDDIT_OAUTH_URL}/r/{sub}/about"));
+                        let reply = request.bearer_auth(&self.token.access_token).send().await?;
+                        reply_body = reply.json::<Value>().await?;
+                        let locale = reply_body["data"]["lang"]
+                            .as_str()
+                            .map(|x| &*x.to_owned().leak())
+                            .unwrap_or("en");
+                        LANG_CACHE.lock().await.insert(sub.to_owned(), locale);
+                        info!("Added to lang cache {sub}:{locale}");
+                        (locale, Commands::NONE)
+                    }
+                }
+            } else {
+                ("en", Commands::NONE)
+            };
             let extracted_comment = match kind {
                 // Comment
                 "t1" => Self::extract_comment(
                     comment,
                     already_replied_to_comments,
                     is_mention,
-                    commands,
                     mention_map,
+                    locale,
+                    commands,
                     |comment| Cow::Borrowed(comment["data"]["body"].as_str().unwrap_or("")),
                 ),
                 // Post
@@ -619,8 +657,9 @@ impl RedditClient {
                     comment,
                     already_replied_to_comments,
                     is_mention,
-                    commands,
                     mention_map,
+                    locale,
+                    commands,
                     |comment| {
                         let post_text = comment["data"]["selftext"].as_str().unwrap_or("");
                         let post_title = comment["data"]["title"].as_str().unwrap_or("");
@@ -633,8 +672,9 @@ impl RedditClient {
                     comment,
                     already_replied_to_comments,
                     true,
-                    commands,
                     mention_map,
+                    locale,
+                    commands,
                     |comment| Cow::Borrowed(comment["data"]["body"].as_str().unwrap_or("")),
                 ),
                 e => {
@@ -653,17 +693,16 @@ impl RedditClient {
                 && msg_type == "username_mention"
                 && !extracted_comment.status.already_replied_or_rejected
                 && extracted_comment.status.no_factorial
+                && let Some(path) = Self::extract_summon_parent_id(comment)
             {
-                if let Some(path) = Self::extract_summon_parent_id(comment) {
-                    parent_paths.push((
-                        path,
-                        (
-                            extracted_comment.meta.id.clone(),
-                            extracted_comment.commands,
-                            extracted_comment.meta.author.clone(),
-                        ),
-                    ));
-                }
+                parent_paths.push((
+                    path,
+                    (
+                        extracted_comment.meta.id.clone(),
+                        extracted_comment.commands,
+                        extracted_comment.meta.author.clone(),
+                    ),
+                ));
             }
             comments.push(extracted_comment);
         }
@@ -684,8 +723,9 @@ impl RedditClient {
         comment: &Value,
         already_replied_to_comments: &mut Vec<DenseId>,
         do_termial: bool,
-        commands: &HashMap<&str, Commands>,
         mention_map: &HashMap<String, (String, Commands, String)>,
+        locale: &str,
+        commands: Commands,
         extract_body: impl Fn(&Value) -> Cow<str>,
     ) -> Option<CommentConstructed<Meta>> {
         let author = comment["data"]["author"].as_str().unwrap_or("");
@@ -700,10 +740,9 @@ impl RedditClient {
             if let Some(min) = already_replied_to_comments
                 .len()
                 .checked_sub(MAX_ALREADY_REPLIED_LEN / 5 * 4)
+                && i < min
             {
-                if i < min {
-                    already_replied_to_comments.push(dense_id);
-                }
+                already_replied_to_comments.push(dense_id);
             }
             Some(Comment::new_already_replied(
                 Meta {
@@ -712,6 +751,7 @@ impl RedditClient {
                     subreddit: subreddit.to_owned(),
                 },
                 MAX_COMMENT_LEN,
+                locale,
             ))
         } else {
             already_replied_to_comments.push(dense_id);
@@ -727,11 +767,9 @@ impl RedditClient {
                         Commands::TERMIAL
                     } else {
                         Commands::NONE
-                    } | commands
-                        .get(subreddit)
-                        .copied()
-                        .unwrap_or(commands.get("").copied().unwrap_or(Commands::NONE)),
+                    } | commands,
                     MAX_COMMENT_LEN,
+                    locale,
                 )
             }) else {
                 error!("Failed to construct comment {comment_id}!");
@@ -840,7 +878,10 @@ mod tests {
         time::timeout,
     };
 
-    use factorion_lib::calculation_results::{Calculation, CalculationResult, Number};
+    use factorion_lib::{
+        Consts,
+        calculation_results::{Calculation, CalculationResult, Number},
+    };
 
     use super::*;
 
@@ -903,6 +944,7 @@ mod tests {
     #[tokio::test]
     async fn test_reply_to_comment() {
         let _lock = sequential();
+        let consts = Consts::default();
         let mut client = RedditClient {
             client: Client::new(),
             token: Token {
@@ -917,9 +959,10 @@ mod tests {
                 subreddit: "subressit".to_owned(),
             },
             MAX_COMMENT_LEN,
+            "en",
         )
-        .extract()
-        .calc();
+        .extract(&consts)
+        .calc(&consts);
         let (status, reply_status) = join!(
             dummy_server(&[(
                 "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 32\r\n\r\ntext=I+relpy&thing_id=t1_some_id",
@@ -935,7 +978,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_comments() {
         let _lock = sequential();
-        let _ = factorion_lib::init_default();
+        let consts = Consts::default();
         let mut client = RedditClient {
             client: Client::new(),
             token: Token {
@@ -945,8 +988,8 @@ mod tests {
         };
         let _ = SUBREDDIT_COMMANDS.set(
             [
-                ("test_subreddit", Commands::TERMIAL),
-                ("post_subreddit", Commands::POST_ONLY),
+                ("test_subreddit", ("en", Commands::TERMIAL)),
+                ("post_subreddit", ("en", Commands::POST_ONLY)),
             ]
             .into(),
         );
@@ -967,10 +1010,10 @@ mod tests {
                     "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 9\r\nx-ratelimit-reset: 200\n\n{\"data\":{\"children\":[]}}"
                 ),(
                     "GET /message/inbox?limit=100 HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\":\"t1\",\"data\":{\"name\": \"t1_m38msug\", \"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"type\":\"username_mention\",\"parent_id\":\"t1_m38msum\"}}]}}"
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 8\r\nx-ratelimit-reset: 199\n\n{\"data\":{\"children\":[{\"kind\":\"t1\",\"data\":{\"name\": \"t1_m38msug\", \"subreddit\": \"test_subreddit\", \"author\":\"mentioner\",\"body\":\"u/factorion-bot !termial\",\"type\":\"username_mention\",\"parent_id\":\"t1_m38msum\"}}]}}"
                 ),(
                     "GET /api/info?id=t1_m38msum HTTP/1.1\r\nauthorization: Bearer token\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\n\r\n",
-                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 7\r\nx-ratelimit-reset: 170\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"body\":\"That's 57!?\"}}]}}"
+                    "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 7\r\nx-ratelimit-reset: 170\n\n{\"data\": {\"children\": [{\"kind\": \"t1\",\"data\":{\"name\":\"t1_m38msum\", \"subreddit\": \"post_subreddit\", \"body\":\"That's 57!?\"}}]}}"
                 )]).await
             },
             client.get_comments(&mut already_replied, true, true, &mut last_ids)
@@ -979,14 +1022,17 @@ mod tests {
         let (comments, rate) = comments.unwrap();
         let comments = comments
             .into_iter()
-            .map(|c| c.extract().calc())
+            .map(|c| c.extract(&consts).calc(&consts))
             .collect::<Vec<_>>();
         assert_eq!(comments.len(), 2);
         assert_eq!(comments[0].meta.id, "t1_m38msug");
         assert_eq!(comments[0].meta.author, "mentioner");
         assert_eq!(comments[0].notify.as_ref().unwrap(), "u/");
         assert_eq!(comments[0].commands, Commands::TERMIAL);
-        assert_eq!(comments[0].calculation_list[0].steps, [(1, 0), (-1, 0)]);
+        assert_eq!(
+            comments[0].calculation_list[0].steps,
+            [(1, false), (-1, false)]
+        );
         assert_eq!(rate, (170.0, 7.0))
     }
 
@@ -1000,6 +1046,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
+                               "subreddit": "sub",
                                "body": "comment 1!!",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 1!!&lt;/p&gt;\n&lt;/div&gt;",
                                "name": "t1_m38msum",
@@ -1012,6 +1059,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
+                               "subreddit": "sub",
                                "body": "comment 2",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
                                "name": "t1_m38msug",
@@ -1024,6 +1072,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
+                               "subreddit": "sub",
                                "body": "u/factorion-bot !termial",
                                "body_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
                                "name": "t1_m38msun",
@@ -1036,11 +1085,18 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let comments = RedditClient::extract_comments(
+        let comments = RedditClient {
+            client: Client::new(),
+            token: Token {
+                access_token: String::new(),
+                expiration_time: Default::default(),
+            },
+        }
+        .extract_comments(
             response,
             &mut already_replied,
             true,
-            &HashMap::new(),
+            &HashMap::from([("sub", ("en", Commands::NONE))]),
             &HashMap::new(),
         )
         .await
@@ -1066,7 +1122,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_extract_posts() {
-        let _ = factorion_lib::init_default();
+        let consts = Consts::default();
         let response = Response::from(http::Response::builder().status(200).header("X-Ratelimit-Remaining", "10").header("X-Ratelimit-Reset", "350").body(r#"{
                "data": {
                    "children": [
@@ -1075,6 +1131,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
+                               "subreddit": "sub",
                                "title": "Thats just 1",
                                "selftext": "comment 1!!",
                                "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 1!!&lt;/p&gt;\n&lt;/div&gt;",
@@ -1088,6 +1145,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
+                               "subreddit": "sub",
                                "title": "2!",
                                "selftext": "comment 2",
                                "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;comment 2&lt;/p&gt;\n&lt;/div&gt;",
@@ -1101,6 +1159,7 @@ mod tests {
                            "data": {
                                "author": "Little_Tweetybird_",
                                "author_fullname": "t2_b5n60qnt",
+                               "subreddit": "sub",
                                "title": "A mention",
                                "selftext": "u/factorion-bot",
                                "selftext_html": "&lt;div class=\"md\"&gt;&lt;p&gt;u/factorion-bot&lt;/p&gt;\n&lt;/div&gt;",
@@ -1114,25 +1173,32 @@ mod tests {
                }
            }"#).unwrap());
         let mut already_replied = vec![];
-        let (comments, _, t, id) = RedditClient::extract_comments(
+        let (comments, _, t, id) = RedditClient {
+            client: Client::new(),
+            token: Token {
+                access_token: String::new(),
+                expiration_time: Default::default(),
+            },
+        }
+        .extract_comments(
             response,
             &mut already_replied,
             false,
-            &HashMap::new(),
+            &HashMap::from([("sub", ("en", Commands::NONE))]),
             &HashMap::new(),
         )
         .await
         .unwrap();
         let comments = comments
             .into_iter()
-            .map(|c| c.extract().calc())
+            .map(|c| c.extract(&consts).calc(&consts))
             .collect::<Vec<_>>();
         assert_eq!(comments.len(), 3);
         assert_eq!(
             comments[0].calculation_list,
             [Calculation {
                 value: Number::Exact(1.into()),
-                steps: vec![(2, 0)],
+                steps: vec![(2, false)],
                 result: CalculationResult::Exact(1.into())
             }]
         );
@@ -1140,7 +1206,7 @@ mod tests {
             comments[1].calculation_list,
             [Calculation {
                 value: Number::Exact(2.into()),
-                steps: vec![(1, 0)],
+                steps: vec![(1, false)],
                 result: CalculationResult::Exact(2.into())
             }]
         );
@@ -1148,7 +1214,7 @@ mod tests {
             comments[2].calculation_list,
             [Calculation {
                 value: Number::Exact(10.into()),
-                steps: vec![(0, 0)],
+                steps: vec![(0, false)],
                 result: CalculationResult::Exact(1334961.into())
             }]
         );

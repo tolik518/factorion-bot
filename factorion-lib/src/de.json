@@ -1,0 +1,45 @@
+{"V1":
+  {
+    "bot_disclaimer": "Dieser Kommentar wurde automatisch geschrieben.",
+    "notes": {
+      "tower": "Das ist so groß, dass ich nicht mal die Anzahl der Ziffern angeben kann. Also habe ich Zehn-hoch Turm gebaut.",
+      "tower_mult": "Manche von denen sind so groß, dass ich nicht mal die Anzahl der Ziffern angeben kann. Also habe ich Zehn-hoch-Turm gebaut.",
+      "digits": "Das ist so groß, dass ich nicht mal eine gute Annäherung geben kann. Also muss ich eine Annäherung für die Anzahl der Ziffern geben.",
+      "digits_mult": "Manche von denen sind so groß, dass ich nicht mal eine gute Annäherung geben kann. Also muss ich eine Annäherung für die Anzahl der Ziffern geben.",
+      "approx": "Das ist so groß, dass ich es nicht errechnen kann. Also muss ich eine Annäherung geben.",
+      "approx_mult": "Manche von denen sind so groß, dass ich es nicht errechnen kann. Also muss ich eine Annäherung geben.",
+      "round": "So eine große Fakultät kann ich nicht von einer Kommazahl errechnen. Also muss ich irgendwann runden.",
+      "round_mult": "So große Fakultäten kann ich nicht von Kommazahlen errechnen. Also muss ich irgendwann runden.",
+      "too_big": "Wenn ich die Zahl ausschreiben würde, wäre der Kommentar zu lang. Also muss ich die wissenschaftliche Schreibweise nutzen.",
+      "too_big_mult": "Wenn ich die Zahlen ausschreiben würde, wäre der Kommentar zu lang. Also muss ich die wissenschaftliche Schreibweise nutzen.",
+      "remove": "Wenn ich alle Zahlen angeben würde, wäre der Kommentar zu lang. Also muss ich welche rausnehmen.",
+      "tetration": "Das ist so groß, dass selbst der Zehn-hoch-Turm nicht mehr in den Kommentar passt. Also muss ich tetrieren.",
+      "no_post": "Sorry, die Antwort für all das wäre einfach _zu_ lang. Ich probier lieber nicht das zu schicken lmao",
+      "mention": "Hey {mention}!"
+    },
+    "format": {
+      "number_format": {
+        "decimal": ","
+      },
+      "capitalize_calc": true,
+      "termial": "termial",
+      "factorial": "fakultät",
+      "uple": "upel{factorial}",
+      "sub": "sub{factorial}",
+      "negative": "negative {factorial}",
+      "num_overrides": {
+        "2": "doppel{factorial}",
+        "3": "trippel{factorial}"
+      },
+      "force_num": false,
+      "nest": "{factorial} von {next}",
+      "exact": "{factorial} von {number} ist {result}",
+      "rough": "{factorial} von {number} ist grob {result}",
+      "approx": "{factorial} von {number} ist ungefähr {result}",
+      "digits": "{factorial} von {number} hat ungefähr {result} Ziffern",
+      "order": "{factorial} von {number} hat eine Größenordnung von {result} Ziffern",
+      "all_that": "All das von {number} hat eine Größenordnung von {result} Ziffern",
+      "rough_number": "grob {number}"
+    }
+  }
+}

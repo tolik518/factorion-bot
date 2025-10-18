@@ -8,7 +8,7 @@ Termials are triangular numbers. They can be calculated with the well-known form
 ```math
 n? = \frac{n(n+1)}{2}
 ```
-## Exact Multiermial
+## Exact Multitermial
 Termials are triangular numbers. They can be calculated with the well-known formula:
 ```math
 n?_k = k \left\lfloor\frac{n}{k}\right\rfloor? + \left\lceil\frac{n}{k}\right\rceil (n \mod k)
@@ -35,7 +35,7 @@ n! &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^n \text{ | 
 \\
 n &= m + log_{\frac{n}{e}}(10) \cdot k \text{ | got out of exponents} \\
 n &\approx log_{\frac{n}{e}}(10) \cdot k \text{ | m should be small} \\
-k &= \left\lfloor n / log_{\frac{n}{e}}(10) \right\rfloor \text{ | calculate k which is an integer (floor because otherwhise m < 0)} \\
+k &= \left\lfloor n / log_{\frac{n}{e}}(10) \right\rfloor \text{ | calculate k which is an integer (floor because otherwise m < 0)} \\
 m &= n - log_{\frac{n}{e}}(10) \cdot k \text{ | calculate the exponent for the calculation}
 \end{aligned}
 ```

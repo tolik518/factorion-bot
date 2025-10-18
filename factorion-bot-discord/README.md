@@ -45,7 +45,7 @@ This bot is part of the [factorion-bot](https://github.com/tolik518/factorion-bo
 6. Go to OAuth2 > URL Generator
 7. Select the following scopes:
    - `bot`
-8. Select "User Install" on "Intgration Type"
+8. Select "User Install" on "Integration Type"
 9. Select the following "Bot permissions":
    - Send Messages
    - Read Message History
@@ -82,6 +82,7 @@ UPPER_TERMIAL_LIMIT=100000
 UPPER_TERMIAL_APPROXIMATION_LIMIT=1000000
 INTEGER_CONSTRUCTION_LIMIT=100000
 NUMBER_DECIMALS_SCIENTIFIC=5
+LOCALES_DIR=<directory_containing_locale_json_files>
 ```
 
 ### Usage
@@ -129,48 +130,48 @@ These settings apply to all calculations in the channel unless overridden by inl
 ### Basic Factorial
 
 **Message:**
-```
+```text
 What is 5!?
 ```
 
 **Bot Reply:**
-```
+```text
 5! = 120
 ```
 
 ### Large Factorial
 
 **Message:**
-```
+```text
 Calculate 100!
 ```
 
 **Bot Reply:**
-```
+```text
 100! = 9.3326 × 10^157
 ```
 
 ### Nested Factorial
 
 **Message:**
-```
+```text
 What about (3!)!?
 ```
 
 **Bot Reply:**
-```
+```text
 (3!)! = 720
 ```
 
 ### With Steps
 
 **Message:**
-```
+```text
 [steps] (3!)!
 ```
 
 **Bot Reply:**
-```
+```text
 3! = 6
 (3!)! = 6! = 720
 ```
@@ -178,24 +179,24 @@ What about (3!)!?
 ### Subfactorial
 
 **Message:**
-```
+```text
 What is !5?
 ```
 
 **Bot Reply:**
-```
+```text
 !5 = 44
 ```
 
 ### Termial
 
 **Message:**
-```
+```text
 [termial] 10?
 ```
 
 **Bot Reply:**
-```
+```text
 10? = 55
 ```
 

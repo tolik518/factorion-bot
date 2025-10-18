@@ -1,11 +1,13 @@
 #![doc = include_str!("../README.md")]
-use std::sync::{Mutex, OnceLock};
+
+use std::collections::HashMap;
 
 use factorion_math as math;
 use rug::Integer;
 pub mod calculation_results;
 pub mod calculation_tasks;
 pub mod comment;
+pub mod locale;
 pub mod parse;
 /// The result of a calculation
 pub use calculation_results::Calculation;
@@ -18,51 +20,48 @@ pub use factorion_math::rug;
 /// The parser
 pub use parse::parse;
 
-static FLOAT_PRECISION: OnceLock<u32> = OnceLock::new();
-/// Recommended values for [`init`]
+use crate::locale::Locale;
+
 pub mod recommended {
-    pub use super::math::recommended::FLOAT_PRECISION;
     pub use crate::calculation_results::recommended::*;
     pub use crate::calculation_tasks::recommended::*;
     pub use crate::parse::recommended::*;
+    pub use factorion_math::recommended::FLOAT_PRECISION;
 }
 
-static INITIALIZING: Mutex<()> = Mutex::new(());
-#[derive(Debug, Clone, Copy)]
-pub struct AlreadyInit;
-#[allow(clippy::too_many_arguments)]
-pub fn init(
-    float_precision: u32,
-    upper_calculation_limit: Integer,
-    upper_approximation_limit: Integer,
-    upper_subfactorial_limit: Integer,
-    upper_termial_limit: Integer,
-    upper_termial_approximation_limit: u32,
-    integer_construction_limit: Integer,
-    number_decimals_scientific: usize,
-) -> Result<(), AlreadyInit> {
-    let _guard = INITIALIZING.lock().unwrap();
-    FLOAT_PRECISION
-        .set(float_precision)
-        .map_err(|_| AlreadyInit)?;
-    parse::init(integer_construction_limit)?;
-    calculation_tasks::init(
-        upper_calculation_limit,
-        upper_approximation_limit,
-        upper_subfactorial_limit,
-        upper_termial_limit,
-        upper_termial_approximation_limit,
-    )?;
-    calculation_results::init(number_decimals_scientific)?;
-    Ok(())
+#[derive(Debug, Clone)]
+pub struct Consts<'a> {
+    pub float_precision: u32,
+    pub upper_calculation_limit: Integer,
+    pub upper_approximation_limit: Integer,
+    pub upper_subfactorial_limit: Integer,
+    pub upper_termial_limit: Integer,
+    pub upper_termial_approximation_limit: u32,
+    pub integer_construction_limit: Integer,
+    pub number_decimals_scientific: usize,
+    pub locales: HashMap<String, Locale<'a>>,
+    pub default_locale: String,
 }
-pub fn init_default() -> Result<(), AlreadyInit> {
-    let _guard = INITIALIZING.lock().unwrap();
-    FLOAT_PRECISION
-        .set(recommended::FLOAT_PRECISION)
-        .map_err(|_| AlreadyInit)?;
-    parse::init_default()?;
-    calculation_tasks::init_default()?;
-    calculation_results::init_default()?;
-    Ok(())
+impl Default for Consts<'_> {
+    fn default() -> Self {
+        Consts {
+            float_precision: math::recommended::FLOAT_PRECISION,
+            upper_calculation_limit: calculation_tasks::recommended::UPPER_CALCULATION_LIMIT(),
+            upper_approximation_limit: calculation_tasks::recommended::UPPER_APPROXIMATION_LIMIT(),
+            upper_subfactorial_limit: calculation_tasks::recommended::UPPER_SUBFACTORIAL_LIMIT(),
+            upper_termial_limit: calculation_tasks::recommended::UPPER_TERMIAL_LIMIT(),
+            upper_termial_approximation_limit:
+                calculation_tasks::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT,
+            integer_construction_limit: parse::recommended::INTEGER_CONSTRUCTION_LIMIT(),
+            number_decimals_scientific:
+                calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
+            locales: HashMap::from([
+                #[cfg(any(feature = "serde", test))]
+                ("en".to_owned(), locale::get_en()),
+                #[cfg(any(feature = "serde", test))]
+                ("de".to_owned(), locale::get_de()),
+            ]),
+            default_locale: "en".to_owned(),
+        }
+    }
 }

@@ -5,8 +5,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Error;
+use factorion_lib::Consts;
 use factorion_lib::comment::{Commands, Comment, CommentConstructed};
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use serenity::all::{
     ChannelId, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage, GatewayIntents, Message,
     MessageId, Ready, Timestamp,
@@ -28,14 +30,21 @@ pub struct MessageMeta {
     pub author: String,
 }
 
-pub struct Handler {
+pub struct Handler<'a> {
     processed_messages: Arc<Mutex<HashSet<MessageId>>>,
-    channel_configs: Arc<Mutex<HashMap<u64, Commands>>>,
+    channel_configs: Arc<Mutex<HashMap<u64, Config>>>,
     config_path: PathBuf,
+    consts: Consts<'a>,
 }
 
-impl Handler {
-    pub fn new() -> Self {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    commands: Commands,
+    locale: String,
+}
+
+impl<'a> Handler<'a> {
+    pub fn new(consts: Consts<'a>) -> Self {
         let config_path = PathBuf::from(CONFIG_FILE);
         let channel_configs = Self::load_configs(&config_path);
 
@@ -43,14 +52,15 @@ impl Handler {
             processed_messages: Arc::new(Mutex::new(HashSet::new())),
             channel_configs: Arc::new(Mutex::new(channel_configs)),
             config_path,
+            consts,
         }
     }
 
-    fn load_configs(path: &PathBuf) -> HashMap<u64, Commands> {
+    fn load_configs(path: &PathBuf) -> HashMap<u64, Config> {
         if path.exists()
             && let Ok(content) = fs::read_to_string(path)
-            && let Ok(configs) = serde_json::from_str(&content)
         {
+            let configs = serde_json::from_str(&content).expect("Malformed channel configuration");
             info!("Loaded channel configurations from {}", path.display());
             return configs;
         }
@@ -69,19 +79,15 @@ impl Handler {
         Ok(())
     }
 
-    async fn get_channel_config(&self, channel_id: ChannelId) -> Commands {
+    async fn get_channel_config(&self, channel_id: ChannelId) -> Config {
         let configs = self.channel_configs.lock().await;
-        configs
-            .get(&channel_id.get())
-            .cloned()
-            .unwrap_or(Commands::NONE)
+        configs.get(&channel_id.get()).cloned().unwrap_or(Config {
+            commands: Commands::NONE,
+            locale: "en".to_owned(),
+        })
     }
 
-    async fn set_channel_config(
-        &self,
-        channel_id: ChannelId,
-        config: Commands,
-    ) -> Result<(), Error> {
+    async fn set_channel_config(&self, channel_id: ChannelId, config: Config) -> Result<(), Error> {
         let mut configs = self.channel_configs.lock().await;
         configs.insert(channel_id.get(), config);
         drop(configs);
@@ -112,22 +118,30 @@ impl Handler {
         };
 
         // Get channel config to use as default commands
-        let default_commands = self.get_channel_config(msg.channel_id).await;
+        let Config {
+            commands: default_commands,
+            locale,
+        } = self.get_channel_config(msg.channel_id).await;
 
-        let comment: CommentConstructed<MessageMeta> =
-            Comment::new(&msg.content, meta, default_commands, MAX_MESSAGE_LEN);
+        let comment: CommentConstructed<MessageMeta> = Comment::new(
+            &msg.content,
+            meta,
+            default_commands,
+            MAX_MESSAGE_LEN,
+            &locale,
+        );
 
         if comment.status.no_factorial {
             return Ok(());
         }
 
-        let comment = comment.extract();
+        let comment = comment.extract(&self.consts);
 
         if comment.status.no_factorial {
             return Ok(());
         }
 
-        let comment = comment.calc();
+        let comment = comment.calc(&self.consts);
 
         info!("Comment -> {comment:?}");
 
@@ -136,12 +150,23 @@ impl Handler {
             return Ok(());
         }
 
-        let reply_text = comment.get_reply();
+        let reply_text = comment.get_reply(&self.consts);
 
         processed.insert(msg.id);
 
         // Send formatted response
-        if let Err(why) = self.send_formatted_reply(ctx, msg, &reply_text).await {
+        if let Err(why) = self
+            .send_formatted_reply(
+                ctx,
+                msg,
+                &reply_text,
+                comment
+                    .calculation_list
+                    .iter()
+                    .any(|x| x.is_digit_tower() || x.is_aproximate_digits() || x.is_approximate()),
+            )
+            .await
+        {
             error!(
                 "Failed to send message to channel {}: {:?}",
                 msg.channel_id, why
@@ -194,11 +219,16 @@ impl Handler {
         if parts.len() < 4 {
             let config = self.get_channel_config(msg.channel_id).await;
             let status = format!(
-                "**Channel Configuration**\n```\nShorten: {}\nSteps: {}\nTermial: {}\nNo Note: {}\nPost Only: {}\n```\n\
+                "**Channel Configuration**\n```\nShorten: {}\nSteps: {}\nTermial: {}\nNo Note: {}\nPost Only: {}\nLocale: {}\n```\n\
                 Usage:\n\
                 `!factorion config <setting> <on/off>`\n\
                 Available settings: shorten, steps, termial, no_note, post_only",
-                config.shorten, config.steps, config.termial, config.no_note, config.post_only
+                config.commands.shorten,
+                config.commands.steps,
+                config.commands.termial,
+                config.commands.no_note,
+                config.commands.post_only,
+                config.locale
             );
             msg.channel_id.say(&ctx.http, status).await?;
             return Ok(());
@@ -207,25 +237,31 @@ impl Handler {
         let setting = parts[2];
         let value = parts[3];
 
-        let enabled = match value {
-            "on" | "true" | "1" | "yes" => true,
-            "off" | "false" | "0" | "no" => false,
-            _ => {
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
-                    )
-                    .await?;
-                return Ok(());
-            }
+        enum Setting {
+            Command(bool),
+            Locale(String),
+        }
+
+        let val = match value {
+            "on" | "true" | "1" | "yes" => Setting::Command(true),
+            "off" | "false" | "0" | "no" => Setting::Command(false),
+            s => Setting::Locale(s.to_owned()),
         };
 
         let mut config = self.get_channel_config(msg.channel_id).await;
 
         match setting {
             "shorten" | "short" => {
-                config.shorten = enabled;
+                let Setting::Command(enabled) = val else {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.commands.shorten = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -238,7 +274,16 @@ impl Handler {
                     .await?;
             }
             "steps" | "step" => {
-                config.steps = enabled;
+                let Setting::Command(enabled) = val else {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.commands.steps = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -251,7 +296,16 @@ impl Handler {
                     .await?;
             }
             "termial" => {
-                config.termial = enabled;
+                let Setting::Command(enabled) = val else {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.commands.termial = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -264,7 +318,16 @@ impl Handler {
                     .await?;
             }
             "no_note" | "nonote" | "no-note" => {
-                config.no_note = enabled;
+                let Setting::Command(enabled) = val else {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.commands.no_note = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -277,7 +340,16 @@ impl Handler {
                     .await?;
             }
             "post_only" | "postonly" | "post-only" => {
-                config.post_only = enabled;
+                let Setting::Command(enabled) = val else {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.commands.post_only = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
                 msg.channel_id
                     .say(
@@ -289,8 +361,36 @@ impl Handler {
                     )
                     .await?;
             }
+            "locale" | "lang" | "language" => {
+                let Setting::Locale(locale) = val else {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.locale = locale.clone();
+                self.set_channel_config(msg.channel_id, config).await?;
+                msg.channel_id
+                    .say(&ctx.http, format!("Locale has been set to **{}**", locale))
+                    .await?;
+                if !self.consts.locales.contains_key(&locale) {
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            format!(
+                                "Warning: {} is not a currently supported locale, locales are {:?}",
+                                locale,
+                                self.consts.locales.keys().collect::<Vec<_>>()
+                            ),
+                        )
+                        .await?;
+                }
+            }
             _ => {
-                msg.channel_id.say(&ctx.http, "Invalid setting. Available settings: shorten, steps, termial, no_note, post_only").await?;
+                msg.channel_id.say(&ctx.http, "Invalid setting. Available settings: shorten, steps, termial, no_note, post_only, locale").await?;
             }
         }
 
@@ -302,6 +402,7 @@ impl Handler {
         ctx: &Context,
         msg: &Message,
         reply_text: &str,
+        approx: bool,
     ) -> Result<(), Error> {
         // Check if the reply is short enough for a simple message
         if Self::should_use_simple_reply(reply_text) {
@@ -309,7 +410,7 @@ impl Handler {
         }
 
         // For longer/complex replies, use an embed
-        let embed = self.create_embed(reply_text)?;
+        let embed = self.create_embed(reply_text, approx)?;
 
         // Send the embed
         let builder = CreateMessage::new().embed(embed).reference_message(msg);
@@ -328,18 +429,13 @@ impl Handler {
         msg: &Message,
         reply_text: &str,
     ) -> Result<(), Error> {
-        let formatted = format!(
-            "**📊 Calculation Result**\n```\n{}\n```",
-            reply_text
-                .trim_end_matches("*^(This action was performed by a bot.)*")
-                .trim()
-        );
+        let formatted = format!("**📊 Calculation Result**\n```\n{}\n```", reply_text.trim());
 
         msg.channel_id.say(&ctx.http, formatted).await?;
         Ok(())
     }
 
-    fn create_embed(&self, reply_text: &str) -> Result<CreateEmbed, Error> {
+    fn create_embed(&self, reply_text: &str, approx: bool) -> Result<CreateEmbed, Error> {
         let mut embed = CreateEmbed::new()
             .colour(Colour::from_rgb(88, 101, 242))
             .timestamp(Timestamp::now())
@@ -351,7 +447,7 @@ impl Handler {
         let (description, results) = Self::parse_reply(reply_text);
 
         // Add title based on content
-        embed = Self::add_title(embed, &description, results.len());
+        embed = Self::add_title(embed, results.len(), approx);
 
         // Add description if we have a note
         let desc_len = description.len();
@@ -374,11 +470,6 @@ impl Handler {
         for line in lines {
             let trimmed = line.trim();
 
-            // Skip the footer
-            if trimmed.contains("This action was performed by a bot") {
-                continue;
-            }
-
             // Empty line marks end of note section
             if trimmed.is_empty() {
                 in_note = false;
@@ -398,8 +489,8 @@ impl Handler {
         (description, results)
     }
 
-    fn add_title(embed: CreateEmbed, description: &str, result_count: usize) -> CreateEmbed {
-        if description.contains("approximate") || description.contains("large") {
+    fn add_title(embed: CreateEmbed, result_count: usize, approx: bool) -> CreateEmbed {
+        if approx {
             embed.title("🔢 Factorial Calculations (Approximated)")
         } else if result_count > 1 {
             embed.title("🔢 Multiple Factorial Calculations")
@@ -438,9 +529,7 @@ impl Handler {
         mut embed: CreateEmbed,
         reply_text: &str,
     ) -> Result<CreateEmbed, Error> {
-        let full_text = reply_text
-            .trim_end_matches("*^(This action was performed by a bot.)*")
-            .trim();
+        let full_text = reply_text.trim();
 
         if full_text.len() > EMBED_DESCRIPTION_LIMIT {
             embed = Self::add_chunked_results(embed, full_text)?;
@@ -530,7 +619,7 @@ impl Handler {
 }
 
 #[async_trait]
-impl EventHandler for Handler {
+impl EventHandler for Handler<'_> {
     async fn message(&self, ctx: Context, msg: Message) {
         if let Err(e) = self.process_message(&ctx, &msg).await {
             error!("Error processing message: {:?}", e);
@@ -542,7 +631,7 @@ impl EventHandler for Handler {
     }
 }
 
-pub async fn start_bot(token: String) -> Result<(), Error> {
+pub async fn start_bot(token: String, consts: Consts<'static>) -> Result<(), Error> {
     // Configure gateway intents
     // MESSAGE_CONTENT is a privileged intent that must be enabled in Discord Developer Portal:
     // 1. Go to https://discord.com/developers/applications/{your_app_id}/bot
@@ -553,7 +642,7 @@ pub async fn start_bot(token: String) -> Result<(), Error> {
         GatewayIntents::GUILDS | GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = Client::builder(&token, intents)
-        .event_handler(Handler::new())
+        .event_handler(Handler::new(consts))
         .await?;
 
     info!("Starting Discord bot...");
@@ -606,16 +695,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_reply_with_footer() {
-        let reply = "5! = 120\n*^(This action was performed by a bot.)*";
-        let (description, results) = Handler::parse_reply(reply);
-
-        // The footer should be filtered out
-        assert_eq!(description, "5! = 120");
-        assert_eq!(results.len(), 0);
-    }
-
-    #[test]
     fn test_parse_reply_multiple_results() {
         let reply = "\n\n1! = 1\n2! = 2\n3! = 6\n4! = 24\n5! = 120";
         let (description, results) = Handler::parse_reply(reply);
@@ -631,7 +710,7 @@ mod tests {
         let embed = CreateEmbed::new();
         let description = "Note: approximate values shown for large numbers";
 
-        let _result = Handler::add_title(embed, description, 1);
+        let _result = Handler::add_title(embed, 1, true);
 
         // Check that the title contains "Approximated"
         // Note: We can't directly inspect the title, so we're testing the function runs
@@ -643,7 +722,7 @@ mod tests {
         let embed = CreateEmbed::new();
         let description = "";
 
-        let _result = Handler::add_title(embed, description, 5);
+        let _result = Handler::add_title(embed, 5, true);
 
         // Function should complete without error
         assert_eq!(description, "");
@@ -654,7 +733,7 @@ mod tests {
         let embed = CreateEmbed::new();
         let description = "";
 
-        let _result = Handler::add_title(embed, description, 1);
+        let _result = Handler::add_title(embed, 1, true);
 
         // Function should complete without error
         assert_eq!(description, "");
@@ -712,7 +791,8 @@ mod tests {
 
     #[test]
     fn test_handler_new() {
-        let _handler = Handler::new();
+        let consts = Consts::default();
+        let _handler = Handler::new(consts);
 
         // Handler should be created successfully
         // We can't directly test the internal state, but we can verify it doesn't panic
