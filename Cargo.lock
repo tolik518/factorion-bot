@@ -387,12 +387,14 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-discord"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
+ "chrono",
  "dotenvy",
  "env_logger",
  "factorion-lib",
+ "influxdb",
  "log",
  "serde",
  "serde_json",
@@ -402,7 +404,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-reddit"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

@@ -33,10 +33,13 @@ If you have any problems making one, just put what you can in an issue, and we w
 The locale file format is documented in [Locale](factorion-lib/Locales.md)
 # Code Structure
 ## Modules
-### General server stuff and API (factorion-bot-reddit)
+### Reddit Bot (factorion-bot-reddit)
 - `main`: Program loop, executing steps, data saving/reading
 - `reddit_api`: Interacting with Reddit (getting the comments, sending replies)
 - `influxdb`: Sending stats
+### Discord Bot (factorion-bot-discord)
+- `main`: Connects to Discord and listens for messages.
+- `discord_api`: Handles incoming messages and sends replies.
 ### Processing of comments (factorion-lib)
 - `comment`: Executing steps for individual comments, comment metadata, reply arrangement (notes)
 - `parse`: Finding factorials in comments (with skipping URLs and spoilers), parsing numbers

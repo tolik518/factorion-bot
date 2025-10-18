@@ -230,6 +230,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let comment_id = comment.meta.id.clone();
             let comment_author = comment.meta.author.clone();
             let comment_subreddit = comment.meta.subreddit.clone();
+            let comment_locale = comment.locale.clone();
 
             let status: Status = comment.status;
             let should_answer = status.factorials_found && status.not_replied;
@@ -272,6 +273,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                     &comment_id,
                                     &comment_author,
                                     &comment_subreddit,
+                                    &comment_locale,
                                 )
                                 .await?;
                             }
