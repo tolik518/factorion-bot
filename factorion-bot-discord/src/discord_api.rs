@@ -48,7 +48,10 @@ pub struct Config {
 }
 
 impl<'a> Handler<'a> {
-    pub fn new(consts: Consts<'a>, influx_client: &'a Option<influxdb::InfluxDbClient>) -> Handler<'a> {
+    pub fn new(
+        consts: Consts<'a>,
+        influx_client: &'a Option<influxdb::InfluxDbClient>,
+    ) -> Handler<'a> {
         let config_path = PathBuf::from(CONFIG_FILE);
         let channel_configs = Self::load_configs(&config_path);
 
@@ -704,8 +707,8 @@ pub async fn start_bot(
 
 #[cfg(test)]
 mod tests {
-    use crate::influxdb::INFLUX_CLIENT;
     use super::*;
+    use crate::influxdb::INFLUX_CLIENT;
 
     #[test]
     fn test_should_use_simple_reply_short_text() {
