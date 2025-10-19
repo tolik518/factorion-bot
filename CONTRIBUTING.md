@@ -1,4 +1,10 @@
 # Guide for Starters
+
+## Github Intro
+If you haven't used GitHub yet, you might be confused about some words. Here are the two most important ones, with links, were you can view and make them:
+- [Issues](https://github.com/tolik518/factorion-bot/issues) can be bug reports (when something goes wrong) or feature requests (when you want something added)
+- [Pull Request/PR](https://github.com/Aras14HD/factorion-bot/pulls) are where submits changes, can be code, text or locale.
+
 ## Ideas
 If you have an idea to improve the bot, just request it as a feature in an issue.
 
@@ -31,6 +37,10 @@ While we prefer if you make a PR, you can also just put the locale json text in 
 If you have any problems making one, just put what you can in an issue, and we will go from there.
 
 The locale file format is documented in [Locale](factorion-lib/Locales.md)
+
+You might want to check first if somebody else is already working on it, by looking in PRs and issues.
+
+If you are confused, on what issues and PRs are, have a look at [Github Intro](#github-intro)
 # Code Structure
 ## Modules
 ### General server stuff and API (factorion-bot-reddit)

@@ -419,7 +419,7 @@ impl<Meta> CommentCalculated<Meta> {
         if fell_back {
             let _ = note.write_str("Sorry, I currently don't speak ");
             let _ = note.write_str(&self.locale);
-            let _ = note.write_str(". Maybe you could [teach me](https://github.com/tolik518/factorion-bot/issues/262)? \n\n");
+            let _ = note.write_str(". Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n");
         }
 
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
@@ -721,7 +721,7 @@ mod tests {
         let reply = comment.get_reply(&consts);
         assert_eq!(
             reply,
-            "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/issues/262)? \n\n\n*^(This action was performed by a bot.)*"
+            "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n\n*^(This action was performed by a bot.)*"
         );
     }
 }
