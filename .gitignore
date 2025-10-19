@@ -4,6 +4,7 @@
 /.idea/
 cargo-test-*
 already_replied_ids.dat
+thread_calcs.dat
 channel_config.json
 
 

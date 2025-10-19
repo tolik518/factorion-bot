@@ -16,7 +16,7 @@ use id::{DenseId, id_to_dense};
 use log::{debug, error, info, log, warn};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, USER_AGENT};
 use reqwest::{Client, RequestBuilder, Response, Url};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, from_str, json};
 use tokio::join;
 use tokio::sync::Mutex;
@@ -36,6 +36,14 @@ pub struct Meta {
     pub id: String,
     pub author: String,
     pub subreddit: String,
+    pub thread: String,
+    pub used_commands: bool,
+}
+
+#[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Clone, Deserialize, Serialize)]
+pub(crate) struct Thread {
+    pub id: DenseId,
+    pub calcs: Vec<(factorion_lib::CalculationJob, usize)>,
 }
 
 #[cfg(not(test))]
@@ -610,6 +618,11 @@ impl RedditClient {
         for comment in comments_json {
             let kind = comment["kind"].as_str().unwrap_or_default();
             let msg_type = comment["data"]["type"].as_str().unwrap_or_default();
+            let thread = comment["data"]["permalink"]
+                .as_str()
+                .or_else(|| comment["data"]["context"].as_str())
+                .and_then(|x| x.split('/').nth(4))
+                .unwrap_or("");
             let reply_body;
             let (locale, commands) = if matches!(kind, "t1" | "t3") {
                 let sub = comment["data"]["subreddit"].as_str().unwrap_or_default();
@@ -649,6 +662,7 @@ impl RedditClient {
                     is_mention,
                     mention_map,
                     locale,
+                    thread,
                     commands,
                     |comment| Cow::Borrowed(comment["data"]["body"].as_str().unwrap_or("")),
                 ),
@@ -659,6 +673,7 @@ impl RedditClient {
                     is_mention,
                     mention_map,
                     locale,
+                    thread,
                     commands,
                     |comment| {
                         let post_text = comment["data"]["selftext"].as_str().unwrap_or("");
@@ -674,6 +689,7 @@ impl RedditClient {
                     true,
                     mention_map,
                     locale,
+                    thread,
                     commands,
                     |comment| Cow::Borrowed(comment["data"]["body"].as_str().unwrap_or("")),
                 ),
@@ -725,6 +741,7 @@ impl RedditClient {
         do_termial: bool,
         mention_map: &HashMap<String, (String, Commands, String)>,
         locale: &str,
+        thread: &str,
         commands: Commands,
         extract_body: impl Fn(&Value) -> Cow<str>,
     ) -> Option<CommentConstructed<Meta>> {
@@ -749,12 +766,19 @@ impl RedditClient {
                     id: comment_id.to_owned(),
                     author: author.to_owned(),
                     subreddit: subreddit.to_owned(),
+                    thread: thread.to_owned(),
+                    used_commands: false,
                 },
                 MAX_COMMENT_LEN,
                 locale,
             ))
         } else {
             already_replied_to_comments.push(dense_id);
+            let pre_commands = if do_termial {
+                Commands::TERMIAL
+            } else {
+                Commands::NONE
+            } | commands;
             let Ok(mut comment) = std::panic::catch_unwind(|| {
                 Comment::new(
                     &body,
@@ -762,12 +786,10 @@ impl RedditClient {
                         id: comment_id.to_owned(),
                         author: author.to_owned(),
                         subreddit: subreddit.to_owned(),
+                        thread: thread.to_owned(),
+                        used_commands: false,
                     },
-                    if do_termial {
-                        Commands::TERMIAL
-                    } else {
-                        Commands::NONE
-                    } | commands,
+                    pre_commands,
                     MAX_COMMENT_LEN,
                     locale,
                 )
@@ -775,6 +797,7 @@ impl RedditClient {
                 error!("Failed to construct comment {comment_id}!");
                 return None;
             };
+            comment.meta.used_commands = !(comment.commands == pre_commands);
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
                 comment.meta.id = mention.clone();
                 comment.commands = *commands;
@@ -790,12 +813,14 @@ impl RedditClient {
 }
 
 pub mod id {
+    use serde::{Deserialize, Serialize};
+
     /// A dense representation of reddit fullnames (ids)
     ///
     /// Uses a u64 underneath, utilising the top 3 bits for the tag and the rest for the id.
     /// This means, that there may be upto 2^61 ids in reddits sequential id system, which will never be reached.
     #[repr(transparent)]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
     pub struct DenseId(u64);
     impl DenseId {
         pub fn raw(&self) -> u64 {
@@ -957,6 +982,8 @@ mod tests {
                 id: "t1_some_id".to_owned(),
                 author: "author".to_owned(),
                 subreddit: "subressit".to_owned(),
+                thread: "t3_sdsd8e".to_owned(),
+                used_commands: false,
             },
             MAX_COMMENT_LEN,
             "en",
