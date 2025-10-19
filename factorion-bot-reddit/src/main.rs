@@ -179,7 +179,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or((Default::default(), (60.0, 0.0)));
         let end = SystemTime::now();
 
-        factorion_lib::influxdb::reddit::log_time_consumed(influx_client, start, end, "get_comments").await?;
+        factorion_lib::influxdb::reddit::log_time_consumed(
+            influx_client,
+            start,
+            end,
+            "get_comments",
+        )
+        .await?;
 
         let start = SystemTime::now();
         let comments = comments
@@ -197,7 +203,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .collect::<Vec<_>>();
         let end = SystemTime::now();
 
-        factorion_lib::influxdb::reddit::log_time_consumed(influx_client, start, end, "extract_factorials").await?;
+        factorion_lib::influxdb::reddit::log_time_consumed(
+            influx_client,
+            start,
+            end,
+            "extract_factorials",
+        )
+        .await?;
 
         let start = SystemTime::now();
         let comments = comments
@@ -215,7 +227,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .collect::<Vec<_>>();
         let end = SystemTime::now();
 
-        factorion_lib::influxdb::reddit::log_time_consumed(influx_client, start, end, "calculate_factorials").await?;
+        factorion_lib::influxdb::reddit::log_time_consumed(
+            influx_client,
+            start,
+            end,
+            "calculate_factorials",
+        )
+        .await?;
 
         if already_replied_or_rejected.len() > MAX_ALREADY_REPLIED_LEN {
             let extra = already_replied_or_rejected.len() - MAX_ALREADY_REPLIED_LEN;
@@ -294,7 +312,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         let end = SystemTime::now();
 
-        factorion_lib::influxdb::reddit::log_time_consumed(influx_client, start, end, "comment_loop").await?;
+        factorion_lib::influxdb::reddit::log_time_consumed(
+            influx_client,
+            start,
+            end,
+            "comment_loop",
+        )
+        .await?;
 
         let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
             rate.0 + 1.0

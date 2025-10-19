@@ -47,10 +47,7 @@ pub struct Config {
 }
 
 impl<'a> Handler<'a> {
-    pub fn new(
-        consts: Consts<'a>,
-        influx_client: &'a Option<InfluxDbClient>,
-    ) -> Handler<'a> {
+    pub fn new(consts: Consts<'a>, influx_client: &'a Option<InfluxDbClient>) -> Handler<'a> {
         let config_path = PathBuf::from(CONFIG_FILE);
         let channel_configs = Self::load_configs(&config_path);
 
@@ -222,9 +219,14 @@ impl<'a> Handler<'a> {
         }
 
         let end = SystemTime::now();
-        factorion_lib::influxdb::discord::log_time_consumed(&self.influx_client, start, end, "process_message")
-            .await
-            .ok();
+        factorion_lib::influxdb::discord::log_time_consumed(
+            &self.influx_client,
+            start,
+            end,
+            "process_message",
+        )
+        .await
+        .ok();
 
         Ok(())
     }

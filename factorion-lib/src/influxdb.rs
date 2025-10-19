@@ -86,7 +86,7 @@ pub async fn log_time_consumed(
 // Reddit-specific functions
 pub mod reddit {
     use super::*;
-    
+
     const SOURCE: &str = "reddit";
 
     /// Log a reply to a Reddit comment
@@ -123,7 +123,7 @@ pub mod reddit {
 // Discord-specific functions
 pub mod discord {
     use super::*;
-    
+
     const SOURCE: &str = "discord";
 
     /// Log a reply to a Discord message
