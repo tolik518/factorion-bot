@@ -1,6 +1,6 @@
 [package]
 name = "factorion-bot-reddit"
-version = "5.0.2"
+version = "5.0.3"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Reddit"
 license = "MIT"
@@ -12,7 +12,7 @@ categories = ["mathematics", "web-programming", "parser-implementations"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-factorion-lib = {path = "../factorion-lib", version = "2.0.2", features = ["serde", "influxdb"]}
+factorion-lib = {path = "../factorion-lib", version = "2.0.3", features = ["serde", "influxdb"]}
 reqwest = { version = "0.12.22", features = ["json", "native-tls"], default-features = false }
 serde = { version = "1.0.219", default-features = false, features = ["derive"] }
 serde_json = "1.0.140"
