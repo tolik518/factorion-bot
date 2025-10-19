@@ -405,15 +405,22 @@ impl<Meta> CommentExtracted<Meta> {
 impl<Meta> CommentCalculated<Meta> {
     /// Does the formatting for the reply using [calculation_result](crate::calculation_results).
     pub fn get_reply(&self, consts: &Consts) -> String {
-        let locale = consts
-            .locales
-            .get(&self.locale)
-            .unwrap_or(consts.locales.get(&consts.default_locale).unwrap());
+        let mut fell_back = false;
+        let locale = consts.locales.get(&self.locale).unwrap_or_else(|| {
+            fell_back = true;
+            consts.locales.get(&consts.default_locale).unwrap()
+        });
         let mut note = self
             .notify
             .as_ref()
             .map(|user| locale.notes().mention().replace("{mention}", user) + "\n\n")
             .unwrap_or_default();
+
+        if fell_back {
+            let _ = note.write_str("Sorry, I currently don't speak ");
+            let _ = note.write_str(&self.locale);
+            let _ = note.write_str(". Maybe you could [teach me](https://github.com/tolik518/factorion-bot/issues/262)? \n\n");
+        }
 
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
         let too_big_number = &too_big_number;
@@ -703,5 +710,18 @@ mod tests {
         let comment = Comment::new_already_replied((), MAX_LENGTH, "en");
         assert_eq!(comment.calculation_list, "");
         assert!(comment.status.already_replied_or_rejected);
+    }
+
+    #[test]
+    fn test_locale_fallback_note() {
+        let consts = Consts::default();
+        let comment = Comment::new_already_replied((), MAX_LENGTH, "n/a")
+            .extract(&consts)
+            .calc(&consts);
+        let reply = comment.get_reply(&consts);
+        assert_eq!(
+            reply,
+            "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/issues/262)? \n\n\n*^(This action was performed by a bot.)*"
+        );
     }
 }
