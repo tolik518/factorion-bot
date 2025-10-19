@@ -183,7 +183,7 @@ impl<'a> Handler<'a> {
         }
 
         let reply_text = comment.get_reply(&self.consts);
-        let message_locale = comment.locale.clone();
+        let message_locale = comment.locale;
 
         processed.insert(msg.id);
 
