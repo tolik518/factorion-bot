@@ -1,17 +1,16 @@
 #![doc = include_str!("../README.md")]
 use dotenvy::dotenv;
 use factorion_lib::Consts;
+use factorion_lib::influxdb::INFLUX_CLIENT;
 use factorion_lib::locale::Locale;
 use factorion_lib::rug::integer::IntegerExt64;
 use factorion_lib::rug::{Complete, Integer};
-use influxdb::INFLUX_CLIENT;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::error::Error;
 use std::panic;
 
 mod discord_api;
-mod influxdb;
 
 fn init() {
     dotenv().ok();

@@ -8,6 +8,7 @@ use std::time::SystemTime;
 use anyhow::Error;
 use factorion_lib::Consts;
 use factorion_lib::comment::{Commands, Comment, CommentConstructed};
+use factorion_lib::influxdb::InfluxDbClient;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serenity::all::{
@@ -17,8 +18,6 @@ use serenity::all::{
 use serenity::async_trait;
 use serenity::prelude::*;
 use tokio::sync::Mutex;
-
-use crate::influxdb;
 
 const MAX_MESSAGE_LEN: usize = 2000;
 const EMBED_DESCRIPTION_LIMIT: usize = 4096;
@@ -38,7 +37,7 @@ pub struct Handler<'a> {
     channel_configs: Arc<Mutex<HashMap<u64, Config>>>,
     config_path: PathBuf,
     consts: Consts<'a>,
-    influx_client: &'a Option<influxdb::InfluxDbClient>,
+    influx_client: &'a Option<InfluxDbClient>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,7 +49,7 @@ pub struct Config {
 impl<'a> Handler<'a> {
     pub fn new(
         consts: Consts<'a>,
-        influx_client: &'a Option<influxdb::InfluxDbClient>,
+        influx_client: &'a Option<InfluxDbClient>,
     ) -> Handler<'a> {
         let config_path = PathBuf::from(CONFIG_FILE);
         let channel_configs = Self::load_configs(&config_path);
@@ -149,7 +148,7 @@ impl<'a> Handler<'a> {
         let comment = comment.extract(&self.consts);
         let extract_end = SystemTime::now();
 
-        influxdb::log_time_consumed(
+        factorion_lib::influxdb::discord::log_time_consumed(
             &self.influx_client,
             extract_start,
             extract_end,
@@ -166,7 +165,7 @@ impl<'a> Handler<'a> {
         let comment = comment.calc(&self.consts);
         let calc_end = SystemTime::now();
 
-        influxdb::log_time_consumed(
+        factorion_lib::influxdb::discord::log_time_consumed(
             &self.influx_client,
             calc_start,
             calc_end,
@@ -211,7 +210,7 @@ impl<'a> Handler<'a> {
             );
 
             // Log the reply to InfluxDB
-            influxdb::log_message_reply(
+            factorion_lib::influxdb::discord::log_message_reply(
                 &self.influx_client,
                 &msg.id.to_string(),
                 &msg.author.name,
@@ -223,7 +222,7 @@ impl<'a> Handler<'a> {
         }
 
         let end = SystemTime::now();
-        influxdb::log_time_consumed(&self.influx_client, start, end, "process_message")
+        factorion_lib::influxdb::discord::log_time_consumed(&self.influx_client, start, end, "process_message")
             .await
             .ok();
 
@@ -683,7 +682,7 @@ impl EventHandler for Handler<'_> {
 pub async fn start_bot(
     token: String,
     consts: Consts<'static>,
-    influx_client: &'static Option<influxdb::InfluxDbClient>,
+    influx_client: &'static Option<InfluxDbClient>,
 ) -> Result<(), Error> {
     // Configure gateway intents
     // MESSAGE_CONTENT is a privileged intent that must be enabled in Discord Developer Portal:
@@ -708,7 +707,7 @@ pub async fn start_bot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::influxdb::INFLUX_CLIENT;
+    use factorion_lib::influxdb::INFLUX_CLIENT;
 
     #[test]
     fn test_should_use_simple_reply_short_text() {
