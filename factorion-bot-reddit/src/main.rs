@@ -244,9 +244,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         for comment in comments {
-            let comment_id = comment.meta.id.clone();
-            let comment_author = comment.meta.author.clone();
-            let comment_subreddit = comment.meta.subreddit.clone();
+            let comment_id = &comment.meta.id;
+            let comment_author = &comment.meta.author;
+            let comment_subreddit = &comment.meta.subreddit;
             let comment_locale = &comment.locale;
 
             let status: Status = comment.status;
