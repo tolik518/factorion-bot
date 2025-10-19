@@ -9,6 +9,10 @@ pub mod calculation_tasks;
 pub mod comment;
 pub mod locale;
 pub mod parse;
+
+#[cfg(feature = "influxdb")]
+pub mod influxdb;
+
 /// The result of a calculation
 pub use calculation_results::Calculation;
 /// The format prepped for calculation

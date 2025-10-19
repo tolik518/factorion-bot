@@ -43,10 +43,16 @@ You might want to check first if somebody else is already working on it, by look
 If you are confused, on what issues and PRs are, have a look at [Github Intro](#github-intro)
 # Code Structure
 ## Modules
-### General server stuff and API (factorion-bot-reddit)
+### Reddit Bot (factorion-bot-reddit)
 - `main`: Program loop, executing steps, data saving/reading
 - `reddit_api`: Interacting with Reddit (getting the comments, sending replies)
 - `influxdb`: Sending stats
+
+### Discord Bot (factorion-bot-discord)
+- `main`: Connects to Discord and listens for messages.
+- `discord_api`: Handles incoming messages and sends replies.
+- `influxdb`: Sending stats
+
 ### Processing of comments (factorion-lib)
 - `comment`: Executing steps for individual comments, comment metadata, reply arrangement (notes)
 - `parse`: Finding factorials in comments (with skipping URLs and spoilers), parsing numbers
@@ -54,5 +60,6 @@ If you are confused, on what issues and PRs are, have a look at [Github Intro](#
 - `calculation_result`: Formatting of factorial results (different representations)
 - `lib`: Imports/Exports, Combined initializer
 - `integration`: Integration tests (take a comment and do the whole pipeline)
+
 ### The base math (factorion-math)
 - `lib`: The mathematical formulas implemented
