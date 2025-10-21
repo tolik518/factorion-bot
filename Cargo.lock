@@ -188,9 +188,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.41"
+version = "0.4.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
+checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
 dependencies = [
  "num-traits",
  "serde",
@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-discord"
-version = "2.0.4"
+version = "2.0.5"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -378,7 +378,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-reddit"
-version = "5.0.5"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1056,9 +1056,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.27"
+version = "0.4.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
+checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
 name = "memchr"
