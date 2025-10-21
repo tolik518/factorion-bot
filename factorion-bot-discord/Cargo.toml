@@ -1,6 +1,6 @@
 [package]
 name = "factorion-bot-discord"
-version = "2.0.3"
+version = "2.0.4"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Discord"
 license = "MIT"
@@ -16,6 +16,6 @@ tokio = { version = "1.46.1", features = ["macros", "rt-multi-thread", "time"] }
 dotenvy = "^0.15.7"
 log = "0.4.27"
 env_logger = "0.11.8"
-anyhow = { version = "1.0.97", default-features = false, features = ["std"] }
+anyhow = { version = "1.0.100", default-features = false, features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
