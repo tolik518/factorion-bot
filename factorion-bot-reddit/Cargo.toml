@@ -1,6 +1,6 @@
 [package]
 name = "factorion-bot-reddit"
-version = "5.0.4"
+version = "5.0.5"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Reddit"
 license = "MIT"
@@ -8,8 +8,6 @@ repository = "https://github.com/tolik518/factorion-bot/"
 readme = "../README.md"
 keywords = ["factorial", "termial", "bot", "math"]
 categories = ["mathematics", "web-programming", "parser-implementations"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 factorion-lib = {path = "../factorion-lib", version = "2.0.3", features = ["serde", "influxdb"]}
