@@ -80,6 +80,7 @@ macro_rules! maybe_set_field {
 /// Use the getter methods to (maybe) access the fields or setters to (maybe) override them
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub enum Locale<'a> {
     V1(v1::Locale<'a>),
     V2(v2::Locale<'a>),
@@ -116,6 +117,7 @@ impl<'a> Locale<'a> {
 ///
 /// Use the getter methods to (maybe) access fields
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum Notes<'a> {
     V1(&'a v1::Notes<'a>),
     V2(&'a v2::Notes<'a>),
@@ -139,6 +141,7 @@ maybe_get_field!(Notes<'a>; V1; V2; limit_hit: Cow<'a, str>);
 ///
 /// Use the setter methods to (possibly) override them
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum NotesMut<'a> {
     V1(&'a mut v1::Notes<'a>),
     V2(&'a mut v2::Notes<'a>),
@@ -162,6 +165,7 @@ maybe_set_field!(NotesMut<'a>; V1; V2; limit_hit: Cow<'a, str>);
 ///
 /// Use the getter methods to (maybe) access fields
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum Format<'a> {
     V1(&'a v1::Format<'a>),
 }
@@ -192,6 +196,7 @@ impl<'a> Format<'a> {
 ///
 /// Use the setter methods to (possibly) override them
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum FormatMut<'a> {
     V1(&'a mut v1::Format<'a>),
 }
@@ -222,6 +227,7 @@ impl<'a> FormatMut<'a> {
 ///
 /// Use the getter methods to (maybe) access fields
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum NumFormat<'a> {
     V1(&'a v1::NumFormat),
 }
@@ -230,6 +236,7 @@ get_field!(NumFormat<'a>; V1; decimal: char);
 ///
 /// Use the setter methods to (possibly) override them
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum NumFormatMut<'a> {
     V1(&'a mut v1::NumFormat),
 }

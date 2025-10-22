@@ -1135,10 +1135,7 @@ mod tests {
                 "t1_m38msum".to_string(),
                 (
                     "t1_m38msun".to_string(),
-                    Commands {
-                        termial: true,
-                        ..Default::default()
-                    },
+                    Commands::TERMIAL,
                     "Little_Tweetybird_".to_string(),
                 )
             )]

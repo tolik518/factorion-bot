@@ -72,6 +72,7 @@ pub type CommentCalculated<Meta> = Comment<Meta, Vec<Calculation>>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Status {
     pub already_replied_or_rejected: bool,
     pub not_replied: bool,
@@ -134,6 +135,7 @@ impl Status {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
     pub shorten: bool,
