@@ -258,6 +258,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     })
                     .unwrap_or(true)
             });
+            comment.status.limit_hit = comment.calculation_list.iter().any(|calc| {
+                thread
+                    .calcs
+                    .iter()
+                    .any(|(c, n)| c == calc && *n + 1 == MAX_REPETITIONS_PER_THREAD)
+            });
 
             thread
                 .calcs
@@ -472,10 +478,6 @@ fn read_thread_calcs() -> Vec<Thread> {
     if !std::fs::exists(THREAD_CALCS_FILE_PATH).expect("Unable to check for file") {
         return Vec::new();
     }
-    let file = OpenOptions::new()
-        .read(true)
-        .open(THREAD_CALCS_FILE_PATH)
-        .expect("Unable to open or create file");
-    let mut buf = [0; 1000];
-    postcard::from_io((file, &mut buf)).unwrap().0
+    let file = std::fs::read(THREAD_CALCS_FILE_PATH).expect("Unable to read file");
+    postcard::from_bytes(&file).expect("Malformed thread_calcs file")
 }

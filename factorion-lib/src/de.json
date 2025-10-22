@@ -1,4 +1,4 @@
-{"V1":
+{"V2":
   {
     "bot_disclaimer": "Dieser Kommentar wurde automatisch geschrieben.",
     "notes": {
@@ -15,6 +15,7 @@
       "remove": "Wenn ich alle Zahlen angeben würde, wäre der Kommentar zu lang. Also muss ich welche rausnehmen.",
       "tetration": "Das ist so groß, dass selbst der Zehn-hoch-Turm nicht mehr in den Kommentar passt. Also muss ich tetrieren.",
       "no_post": "Sorry, die Antwort für all das wäre einfach _zu_ lang. Ich probier lieber nicht das zu schicken lmao",
+      "limit_hit": "I habe mich genug wiederholt, das werde ich nicht nochmal berechnen.",
       "mention": "Hey {mention}!"
     },
     "format": {
