@@ -72,6 +72,7 @@ pub type CommentCalculated<Meta> = Comment<Meta, Vec<Calculation>>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Status {
     pub already_replied_or_rejected: bool,
     pub not_replied: bool,
@@ -79,6 +80,7 @@ pub struct Status {
     pub no_factorial: bool,
     pub reply_would_be_too_long: bool,
     pub factorials_found: bool,
+    pub limit_hit: bool,
 }
 
 impl_all_bitwise!(Status {
@@ -88,6 +90,7 @@ impl_all_bitwise!(Status {
     no_factorial,
     reply_would_be_too_long,
     factorials_found,
+    limit_hit,
 });
 #[allow(dead_code)]
 impl Status {
@@ -98,6 +101,7 @@ impl Status {
         no_factorial: false,
         reply_would_be_too_long: false,
         factorials_found: false,
+        limit_hit: false,
     };
     pub const ALREADY_REPLIED_OR_REJECTED: Self = Self {
         already_replied_or_rejected: true,
@@ -123,10 +127,15 @@ impl Status {
         factorials_found: true,
         ..Self::NONE
     };
+    pub const LIMIT_HIT: Self = Self {
+        limit_hit: true,
+        ..Self::NONE
+    };
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, PartialOrd, Ord)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
     pub shorten: bool,
@@ -428,7 +437,12 @@ impl<Meta> CommentCalculated<Meta> {
         // Add Note
         let multiple = self.calculation_list.len() > 1;
         if !self.commands.no_note {
-            if self
+            if self.status.limit_hit {
+                let _ = note.write_str(locale.notes().limit_hit().map(AsRef::as_ref).unwrap_or(
+                    "I have repeated myself enough, I won't do that calculation again.",
+                ));
+                let _ = note.write_str("\n\n");
+            } else if self
                 .calculation_list
                 .iter()
                 .any(Calculation::is_digit_tower)
@@ -722,6 +736,20 @@ mod tests {
         assert_eq!(
             reply,
             "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n\n*^(This action was performed by a bot.)*"
+        );
+    }
+
+    #[test]
+    fn test_limit_hit_note() {
+        let consts = Consts::default();
+        let mut comment = Comment::new_already_replied((), MAX_LENGTH, "en")
+            .extract(&consts)
+            .calc(&consts);
+        comment.add_status(Status::LIMIT_HIT);
+        let reply = comment.get_reply(&consts);
+        assert_eq!(
+            reply,
+            "I have repeated myself enough, I won't do that calculation again.\n\n\n*^(This action was performed by a bot.)*"
         );
     }
 }

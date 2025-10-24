@@ -19,11 +19,16 @@ use std::sync::OnceLock;
 use std::time::SystemTime;
 use tokio::time::{Duration, sleep};
 
+use crate::reddit_api::Thread;
+
 mod reddit_api;
 
 const API_COMMENT_COUNT: u32 = 100;
 const ALREADY_REPLIED_IDS_FILE_PATH: &str = "already_replied_ids.dat";
 const MAX_ALREADY_REPLIED_LEN: usize = 100_000;
+const THREAD_CALCS_FILE_PATH: &str = "thread_calcs.dat";
+const MAX_THREAD_CALCS_LEN: usize = 100;
+const MAX_REPETITIONS_PER_THREAD: usize = 10;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
 static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, (&str, Commands)>> = OnceLock::new();
 
@@ -159,9 +164,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     let mut last_ids = Default::default();
 
+    let mut thread_calcs: Vec<Thread> = read_thread_calcs();
+    if thread_calcs.is_empty() {
+        info!("No comment_ids found in the file");
+    } else {
+        info!("Found comment_ids in the file");
+    }
+
     // Polling Reddit for new comments
     for i in (0..u8::MAX).cycle() {
         info!("Polling Reddit for new comments...");
+        let mut thread_calcs_changed = false;
 
         let start = SystemTime::now();
         // force checking of "old" messages ca. every 15 minutes
@@ -188,7 +201,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
 
         let start = SystemTime::now();
-        let comments = comments
+        let mut comments = comments
             .into_iter()
             .filter_map(|c| {
                 let id = c.meta.id.clone();
@@ -210,6 +223,58 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "extract_factorials",
         )
         .await?;
+
+        // Remove repetitive calcs
+        for comment in &mut comments {
+            if comment.meta.used_commands || comment.calculation_list.is_empty() {
+                continue;
+            }
+            let Ok(mut dense_id) = u64::from_str_radix(&comment.meta.thread, 36) else {
+                warn!("Failed to make id dense {}", comment.meta.thread);
+                continue;
+            };
+            dense_id |= 3 << 61;
+            let dense_id = DenseId::from_raw(dense_id);
+            let thread = thread_calcs
+                .iter()
+                .enumerate()
+                .find_map(|(i, x)| (x.id == dense_id).then_some(i))
+                .unwrap_or_else(|| {
+                    thread_calcs.push(Thread {
+                        id: dense_id,
+                        calcs: vec![],
+                    });
+                    thread_calcs.len() - 1
+                });
+            let mut thread = thread_calcs.remove(thread);
+            comment.calculation_list.retain(|calc| {
+                thread
+                    .calcs
+                    .iter_mut()
+                    .find(|(c, _)| c == calc)
+                    .map(|(_, n)| {
+                        *n += 1;
+                        *n < MAX_REPETITIONS_PER_THREAD
+                    })
+                    .unwrap_or(true)
+            });
+            comment.status.limit_hit = comment.calculation_list.iter().any(|calc| {
+                thread
+                    .calcs
+                    .iter()
+                    .any(|(c, n)| c == calc && *n + 1 == MAX_REPETITIONS_PER_THREAD)
+            });
+
+            thread
+                .calcs
+                .extend(comment.calculation_list.iter().map(|x| (x.clone(), 0)));
+            thread.calcs.sort_unstable();
+            thread.calcs.reverse();
+            thread.calcs.dedup_by(|a, b| a.0 == b.0);
+
+            thread_calcs.push(thread);
+            thread_calcs_changed = true;
+        }
 
         let start = SystemTime::now();
         let comments = comments
@@ -241,6 +306,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
 
         write_comment_ids(&already_replied_or_rejected);
+
+        if thread_calcs.len() > MAX_THREAD_CALCS_LEN {
+            let extra = thread_calcs.len() - MAX_THREAD_CALCS_LEN;
+            thread_calcs.drain(..extra);
+            thread_calcs_changed = true;
+        }
+
+        if thread_calcs_changed {
+            write_thread_calcs(&thread_calcs);
+        }
 
         let start = SystemTime::now();
         for comment in comments {
@@ -386,4 +461,23 @@ fn read_comment_ids() -> Vec<DenseId> {
     raw.chunks_exact(DENSE_SIZE)
         .map(|bytes| DenseId::from_raw(u64::from_le_bytes(bytes.try_into().unwrap())))
         .collect()
+}
+
+fn write_thread_calcs(thread_calcs: &[Thread]) {
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(THREAD_CALCS_FILE_PATH)
+        .expect("Unable to open or create file");
+
+    postcard::to_io(thread_calcs, file).unwrap();
+}
+
+fn read_thread_calcs() -> Vec<Thread> {
+    if !std::fs::exists(THREAD_CALCS_FILE_PATH).expect("Unable to check for file") {
+        return Vec::new();
+    }
+    let file = std::fs::read(THREAD_CALCS_FILE_PATH).expect("Unable to read file");
+    postcard::from_bytes(&file).expect("Malformed thread_calcs file")
 }
