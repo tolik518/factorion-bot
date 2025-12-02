@@ -624,6 +624,10 @@ impl RedditClient {
                 .and_then(|x| x.split('/').nth(4))
                 .unwrap_or("");
             let reply_body;
+            let commands = subs
+                .get("")
+                .map(|(_, cmds)| *cmds)
+                .unwrap_or(Commands::NONE);
             let (locale, commands) = if matches!(kind, "t1" | "t3") {
                 let sub = comment["data"]["subreddit"].as_str().unwrap_or_default();
                 if let Some((locale, commands)) = subs.get(sub) {
@@ -637,7 +641,7 @@ impl RedditClient {
                     static LANG_CACHE: LazyLock<Mutex<HashMap<String, &str>>> =
                         LazyLock::new(|| Mutex::new(HashMap::new()));
                     if let Some(locale) = LANG_CACHE.lock().await.get(sub) {
-                        (*locale, Commands::NONE)
+                        (*locale, commands)
                     } else {
                         let request = self.client.get(format!("{REDDIT_OAUTH_URL}/r/{sub}/about"));
                         let reply = request.bearer_auth(&self.token.access_token).send().await?;
@@ -648,11 +652,11 @@ impl RedditClient {
                             .unwrap_or("en");
                         LANG_CACHE.lock().await.insert(sub.to_owned(), locale);
                         info!("Added to lang cache {sub}:{locale}");
-                        (locale, Commands::NONE)
+                        (locale, commands)
                     }
                 }
             } else {
-                ("en", Commands::NONE)
+                ("en", commands)
             };
             let extracted_comment = match kind {
                 // Comment
