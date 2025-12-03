@@ -138,14 +138,21 @@ impl Status {
 #[non_exhaustive]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub shorten: bool,
     /// Return all the intermediate results for nested calculations.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub steps: bool,
     /// Parse and calculate termials.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub termial: bool,
     /// Disable the beginning note.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub no_note: bool,
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub post_only: bool,
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
+    pub dont_check: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
@@ -153,6 +160,7 @@ impl_all_bitwise!(Commands {
     termial,
     no_note,
     post_only,
+    dont_check,
 });
 #[allow(dead_code)]
 impl Commands {
@@ -162,6 +170,7 @@ impl Commands {
         termial: false,
         no_note: false,
         post_only: false,
+        dont_check: false,
     };
     pub const SHORTEN: Self = Self {
         shorten: true,
@@ -181,6 +190,10 @@ impl Commands {
     };
     pub const POST_ONLY: Self = Self {
         post_only: true,
+        ..Self::NONE
+    };
+    pub const DONT_CHECK: Self = Self {
+        dont_check: true,
         ..Self::NONE
     };
 }
@@ -204,6 +217,9 @@ impl Commands {
             no_note: Self::contains_command_format(text, "no note")
                 || Self::contains_command_format(text, "no_note"),
             post_only: false,
+            dont_check: Self::contains_command_format(text, "dont")
+                || Self::contains_command_format(text, "no_check")
+                || Self::contains_command_format(text, "no_reply"),
         }
     }
     pub fn overrides_from_comment_text(text: &str) -> Self {
@@ -215,6 +231,7 @@ impl Commands {
                 | Self::contains_command_format(text, "no_termial")),
             no_note: !Self::contains_command_format(text, "note"),
             post_only: true,
+            dont_check: true,
         }
     }
 }
@@ -267,6 +284,9 @@ impl<Meta> CommentConstructed<Meta> {
         let commands: Commands =
             (Commands::from_comment_text(comment_text) | pre_commands) & command_overrides;
 
+        if commands.dont_check {
+            return Self::new_already_replied(meta, max_length, locale);
+        }
         let mut status: Status = Default::default();
 
         let text = if Self::might_have_factorial(comment_text) {
@@ -737,6 +757,22 @@ mod tests {
             reply,
             "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n\n*^(This action was performed by a bot.)*"
         );
+    }
+
+    #[test]
+    fn test_dont_check_command() {
+        let consts = Consts::default();
+        let comment = Comment::new(
+            "Some comment that wants no reply 2026! !dont",
+            (),
+            Commands::NONE,
+            MAX_LENGTH,
+            "en",
+        )
+        .extract(&consts)
+        .calc(&consts);
+        assert_eq!(comment.calculation_list, []);
+        assert!(comment.status.already_replied_or_rejected);
     }
 
     #[test]
