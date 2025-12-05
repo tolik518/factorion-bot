@@ -84,33 +84,9 @@ INTEGER_CONSTRUCTION_LIMIT=100000
 NUMBER_DECIMALS_SCIENTIFIC=5
 LOCALES_DIR=<directory_containing_locale_json_files>
 
-#Optional (with expamle)
-SUBREDDITS=<subreddits_config_list> unexpectedfactorial:en+unexpectedtermial::termial+::shorten 
-#Or (not at the same time)
-SUBREDDITS_FILE=<path_to_subreddits_config_json_file>
-
 INFLUXDB_HOST=localhost:8889
 INFLUXDB_BUCKET=factorion-test
 INFLUXDB_TOKEN=<token>
-```
-
-The optional subreddits file should contain subreddit configuration in the following format (an example):
-```json
-{
-   "unexpectedfactorial": {
-      "locale": "en",
-   },
-   "unexpectedtermial": {
-      "commands": {
-         "termial": true
-      }
-   },
-   "": {
-      "commands": {
-         "shorten": true
-      }
-   }
-}
 ```
 
 ### Usage

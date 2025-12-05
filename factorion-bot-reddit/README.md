@@ -96,13 +96,20 @@ REDDIT_USERNAME=<reddit_app_username>
 REDDIT_PASSWORD=<reddit_app_password>
 
 SLEEP_BETWEEN_REQUESTS=<sleep_time>
-// example: SUBREDDITS=test:en+testingground4bots:ru:no_note,termial
+# example: SUBREDDITS=test:en:dont_check+testingground4bots:ru:no_note,termial+::shorten
 SUBREDDITS=<subreddits>
+#Or (not at the same time)
+SUBREDDITS_FILE=<path_to_subreddits_config_json_file>
 TERMIAL_SUBREDDITS=<subreddits_with_termials>
 CHECK_MENTIONS=<check_mentions>
 CHECK_POSTS=<check_posts>
 MENTIONS_EVERY=<check_mentions_every_nth_loop>
 POSTS_EVERY=<check_posts_every_nth_loop>
+
+
+INFLUXDB_HOST=localhost:8889
+INFLUXDB_BUCKET=factorion-test
+INFLUXDB_TOKEN=<token>
 
 FLOAT_PRECISION=<the_precision_floats_use> 1024
 UPPER_CALCULATION_LIMIT=<maximum_number_to_precisely_calculate> 1000000
@@ -129,6 +136,25 @@ They control how often posts/mentions are checked compared to comments.
 Setting them to `0` will result in a crash.
 
 Set `RUST_LOG` to `factorion_bot` to see all logs, or `error` to see only errors.
+
+The optional subreddits file should contain subreddit configuration in the following format (an example):
+```json
+{
+   "unexpectedfactorial": {
+      "locale": "en",
+   },
+   "unexpectedtermial": {
+      "commands": {
+         "termial": true
+      }
+   },
+   "": {
+      "commands": {
+         "shorten": true
+      }
+   }
+}
+```
 
 ## Usage
 
