@@ -37,11 +37,25 @@ static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, SubredditEntry>> = OnceLock::n
 struct SubredditEntry {
     #[serde(default = "en_str")]
     locale: &'static str,
-    #[serde(default = "Commands::default")]
+    #[serde(default)]
     commands: Commands,
+    #[serde(default)]
+    mode: SubredditMode,
 }
 fn en_str() -> &'static str {
     "en"
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+enum SubredditMode {
+    All,
+    PostOnly,
+    None,
+}
+impl Default for SubredditMode {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[tokio::main]
@@ -131,6 +145,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .map(|(s, (l, c))| (s, if l.is_empty() { "en" } else { l }, c))
             .filter(|s| !(s.0.is_empty() && s.1.is_empty()))
             .map(|(sub, locale, commands)| {
+                let mut mode = SubredditMode::All;
                 (
                     sub,
                     SubredditEntry {
@@ -142,20 +157,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 "termial" => Commands::TERMIAL,
                                 "steps" => Commands::STEPS,
                                 "no_note" => Commands::NO_NOTE,
-                                "post_only" => Commands::POST_ONLY,
-                                "dont_check" => Commands::DONT_CHECK,
+                                "post_only" => {
+                                    if mode != SubredditMode::None {
+                                        mode = SubredditMode::PostOnly;
+                                    }
+                                    Commands::NONE
+                                }
+                                "dont_check" => {
+                                    mode = SubredditMode::None;
+                                    Commands::NONE
+                                }
                                 "" => Commands::NONE,
                                 s => panic!("Unknown command in subreddit {sub}: {s}"),
                             })
                             .fold(Commands::NONE, |a, e| a | e),
+                        mode,
                     },
                 )
             })
             .collect::<HashMap<_, _>>()
     };
-    if !sub_entries.is_empty() {
+    info!("Subreddit configuration: {sub_entries:?}");
+    if sub_entries.values().any(|v| v.mode != SubredditMode::None) {
         requests_per_loop += 1.0;
-        if !sub_entries.values().all(|v| v.commands.post_only) {
+        if sub_entries.values().any(|v| v.mode == SubredditMode::All) {
             requests_per_loop += 1.0;
         }
     }

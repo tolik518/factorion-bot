@@ -269,15 +269,14 @@ impl<'a> Handler<'a> {
         if parts.len() < 4 {
             let config = self.get_channel_config(msg.channel_id).await;
             let status = format!(
-                "**Channel Configuration**\n```\nShorten: {}\nSteps: {}\nTermial: {}\nNo Note: {}\nPost Only: {}\nLocale: {}\n```\n\
+                "**Channel Configuration**\n```\nShorten: {}\nSteps: {}\nTermial: {}\nNo Note: {}\nLocale: {}\n```\n\
                 Usage:\n\
                 `!factorion config <setting> <on/off>`\n\
-                Available settings: shorten, steps, termial, no_note, post_only",
+                Available settings: shorten, steps, termial, no_note",
                 config.commands.shorten,
                 config.commands.steps,
                 config.commands.termial,
                 config.commands.no_note,
-                config.commands.post_only,
                 config.locale
             );
             msg.channel_id.say(&ctx.http, status).await?;
@@ -384,28 +383,6 @@ impl<'a> Handler<'a> {
                         &ctx.http,
                         format!(
                             "No note has been turned **{}**",
-                            if enabled { "ON" } else { "OFF" }
-                        ),
-                    )
-                    .await?;
-            }
-            "post_only" | "postonly" | "post-only" => {
-                let Setting::Command(enabled) = val else {
-                    msg.channel_id
-                        .say(
-                            &ctx.http,
-                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
-                        )
-                        .await?;
-                    return Ok(());
-                };
-                config.commands.post_only = enabled;
-                self.set_channel_config(msg.channel_id, config).await?;
-                msg.channel_id
-                    .say(
-                        &ctx.http,
-                        format!(
-                            "Post only has been turned **{}**",
                             if enabled { "ON" } else { "OFF" }
                         ),
                     )

@@ -140,13 +140,16 @@ Set `RUST_LOG` to `factorion_bot` to see all logs, or `error` to see only errors
 The optional subreddits file should contain subreddit configuration in the following format (an example):
 ```json
 {
-   "unexpectedfactorial": {
-      "locale": "en",
+   "test": {
+      "locale": "en"
    },
-   "unexpectedtermial": {
+   "testingground4bots": {
+      "locale": "ru",
       "commands": {
-         "termial": true
-      }
+         "termial": true,
+         "no_note": true
+      },
+      "mode": "All"
    },
    "": {
       "commands": {
