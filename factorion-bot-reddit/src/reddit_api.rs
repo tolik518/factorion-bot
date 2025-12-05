@@ -11,7 +11,7 @@ use crate::{
 use anyhow::{Error, anyhow};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeDelta, Utc};
 use factorion_lib::comment::{Commands, Comment, CommentCalculated, CommentConstructed, Status};
 use futures::future::OptionFuture;
 use id::{DenseId, id_to_dense};
@@ -406,7 +406,7 @@ impl RedditClient {
     }
 
     fn is_token_expired(&self) -> bool {
-        let now = Utc::now();
+        let now = Utc::now() + TimeDelta::seconds(1);
         now > self.token.expiration_time
     }
 
