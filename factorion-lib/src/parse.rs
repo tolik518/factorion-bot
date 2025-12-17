@@ -663,6 +663,45 @@ fn parse_num_simple(
         let part = &text[..end];
         *text = &text[end..];
         (part, negative)
+    } else if text.trim_start().starts_with("\\*10^")
+        || text.trim_start().starts_with("\\* 10^")
+        || text.trim_start().starts_with("\\*10\\^")
+        || text.trim_start().starts_with("\\* 10\\^")
+        || text.trim_start().starts_with("⨉10^")
+        || text.trim_start().starts_with("⨉ 10^")
+        || text.trim_start().starts_with("⨉10\\^")
+        || text.trim_start().starts_with("⨉ 10\\^")
+    {
+        let start = text.find("^").unwrap();
+        *text = &text[start + 1..];
+        let orig_text = &text[..];
+        let paren = if text.starts_with('(') {
+            *text = &text[1..];
+            true
+        } else {
+            false
+        };
+        let negative = if text.starts_with('+') {
+            *text = &text[1..];
+            false
+        } else if text.starts_with('-') {
+            *text = &text[1..];
+            true
+        } else {
+            false
+        };
+        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let part = &text[..end];
+        *text = &text[end..];
+        if paren {
+            if text.starts_with(')') {
+                *text = &text[1..];
+            } else {
+                *text = orig_text;
+                return None;
+            }
+        }
+        (part, negative)
     } else {
         (&text[..0], false)
     };
@@ -1373,7 +1412,23 @@ mod test {
         );
         assert_eq!(num, Some(150.into()));
         let num = parse_num(
+            &mut "1.5 ⨉ 10^2more !",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(150.into()));
+        let num = parse_num(
             &mut "1e2more !",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(100.into()));
+        let num = parse_num(
+            &mut "1\\*10^(2)more !",
             false,
             false,
             &consts,
@@ -1579,6 +1634,16 @@ mod test {
     #[test]
     fn test_parse_num_revert() {
         let consts = Consts::default();
+        let mut text = "1 ⨉ 10^(5!)";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "(5!)");
         let mut text = "^(10 10";
         let num = parse_num(
             &mut text,
