@@ -36,6 +36,7 @@ const POI_STARTS: &[char] = &[
     'π',
     'ɸ',
     'τ',
+    '^', // Tetration
     URI_POI,
     SPOILER_POI,
     SPOILER_HTML_POI,
@@ -549,6 +550,89 @@ fn parse_num(
         return Some(x);
     }
 
+    if text.starts_with("^(") {
+        let orig_text = &text[..];
+        *text = &text[2..];
+        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let part = &text[..end];
+        *text = &text[end..];
+        if text.starts_with(")10") {
+            *text = &text[3..];
+            let n = part.parse::<u32>().ok()?;
+            return Some(Number::ApproximateDigitsTower(
+                false,
+                false,
+                n - 1,
+                1.into(),
+            ));
+        } else {
+            // Skip ^ only
+            *text = &orig_text[1..];
+            return None;
+        }
+    }
+
+    if text.starts_with("10^") || text.starts_with("10\\^") {
+        let orig_text = &text[..];
+        let mut cur_parens = vec![];
+        let mut depth = 0;
+
+        while text.starts_with("10^") || text.starts_with("10\\^") {
+            if &text[2..3] == "^" {
+                *text = &text[3..];
+            } else {
+                *text = &text[4..];
+            }
+            if text.starts_with("\\(") {
+                *text = &text[2..];
+                cur_parens.push(true);
+            } else if text.starts_with("(") {
+                *text = &text[1..];
+                cur_parens.push(false);
+            }
+            depth += 1;
+        }
+
+        let top = match parse_num_simple(text, had_op, consts, locale, prec) {
+            Some(Number::Exact(n)) => n,
+            Some(Number::Approximate(_, n)) => {
+                depth += 1;
+                n
+            }
+            _ => {
+                *text = &orig_text[3..];
+                return None;
+            }
+        };
+
+        for escaped in cur_parens.into_iter().rev() {
+            if escaped && text.starts_with("\\)") {
+                *text = &text[2..];
+            } else if !escaped && text.starts_with(")") {
+                *text = &text[1..];
+            } else {
+                *text = &orig_text[3..];
+                return None;
+            }
+        }
+
+        if depth == 1 {
+            return Some(Number::ApproximateDigits(false, top));
+        } else {
+            return Some(Number::ApproximateDigitsTower(false, false, depth - 1, top));
+        }
+    }
+
+    parse_num_simple(text, had_op, consts, locale, prec)
+}
+
+fn parse_num_simple(
+    text: &mut &str,
+    had_op: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat<'_>,
+    prec: u32,
+) -> Option<crate::calculation_results::CalculationResult> {
     let integer_part = {
         let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
         let part = &text[..end];
@@ -1450,6 +1534,101 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, Some(Number::Exact(2.into())));
+        let num = parse_num(
+            &mut "^(11)10!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(
+            num,
+            Some(Number::ApproximateDigitsTower(false, false, 10, 1.into()))
+        );
+        let num = parse_num(
+            &mut "10^10^10^5!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(
+            num,
+            Some(Number::ApproximateDigitsTower(false, false, 2, 5.into()))
+        );
+        let num = parse_num(
+            &mut "10^(10\\^10\\^\\(5\\))!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(
+            num,
+            Some(Number::ApproximateDigitsTower(false, false, 2, 5.into()))
+        );
+        let num = parse_num(
+            &mut "10^5!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(Number::ApproximateDigits(false, 5.into())));
+    }
+    #[test]
+    fn test_parse_num_revert() {
+        let consts = Consts::default();
+        let mut text = "^(10 10";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "(10 10");
+        let mut text = "^(10)1";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "(10)1");
+        let mut text = "10^(10^10^\\(5)\\)";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "(10^10^\\(5)\\)");
+        let mut text = "10^(10^10^\\(5\\)";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "(10^10^\\(5\\)");
+        let mut text = "10^\\(10^10^\\(5\\))";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "\\(10^10^\\(5\\))");
     }
     #[allow(clippy::uninlined_format_args)]
     #[test]

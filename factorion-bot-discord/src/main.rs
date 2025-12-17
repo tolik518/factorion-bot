@@ -76,6 +76,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         number_decimals_scientific: std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
+        max_value_tower_depth: std::env::var("MAX_VALUE_TOWER_DEPTH")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::MAX_VALUE_TOWER_DEPTH),
         locales: std::env::var("LOCALES_DIR")
             .map(|dir| {
                 let files = std::fs::read_dir(dir).unwrap();

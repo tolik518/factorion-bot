@@ -12,6 +12,7 @@ use std::fmt;
 use std::fmt::Write;
 
 pub mod recommended {
+    pub const MAX_VALUE_TOWER_DEPTH: u32 = 5;
     pub const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 }
 
@@ -121,6 +122,7 @@ impl CalculationResult {
         rough: &mut bool,
         shorten: bool,
         agressive: bool,
+        is_value: bool,
         consts: &Consts,
         locale: &locale::NumFormat,
     ) -> std::fmt::Result {
@@ -152,20 +154,27 @@ impl CalculationResult {
                 }
             }
             CalculationResult::ApproximateDigits(_, digits) => {
+                if is_value {
+                    acc.write_str("10^(")?;
+                }
                 if shorten {
                     acc.write_str(&truncate(digits, consts).0)?;
                 } else {
                     write!(acc, "{digits}")?;
                 }
+                if is_value {
+                    acc.write_str(")")?;
+                }
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
+                let depth = if is_value { depth + 1 } else { *depth };
                 acc.write_str(if *negative { "-" } else { "" })?;
                 if !agressive {
-                    if *depth > 0 {
+                    if depth > 0 {
                         acc.write_str("10^(")?;
                     }
-                    if *depth > 1 {
-                        acc.write_str(&"10\\^".repeat(*depth as usize - 1))?;
+                    if depth > 1 {
+                        acc.write_str(&"10\\^".repeat(depth as usize - 1))?;
                         acc.write_str("(")?;
                     }
                     if shorten {
@@ -173,10 +182,10 @@ impl CalculationResult {
                     } else {
                         write!(acc, "{exponent}")?;
                     }
-                    if *depth > 1 {
+                    if depth > 1 {
                         acc.write_str("\\)")?;
                     }
-                    if *depth > 0 {
+                    if depth > 0 {
                         acc.write_str(")")?;
                     }
                 } else {
@@ -307,7 +316,8 @@ impl Calculation {
             &mut number,
             &mut rough,
             force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
-            agressive_shorten,
+            agressive_shorten || matches!(self.value, Number::ApproximateDigitsTower(_, _, depth, _) if depth > consts.max_value_tower_depth),
+            true,
             consts,
             &locale.number_format(),
         )?;
@@ -322,7 +332,8 @@ impl Calculation {
             &mut number,
             &mut rough,
             force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
-            agressive_shorten,
+            agressive_shorten || matches!(self.value, Number::ApproximateDigitsTower(_, _, depth, _) if depth > consts.max_value_tower_depth),
+            false,
             consts,
             &locale.number_format(),
         )?;

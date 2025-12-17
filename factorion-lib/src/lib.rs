@@ -43,6 +43,7 @@ pub struct Consts<'a> {
     pub upper_termial_approximation_limit: u32,
     pub integer_construction_limit: Integer,
     pub number_decimals_scientific: usize,
+    pub max_value_tower_depth: u32,
     pub locales: HashMap<String, Locale<'a>>,
     pub default_locale: String,
 }
@@ -59,6 +60,7 @@ impl Default for Consts<'_> {
             integer_construction_limit: parse::recommended::INTEGER_CONSTRUCTION_LIMIT(),
             number_decimals_scientific:
                 calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
+            max_value_tower_depth: calculation_results::recommended::MAX_VALUE_TOWER_DEPTH,
             locales: HashMap::from([
                 #[cfg(any(feature = "serde", test))]
                 ("en".to_owned(), locale::get_en()),
