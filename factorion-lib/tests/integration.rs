@@ -1609,7 +1609,7 @@ fn test_german_locale() {
 fn test_number_inputs() {
     let consts = Consts::default();
     let comment = Comment::new(
-        "A comment with different number inputs 10! 10^(100)! 10^(10\\^\\(100\\))! 10e10! (10/5)! ^(400)10!",
+        "A comment with different number inputs 10^(100)! 10^(10\\^(100\\))! 10 ⨉ 10^11! !10 ⨉ 10^11 (10 ⨉ 10^11)! (10/5)! ^(400)10! (^(400)10)!",
         (),
         Commands::TERMIAL | Commands::SHORTEN,
         MAX_LENGTH,
@@ -1621,7 +1621,7 @@ fn test_number_inputs() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 2 is 2 \n\nFactorial of 10 is 3628800 \n\nFactorial of 100000000000 is approximately 3.748928599105027 × 10^(1056570551815) \n\nFactorial of 10^(100) has on the order of 10^(103) digits \n\nFactorial of 10^(10\\^(100\\)) has on the order of 10^(10\\^(100\\)) digits \n\nFactorial of ^(400)10 has on the order of ^(400)10 digits \n\n\n*^(This action was performed by a bot.)*",
+        "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 2 is 2 \n\nSubfactorial of 10 is 1334961 \n\nFactorial of 10 is 3628800 \n\nFactorial of 11 is 39916800 \n\nFactorial of 1000000000000 is approximately 1.403661160373756 × 10^(11565705518103) \n\nFactorial of 10^(100) has on the order of 10^(103) digits \n\nFactorial of 10^(10\\^(100\\)) has on the order of 10^(10\\^(100\\)) digits \n\nFactorial of ^(400)10 has on the order of ^(400)10 digits \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 

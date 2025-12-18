@@ -556,7 +556,7 @@ fn parse_num(
         let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
-        if text.starts_with(")10") {
+        if text.starts_with(")10") && !text[3..].starts_with(POSTFIX_OPS) {
             *text = &text[3..];
             let n = part.parse::<u32>().ok()?;
             return Some(Number::ApproximateDigitsTower(
@@ -566,29 +566,52 @@ fn parse_num(
                 1.into(),
             ));
         } else {
-            // Skip ^ only
-            *text = &orig_text[1..];
+            // Skip ^ only (because ret None)
+            *text = orig_text;
             return None;
         }
     }
 
     if text.starts_with("10^") || text.starts_with("10\\^") {
         let orig_text = &text[..];
-        let mut cur_parens = vec![];
-        let mut depth = 0;
-
-        while text.starts_with("10^") || text.starts_with("10\\^") {
+        if had_op {
             if &text[2..3] == "^" {
                 *text = &text[3..];
             } else {
                 *text = &text[4..];
             }
+            // Don't skip power if op won't be in exponent, so it will be skipped by tetration parsing
+            if text.starts_with("(") || text.starts_with("\\(") {
+                *text = &orig_text[2..];
+            }
+            return Some(Number::Exact(10.into()));
+        }
+        let mut cur_parens = 0;
+        let mut depth = 0;
+
+        let mut max_no_paren_level = 0;
+        let mut no_paren_inner = &text[0..];
+
+        while text.starts_with("10^") || text.starts_with("10\\^") {
+            let base_text;
+            if &text[2..3] == "^" {
+                base_text = &text[2..];
+                *text = &text[3..];
+            } else {
+                base_text = &text[3..];
+                *text = &text[4..];
+            }
             if text.starts_with("\\(") {
                 *text = &text[2..];
-                cur_parens.push(true);
+                cur_parens += 1;
             } else if text.starts_with("(") {
                 *text = &text[1..];
-                cur_parens.push(false);
+                cur_parens += 1;
+            }
+            // we're at base and pushed a paren
+            if depth == max_no_paren_level && cur_parens == 0 {
+                max_no_paren_level += 1;
+                no_paren_inner = base_text;
             }
             depth += 1;
         }
@@ -605,15 +628,21 @@ fn parse_num(
             }
         };
 
-        for escaped in cur_parens.into_iter().rev() {
-            if escaped && text.starts_with("\\)") {
+        for _ in 0..cur_parens {
+            if text.starts_with("\\)") {
                 *text = &text[2..];
-            } else if !escaped && text.starts_with(")") {
+            } else if text.starts_with(")") {
                 *text = &text[1..];
             } else {
-                *text = &orig_text[3..];
+                *text = &orig_text[2..];
                 return None;
             }
+        }
+
+        // If postfix op in exponent, ingore that it's in exponent
+        if max_no_paren_level != 0 && text.starts_with(POSTFIX_OPS) {
+            *text = no_paren_inner;
+            return None;
         }
 
         if depth == 1 {
@@ -663,18 +692,20 @@ fn parse_num_simple(
         let part = &text[..end];
         *text = &text[end..];
         (part, negative)
-    } else if text.trim_start().starts_with("\\*10^")
-        || text.trim_start().starts_with("\\* 10^")
-        || text.trim_start().starts_with("\\*10\\^")
-        || text.trim_start().starts_with("\\* 10\\^")
-        || text.trim_start().starts_with("⨉10^")
-        || text.trim_start().starts_with("⨉ 10^")
-        || text.trim_start().starts_with("⨉10\\^")
-        || text.trim_start().starts_with("⨉ 10\\^")
+    } else if !had_op
+        && (text.trim_start().starts_with("\\*10^")
+            || text.trim_start().starts_with("\\* 10^")
+            || text.trim_start().starts_with("\\*10\\^")
+            || text.trim_start().starts_with("\\* 10\\^")
+            || text.trim_start().starts_with("⨉10^")
+            || text.trim_start().starts_with("⨉ 10^")
+            || text.trim_start().starts_with("⨉10\\^")
+            || text.trim_start().starts_with("⨉ 10\\^"))
     {
+        let pre_orig_text = &text[..];
         let start = text.find("^").unwrap();
+        let orig_text = &text[start..];
         *text = &text[start + 1..];
-        let orig_text = &text[..];
         let paren = if text.starts_with('(') {
             *text = &text[1..];
             true
@@ -700,6 +731,16 @@ fn parse_num_simple(
                 *text = orig_text;
                 return None;
             }
+        }
+        if text.starts_with(POSTFIX_OPS) {
+            //  10^(50)! => (10^50)!, 10^50! => 50!
+            // if !paren text ohne 10^ else text mit 10^
+            if paren {
+                *text = pre_orig_text;
+            } else {
+                *text = orig_text;
+            }
+            return None;
         }
         (part, negative)
     } else {
@@ -1596,12 +1637,28 @@ mod test {
             &consts,
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
+        assert_eq!(num, None);
+        let num = parse_num(
+            &mut "^(11)10",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
         assert_eq!(
             num,
             Some(Number::ApproximateDigitsTower(false, false, 10, 1.into()))
         );
         let num = parse_num(
             &mut "10^10^10^5!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        let num = parse_num(
+            &mut "10^10^10^5",
             false,
             false,
             &consts,
@@ -1629,10 +1686,27 @@ mod test {
             &consts,
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
+        assert_eq!(num, None);
+        let num = parse_num(
+            &mut "10^5",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
         assert_eq!(num, Some(Number::ApproximateDigits(false, 5.into())));
+        let num = parse_num(
+            &mut "10^5",
+            false,
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(Number::Exact(10.into())));
     }
     #[test]
     fn test_parse_num_revert() {
+        // Note that we want one extra character when we get None, as in such a situation a char will always be skipped
         let consts = Consts::default();
         let mut text = "1 ⨉ 10^(5!)";
         let num = parse_num(
@@ -1643,7 +1717,7 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, None);
-        assert_eq!(text, "(5!)");
+        assert_eq!(text, "^(5!)");
         let mut text = "^(10 10";
         let num = parse_num(
             &mut text,
@@ -1653,7 +1727,7 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, None);
-        assert_eq!(text, "(10 10");
+        assert_eq!(text, "^(10 10");
         let mut text = "^(10)1";
         let num = parse_num(
             &mut text,
@@ -1663,17 +1737,7 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, None);
-        assert_eq!(text, "(10)1");
-        let mut text = "10^(10^10^\\(5)\\)";
-        let num = parse_num(
-            &mut text,
-            false,
-            false,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
-        assert_eq!(num, None);
-        assert_eq!(text, "(10^10^\\(5)\\)");
+        assert_eq!(text, "^(10)1");
         let mut text = "10^(10^10^\\(5\\)";
         let num = parse_num(
             &mut text,
@@ -1683,8 +1747,8 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, None);
-        assert_eq!(text, "(10^10^\\(5\\)");
-        let mut text = "10^\\(10^10^\\(5\\))";
+        assert_eq!(text, "^(10^10^\\(5\\)");
+        let mut text = "10^10^10^\\(5\\)!";
         let num = parse_num(
             &mut text,
             false,
@@ -1693,7 +1757,17 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, None);
-        assert_eq!(text, "\\(10^10^\\(5\\))");
+        assert_eq!(text, "^10^\\(5\\)!");
+        let mut text = "10^30!";
+        let num = parse_num(
+            &mut text,
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        assert_eq!(text, "^30!");
     }
     #[allow(clippy::uninlined_format_args)]
     #[test]
