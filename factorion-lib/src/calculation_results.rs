@@ -12,7 +12,6 @@ use std::fmt;
 use std::fmt::Write;
 
 pub mod recommended {
-    pub const MAX_VALUE_TOWER_DEPTH: u32 = 5;
     pub const NUMBER_DECIMALS_SCIENTIFIC: usize = 30;
 }
 
@@ -169,7 +168,9 @@ impl CalculationResult {
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
                 let depth = if is_value { depth + 1 } else { *depth };
                 acc.write_str(if *negative { "-" } else { "" })?;
-                if !agressive {
+                // If we have a one on top, we gain no information by printing the whole tower.
+                // If depth is one, it is nicer to write 10¹ than ¹10.
+                if !agressive && (depth <= 1 || exponent != &1) {
                     if depth > 0 {
                         acc.write_str("10^(")?;
                     }
@@ -316,7 +317,7 @@ impl Calculation {
             &mut number,
             &mut rough,
             force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
-            agressive_shorten || matches!(self.value, Number::ApproximateDigitsTower(_, _, depth, _) if depth > consts.max_value_tower_depth),
+            agressive_shorten,
             true,
             consts,
             &locale.number_format(),
@@ -332,7 +333,7 @@ impl Calculation {
             &mut number,
             &mut rough,
             force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
-            agressive_shorten || matches!(self.value, Number::ApproximateDigitsTower(_, _, depth, _) if depth > consts.max_value_tower_depth),
+            agressive_shorten,
             false,
             consts,
             &locale.number_format(),
@@ -1254,6 +1255,27 @@ mod test {
             s,
             "Factorial of 0 is roughly 2.098578716467387692404358116884 × 10^323228496 \n\n"
         );
+    }
+
+    #[test]
+    fn test_tower_value_with_one_top() {
+        let consts = Consts::default();
+        let fact = Calculation {
+            value: 0.into(),
+            steps: vec![(1, false)],
+            result: CalculationResult::ApproximateDigitsTower(false, false, 4, 1.into()),
+        };
+        let mut s = String::new();
+        fact.format(
+            &mut s,
+            false,
+            false,
+            &TOO_BIG_NUMBER,
+            &consts,
+            &consts.locales.get("en").unwrap().format(),
+        )
+        .unwrap();
+        assert_eq!(s, "Factorial of 0 has on the order of ^(4)10 digits \n\n");
     }
 
     #[test]

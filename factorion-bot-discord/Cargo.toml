@@ -10,7 +10,7 @@ keywords = ["factorial", "termial", "bot", "math", "discord"]
 categories = ["mathematics", "web-programming", "parser-implementations"]
 
 [dependencies]
-factorion-lib = { path = "../factorion-lib", version = "4.0.0", features = ["serde", "influxdb"] }
+factorion-lib = { path = "../factorion-lib", version = "3.0.1", features = ["serde", "influxdb"] }
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "cache"] }
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "time"] }
 dotenvy = "^0.15.7"
