@@ -57,7 +57,7 @@ const SPOILER_HTML_START: &str = "&gt;!";
 const SPOILER_HTML_END: &str = "!&lt;";
 const SPOILER_HTML_POI: char = '&';
 
-const CONSTANT_STARTS: &[char] = &['p', 'e', 't', 'π', 'ɸ', 'τ'];
+const CONSTANT_STARTS: &[char] = &['p', 'e', 't', 'i', 'π', 'ɸ', 'τ', '∞'];
 static E: fn(u32) -> Number = |prec| Number::Float(Float::with_val(prec, 1).exp().into());
 static PHI: fn(u32) -> Number = |prec| {
     Number::Float(Float::into(
@@ -540,6 +540,14 @@ fn parse_num(
             ("τ".len(), TAU(prec))
         } else if text.starts_with("e") {
             ("e".len(), E(prec))
+        } else if text.starts_with("infinity") {
+            ("infinity".len(), Number::ComplexInfinity)
+        } else if text.starts_with("inf") {
+            ("inf".len(), Number::ComplexInfinity)
+        } else if text.starts_with("∞\u{303}") {
+            ("∞\u{303}".len(), Number::ComplexInfinity)
+        } else if text.starts_with("∞") {
+            ("∞".len(), Number::ComplexInfinity)
         } else {
             return None;
         };
@@ -1570,6 +1578,22 @@ mod test {
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
+        let num = parse_num(
+            &mut "∞\u{0303} !",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(Number::ComplexInfinity));
+        let num = parse_num(
+            &mut "∞ !",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(Number::ComplexInfinity));
         let num = parse_num(
             &mut "1/2 !",
             false,
