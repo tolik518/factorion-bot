@@ -138,21 +138,23 @@ impl Status {
 #[non_exhaustive]
 pub struct Commands {
     /// Turn all integers into scientific notiation if that makes them shorter.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub shorten: bool,
     /// Return all the intermediate results for nested calculations.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub steps: bool,
     /// Parse and calculate termials.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub termial: bool,
     /// Disable the beginning note.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub no_note: bool,
-    pub post_only: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
     steps,
     termial,
     no_note,
-    post_only,
 });
 #[allow(dead_code)]
 impl Commands {
@@ -161,7 +163,6 @@ impl Commands {
         steps: false,
         termial: false,
         no_note: false,
-        post_only: false,
     };
     pub const SHORTEN: Self = Self {
         shorten: true,
@@ -177,10 +178,6 @@ impl Commands {
     };
     pub const NO_NOTE: Self = Self {
         no_note: true,
-        ..Self::NONE
-    };
-    pub const POST_ONLY: Self = Self {
-        post_only: true,
         ..Self::NONE
     };
 }
@@ -203,7 +200,6 @@ impl Commands {
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
                 || Self::contains_command_format(text, "no_note"),
-            post_only: false,
         }
     }
     pub fn overrides_from_comment_text(text: &str) -> Self {
@@ -214,7 +210,6 @@ impl Commands {
             termial: !(Self::contains_command_format(text, "no termial")
                 | Self::contains_command_format(text, "no_termial")),
             no_note: !Self::contains_command_format(text, "note"),
-            post_only: true,
         }
     }
 }
@@ -680,26 +675,22 @@ mod tests {
         assert!(cmd1.steps);
         assert!(cmd1.termial);
         assert!(cmd1.no_note);
-        assert!(!cmd1.post_only);
         let cmd2 = Commands::from_comment_text("[shorten][all] [triangle] [no_note]");
         assert!(cmd2.shorten);
         assert!(cmd2.steps);
         assert!(cmd2.termial);
         assert!(cmd2.no_note);
-        assert!(!cmd2.post_only);
         let comment = r"\[shorten\]\[all\] \[triangle\] \[no_note\]";
         let cmd3 = Commands::from_comment_text(comment);
         assert!(cmd3.shorten);
         assert!(cmd3.steps);
         assert!(cmd3.termial);
         assert!(cmd3.no_note);
-        assert!(!cmd3.post_only);
         let cmd4 = Commands::from_comment_text("shorten all triangle no_note");
         assert!(!cmd4.shorten);
         assert!(!cmd4.steps);
         assert!(!cmd4.termial);
         assert!(!cmd4.no_note);
-        assert!(!cmd4.post_only);
     }
 
     #[test]
@@ -709,7 +700,6 @@ mod tests {
         assert!(cmd1.steps);
         assert!(cmd1.termial);
         assert!(cmd1.no_note);
-        assert!(cmd1.post_only);
     }
 
     #[test]
