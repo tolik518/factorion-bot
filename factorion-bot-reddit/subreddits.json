@@ -1,0 +1,91 @@
+{
+  "mathmemes": {
+    "mode": "All"
+  },
+  "mathmemescirclejerk": {
+    "mode": "All"
+  },
+  "unexpectedfactorial": {
+    "mode": "All"
+  },
+  "factorialchain": {
+    "mode": "All"
+  },
+  "doublefactorialchain": {
+    "mode": "All"
+  },
+  "theydidthemath": {
+    "commands": {
+      "shorten": true
+    },
+    "mode": "All"
+  },
+  "theydidthemonstermath": {
+    "mode": "All"
+  },
+  "uselessfactorial": {
+    "mode": "All"
+  },
+  "redundantfactorial": {
+    "mode": "All"
+  },
+  "anticipatedfactorial": {
+    "mode": "All"
+  },
+  "expectedfactorial": {
+    "mode": "All"
+  },
+  "unexpectedTermial": {
+    "commands": {
+      "termial": true
+    },
+    "mode": "All"
+  },
+  "Notorite": {
+    "locale": "tr",
+    "mode": "All"
+  },
+  
+  "russia": {
+    "locale": "de"
+  },
+  "mexico": {
+    "locale": "es-mx"
+  },
+  "de": {
+    "locale": "de"
+  },
+  "Pikabu": {
+    "locale": "ru"
+  },
+  "Popular_Science_Ru": {
+    "locale": "ru"
+  },
+  "AskARussian": {
+    "locale": "ru"
+  },
+  "rusAskReddit": {
+    "locale": "ru"
+  },
+  "ukraina": {
+    "locale": "uk"
+  },
+  "Ukraine_UA": {
+    "locale": "uk"
+  },
+  "Escapism_is_my_realm": {
+    "locale": "ru"
+  },
+  "kakayato_fignya": {
+    "locale": "ru"
+  },
+  "RU_Talk": {
+    "locale": "ru"
+  },
+  
+  "": {
+    "commands": {
+      "shorten": true
+    }
+  }
+}
