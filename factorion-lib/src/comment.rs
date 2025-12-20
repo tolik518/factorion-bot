@@ -521,7 +521,12 @@ impl<Meta> CommentCalculated<Meta> {
                 .all(|fact| fact.is_too_long(too_big_number))
         {
             if note.is_empty() && !self.commands.no_note {
-                let _ = note.write_str(locale.notes().remove());
+                if multiple {
+                    let _ = note.write_str(locale.notes().too_big_mult());
+                } else {
+                    let _ = note.write_str(locale.notes().too_big());
+                }
+                let _ = note.write_str("\n\n");
             };
             reply = self
                 .calculation_list
