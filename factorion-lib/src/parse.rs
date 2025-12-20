@@ -33,9 +33,11 @@ const POI_STARTS: &[char] = &[
     'p', // Constants
     'e',
     't',
+    'i',
     'π',
     'ɸ',
     'τ',
+    '∞',
     '^', // Tetration
     URI_POI,
     SPOILER_POI,
