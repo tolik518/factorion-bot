@@ -10,6 +10,7 @@ use factorion_lib::{
 use log::{error, info, warn};
 use reddit_api::RedditClient;
 use reddit_api::id::DenseId;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
@@ -30,7 +31,32 @@ const THREAD_CALCS_FILE_PATH: &str = "thread_calcs.dat";
 const MAX_THREAD_CALCS_LEN: usize = 100;
 const MAX_REPETITIONS_PER_THREAD: usize = 10;
 static COMMENT_COUNT: OnceLock<u32> = OnceLock::new();
-static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, (&str, Commands)>> = OnceLock::new();
+static SUBREDDIT_COMMANDS: OnceLock<HashMap<&str, SubredditEntry>> = OnceLock::new();
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+struct SubredditEntry {
+    #[serde(default = "en_str")]
+    locale: &'static str,
+    #[serde(default)]
+    commands: Commands,
+    #[serde(default)]
+    mode: SubredditMode,
+}
+fn en_str() -> &'static str {
+    "en"
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+enum SubredditMode {
+    All,
+    PostOnly,
+    None,
+}
+impl Default for SubredditMode {
+    fn default() -> Self {
+        Self::None
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -103,42 +129,62 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let dont_reply = std::env::var("DONT_REPLY").unwrap_or_default();
     let dont_reply = dont_reply == "true";
 
-    let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
-    let subreddit_commands = subreddit_commands.leak();
-    let commands = subreddit_commands
-        .split('+')
-        .map(|s| s.split_once(':').expect("Locale is unset"))
-        .map(|(s, r)| (s, r.split_once(':').unwrap_or((r, ""))))
-        .map(|(s, (l, c))| (s, if l.is_empty() { "en" } else { l }, c))
-        .filter(|s| !(s.0.is_empty() && s.1.is_empty()))
-        .map(|(sub, locale, commands)| {
-            (
-                sub,
+    let sub_entries = if let Ok(path) = std::env::var("SUBREDDITS_FILE") {
+        if let Ok(_) = std::env::var("SUBREDDITS") {
+            panic!("SUBREDDITS and SUBREDDITS_FILE can not be set simultaneusly!")
+        }
+        let text = std::fs::read_to_string(path).unwrap();
+        serde_json::de::from_str(text.leak()).expect("Subreddits File has invalid format")
+    } else {
+        let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
+        let subreddit_commands = subreddit_commands.leak();
+        subreddit_commands
+            .split('+')
+            .map(|s| s.split_once(':').expect("Locale is unset"))
+            .map(|(s, r)| (s, r.split_once(':').unwrap_or((r, ""))))
+            .map(|(s, (l, c))| (s, if l.is_empty() { "en" } else { l }, c))
+            .filter(|s| !(s.0.is_empty() && s.1.is_empty()))
+            .map(|(sub, locale, commands)| {
+                let mut mode = SubredditMode::All;
                 (
-                    locale,
-                    commands
-                        .split(',')
-                        .map(|command| match command.trim() {
-                            "shorten" => Commands::SHORTEN,
-                            "termial" => Commands::TERMIAL,
-                            "steps" => Commands::STEPS,
-                            "no_note" => Commands::NO_NOTE,
-                            "post_only" => Commands::POST_ONLY,
-                            "" => Commands::NONE,
-                            s => panic!("Unknown command in subreddit {sub}: {s}"),
-                        })
-                        .fold(Commands::NONE, |a, e| a | e),
-                ),
-            )
-        })
-        .collect::<HashMap<_, _>>();
-    if !commands.is_empty() {
+                    sub,
+                    SubredditEntry {
+                        locale,
+                        commands: commands
+                            .split(',')
+                            .map(|command| match command.trim() {
+                                "shorten" => Commands::SHORTEN,
+                                "termial" => Commands::TERMIAL,
+                                "steps" => Commands::STEPS,
+                                "no_note" => Commands::NO_NOTE,
+                                "post_only" => {
+                                    if mode != SubredditMode::None {
+                                        mode = SubredditMode::PostOnly;
+                                    }
+                                    Commands::NONE
+                                }
+                                "dont_check" => {
+                                    mode = SubredditMode::None;
+                                    Commands::NONE
+                                }
+                                "" => Commands::NONE,
+                                s => panic!("Unknown command in subreddit {sub}: {s}"),
+                            })
+                            .fold(Commands::NONE, |a, e| a | e),
+                        mode,
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>()
+    };
+    info!("Subreddit configuration: {sub_entries:?}");
+    if sub_entries.values().any(|v| v.mode != SubredditMode::None) {
         requests_per_loop += 1.0;
-        if !commands.values().all(|v| v.1.post_only) {
+        if sub_entries.values().any(|v| v.mode == SubredditMode::All) {
             requests_per_loop += 1.0;
         }
     }
-    SUBREDDIT_COMMANDS.set(commands).unwrap();
+    SUBREDDIT_COMMANDS.set(sub_entries).unwrap();
 
     let check_mentions = std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set");
     let check_mentions = check_mentions == "true";

@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::LazyLock;
 
-use crate::{COMMENT_COUNT, MAX_ALREADY_REPLIED_LEN, SUBREDDIT_COMMANDS};
+use crate::{
+    COMMENT_COUNT, MAX_ALREADY_REPLIED_LEN, SUBREDDIT_COMMANDS, SubredditEntry, SubredditMode,
+};
 use anyhow::{Error, anyhow};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
@@ -112,7 +114,7 @@ impl RedditClient {
                 .get()
                 .expect("Subreddit commands uninitialized")
                 .iter()
-                .filter(|(_, commands)| !commands.1.post_only)
+                .filter(|(_, entry)| entry.mode == SubredditMode::All)
                 .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             subreddits.sort();
@@ -136,8 +138,9 @@ impl RedditClient {
             let mut post_subreddits = SUBREDDIT_COMMANDS
                 .get()
                 .expect("Subreddit commands uninitialized")
-                .keys()
-                .map(ToString::to_string)
+                .iter()
+                .filter(|(_, entry)| entry.mode != SubredditMode::None)
+                .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             post_subreddits.sort();
             if !(post_subreddits.is_empty() || post_subreddits == [""]) {
@@ -587,7 +590,7 @@ impl RedditClient {
         response: Response,
         already_replied_to_comments: &mut Vec<DenseId>,
         is_mention: bool,
-        subs: &HashMap<&str, (&str, Commands)>,
+        subs: &HashMap<&str, SubredditEntry>,
         mention_map: &HashMap<String, (String, Commands, String)>,
     ) -> Result<
         (
@@ -626,11 +629,16 @@ impl RedditClient {
             let reply_body;
             let commands = subs
                 .get("")
-                .map(|(_, cmds)| *cmds)
+                .map(|entry| entry.commands)
                 .unwrap_or(Commands::NONE);
             let (locale, commands) = if matches!(kind, "t1" | "t3") {
                 let sub = comment["data"]["subreddit"].as_str().unwrap_or_default();
-                if let Some((locale, commands)) = subs.get(sub) {
+                if let Some(SubredditEntry {
+                    locale,
+                    commands,
+                    mode: _,
+                }) = subs.get(sub)
+                {
                     (*locale, *commands)
                 } else {
                     // To minimize the need to clone, we store leaked strings.
@@ -1019,8 +1027,22 @@ mod tests {
         };
         let _ = SUBREDDIT_COMMANDS.set(
             [
-                ("test_subreddit", ("en", Commands::TERMIAL)),
-                ("post_subreddit", ("en", Commands::POST_ONLY)),
+                (
+                    "test_subreddit",
+                    SubredditEntry {
+                        locale: "en",
+                        commands: Commands::TERMIAL,
+                        mode: SubredditMode::All,
+                    },
+                ),
+                (
+                    "post_subreddit",
+                    SubredditEntry {
+                        locale: "en",
+                        commands: Commands::NONE,
+                        mode: SubredditMode::PostOnly,
+                    },
+                ),
             ]
             .into(),
         );
@@ -1127,7 +1149,14 @@ mod tests {
             response,
             &mut already_replied,
             true,
-            &HashMap::from([("sub", ("en", Commands::NONE))]),
+            &HashMap::from([(
+                "sub",
+                SubredditEntry {
+                    locale: "en",
+                    commands: Commands::NONE,
+                    mode: SubredditMode::All,
+                },
+            )]),
             &HashMap::new(),
         )
         .await
@@ -1212,7 +1241,14 @@ mod tests {
             response,
             &mut already_replied,
             false,
-            &HashMap::from([("sub", ("en", Commands::NONE))]),
+            &HashMap::from([(
+                "sub",
+                SubredditEntry {
+                    locale: "en",
+                    commands: Commands::NONE,
+                    mode: SubredditMode::All,
+                },
+            )]),
             &HashMap::new(),
         )
         .await
