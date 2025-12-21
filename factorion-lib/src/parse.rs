@@ -710,7 +710,11 @@ fn parse_num_simple(
             || text.trim_start().starts_with("⨉10^")
             || text.trim_start().starts_with("⨉ 10^")
             || text.trim_start().starts_with("⨉10\\^")
-            || text.trim_start().starts_with("⨉ 10\\^"))
+            || text.trim_start().starts_with("⨉ 10\\^")
+            || text.trim_start().starts_with("x10^")
+            || text.trim_start().starts_with("x 10^")
+            || text.trim_start().starts_with("x10\\^")
+            || text.trim_start().starts_with("x 10\\^"))
     {
         let pre_orig_text = &text[..];
         let start = text.find("^").unwrap();
