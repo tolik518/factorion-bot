@@ -94,7 +94,7 @@ impl CalculationJob {
             }
         };
         for (i, (level, negative)) in steps.into_iter().rev().enumerate() {
-            let calc = if include_steps && i < 10 {
+            let calc = if include_steps && i < 30 {
                 calcs.last().cloned()
             } else {
                 calcs.pop()
