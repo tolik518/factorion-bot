@@ -1135,6 +1135,26 @@ fn test_get_reply_too_long_from_new_comment_for_multifactorial() {
 }
 
 #[test]
+fn test_get_reply_too_long_from_3228() {
+    let consts = Consts::default();
+    let comment = Comment::new(
+        "This is a test comment with a factorial of 3228!",
+        (),
+        Commands::NONE,
+        MAX_LENGTH,
+        "en",
+    )
+    .extract(&consts)
+    .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\nFactorial of 3228 is roughly 1.225751447169156617072490231646 × 10^9927 \n\n\n*^(This action was performed by a bot.)*"
+    );
+}
+
+#[test]
 fn test_get_reply_too_long_from_number_3250() {
     let consts = Consts::default();
     let comment = Comment::new(
