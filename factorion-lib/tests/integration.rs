@@ -1661,7 +1661,7 @@ fn test_tower_largest_int() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of roughly 9 × 10^99999999 has on the order of ^(621)10 digits \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 × 10^(99999999) has on the order of ^(621)10 digits \n\n\n*^(This action was performed by a bot.)*"
     )
 }
 
