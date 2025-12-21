@@ -390,8 +390,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 };
                 // Sleep to not spam comments too quickly
                 let pause = if rate.1 < 1.0 {
+                    error!(
+                        "Rate limit hit! time remaining: {}, count remaining: {}",
+                        rate.0, rate.1
+                    );
                     rate.0 + 5.0
                 } else if rate.1 < 4.0 {
+                    warn!(
+                        "Rate limit close! time remaining: {}, count remaining: {}",
+                        rate.0, rate.1
+                    );
                     rate.0 / rate.1 + 2.0
                 } else {
                     2.0
@@ -442,6 +450,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
 
         let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
+            warn!(
+                "Rate limit hit! time remaining: {}, count remaining: {}",
+                rate.0, rate.1
+            );
             rate.0 + 1.0
         } else {
             (rate.0 / rate.1 * requests_per_loop).max(2.0) + 1.0

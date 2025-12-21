@@ -1,5 +1,6 @@
 //! This module handles the calculation of pending calculation tasks
 
+use factorion_math::rug::ops::AddFrom;
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
 
@@ -92,8 +93,8 @@ impl CalculationJob {
                 }
             }
         };
-        for (level, negative) in steps.into_iter().rev() {
-            let calc = if include_steps {
+        for (i, (level, negative)) in steps.into_iter().rev().enumerate() {
+            let calc = if include_steps && i < 10 {
                 calcs.last().cloned()
             } else {
                 calcs.pop()
@@ -129,9 +130,9 @@ impl CalculationJob {
         consts: &Consts,
     ) -> Option<CalculationResult> {
         let prec = consts.float_precision;
-        let calc_num = match &num {
+        let calc_num = match num {
             CalculationResult::Approximate(base, exponent) => {
-                let res = base.as_float() * Float::with_val(prec, 10).pow(exponent);
+                let res = base.as_float() * Float::with_val(prec, 10).pow(&exponent);
                 if Float::is_finite(&(res.clone() * math::APPROX_FACT_SAFE_UPPER_BOUND_FACTOR)) {
                     res.to_integer().unwrap()
                 } else {
@@ -139,55 +140,39 @@ impl CalculationJob {
                         CalculationResult::ComplexInfinity
                     } else if level < 0 {
                         let termial = math::approximate_approx_termial(
-                            (Float::from(base.clone()), exponent.clone()),
+                            (Float::from(base), exponent),
                             -level as u32,
                         );
                         CalculationResult::Approximate(termial.0.into(), termial.1)
                     } else {
-                        CalculationResult::ApproximateDigitsTower(
-                            false,
-                            false,
-                            1,
-                            math::length(exponent, prec) + exponent,
-                        )
+                        let mut exponent = exponent;
+                        exponent.add_from(math::length(&exponent, prec));
+                        CalculationResult::ApproximateDigitsTower(false, false, 1, exponent)
                     });
                 }
             }
             CalculationResult::ApproximateDigits(was_neg, digits) => {
                 return Some(if digits.is_negative() {
                     CalculationResult::Float(Float::new(prec).into())
-                } else if *was_neg {
+                } else if was_neg {
                     CalculationResult::ComplexInfinity
                 } else if level < 0 {
-                    CalculationResult::ApproximateDigits(false, (digits.clone() - 1) * 2 + 1)
+                    CalculationResult::ApproximateDigits(false, (digits - 1) * 2 + 1)
                 } else {
-                    CalculationResult::ApproximateDigitsTower(
-                        false,
-                        false,
-                        1,
-                        math::length(digits, prec) + digits,
-                    )
+                    let mut digits = digits;
+                    digits.add_from(math::length(&digits, prec));
+                    CalculationResult::ApproximateDigitsTower(false, false, 1, digits)
                 });
             }
             CalculationResult::ApproximateDigitsTower(was_neg, neg, depth, exponent) => {
-                return Some(if *neg {
+                return Some(if neg {
                     CalculationResult::Float(Float::new(prec).into())
-                } else if *was_neg {
+                } else if was_neg {
                     CalculationResult::ComplexInfinity
                 } else if level < 0 {
-                    CalculationResult::ApproximateDigitsTower(
-                        false,
-                        false,
-                        *depth,
-                        exponent.clone(),
-                    )
+                    CalculationResult::ApproximateDigitsTower(false, false, depth, exponent)
                 } else {
-                    CalculationResult::ApproximateDigitsTower(
-                        false,
-                        false,
-                        depth + 1,
-                        exponent.clone(),
-                    )
+                    CalculationResult::ApproximateDigitsTower(false, false, depth + 1, exponent)
                 });
             }
             CalculationResult::ComplexInfinity => return Some(CalculationResult::ComplexInfinity),
@@ -229,7 +214,7 @@ impl CalculationJob {
                     }
                 }
             },
-            Number::Exact(num) => num.clone(),
+            Number::Exact(num) => num,
         };
         if level > 0 {
             Some(if calc_num < 0 && level == 1 {

@@ -12,7 +12,7 @@ use crate::{
 pub mod recommended {
     use factorion_math::rug::Integer;
 
-    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 100_000_000u128.into();
+    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 10_000_000u128.into();
 }
 
 const POI_STARTS: &[char] = &[
