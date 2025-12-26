@@ -439,8 +439,6 @@ dependencies = [
  "dotenvy",
  "env_logger",
  "factorion-lib",
- "log",
- "serde",
  "serde_json",
  "tokio",
 ]

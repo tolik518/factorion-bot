@@ -1,14 +1,11 @@
 use dotenvy::dotenv;
-use factorion_lib::{
-    Consts,
-    comment::{Commands, Comment, Formatting},
-    locale::Locale,
-};
+use factorion_lib::comment::{Commands, Comment, Formatting};
+use factorion_lib::comment::{CommentCalculated, CommentConstructed, CommentExtracted};
+use factorion_lib::{Consts, locale::Locale};
 use std::collections::HashMap;
 use std::error::Error;
 use std::io::Write;
 use std::panic;
-use factorion_lib::comment::{CommentCalculated, CommentConstructed, CommentExtracted};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -19,8 +16,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         upper_calculation_limit: factorion_lib::recommended::UPPER_CALCULATION_LIMIT(),
         upper_approximation_limit: factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT(),
         upper_subfactorial_limit: factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT(),
-        upper_termial_limit:factorion_lib::recommended::UPPER_TERMIAL_LIMIT(),
-        upper_termial_approximation_limit: factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT,
+        upper_termial_limit: factorion_lib::recommended::UPPER_TERMIAL_LIMIT(),
+        upper_termial_approximation_limit:
+            factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT,
         integer_construction_limit: factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT(),
         number_decimals_scientific: 16,
         locales: std::env::var("LOCALES_DIR")
@@ -54,7 +52,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let comment = args[1].clone();
 
     //let consts = Consts::default();
-    let comment: CommentConstructed<&str> = Comment::new(&*comment, "meta", Commands::TERMIAL | Commands::NO_NOTE, 10_000, "en");
+    let comment: CommentConstructed<&str> = Comment::new(
+        &*comment,
+        "meta",
+        Commands::TERMIAL | Commands::NO_NOTE,
+        10_000,
+        "en",
+    );
     let comment: CommentExtracted<&str> = comment.extract(&consts);
     let comment: CommentCalculated<&str> = comment.calc(&consts);
 
