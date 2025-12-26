@@ -743,7 +743,7 @@ mod tests {
         let comment = Comment::new_already_replied((), MAX_LENGTH, "n/a")
             .extract(&consts)
             .calc(&consts);
-        let reply = comment.get_reply(&consts);
+        let reply = comment.get_reply(&consts, Formatting::Markdown);
         assert_eq!(
             reply,
             "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n\n*^(This action was performed by a bot.)*"
@@ -757,7 +757,7 @@ mod tests {
             .extract(&consts)
             .calc(&consts);
         comment.add_status(Status::LIMIT_HIT);
-        let reply = comment.get_reply(&consts);
+        let reply = comment.get_reply(&consts, Formatting::Markdown);
         assert_eq!(
             reply,
             "I have repeated myself enough, I won't do that calculation again.\n\n\n*^(This action was performed by a bot.)*"

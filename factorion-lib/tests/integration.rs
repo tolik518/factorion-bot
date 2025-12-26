@@ -584,7 +584,7 @@ fn test_comment_new_fraction() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Subfactorial of 1 is 0 \n\nFactorial of 2 is 2 \n\nFactorial of 0.5 is approximately 0.886226925452758 \n\n\n*^(This action was performed by a bot.)*"
@@ -663,7 +663,7 @@ fn test_can_reply_to_factorial_that_is_subfactorial() {
     .extract(&consts)
     .calc(&consts);
     assert_eq!(
-        comment.get_reply(&consts),
+        comment.get_reply(&consts, Formatting::Markdown),
         "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of subfactorial of 23 is approximately 5.973414105357603 × 10^204891707276976900386618 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
@@ -680,7 +680,7 @@ fn test_command_shorten() {
     )
     .extract(&consts)
     .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of 200 is roughly 7.886578673647905035523632139322 × 10^374 \n\n\n*^(This action was performed by a bot.)*"
@@ -699,7 +699,7 @@ fn test_command_termial() {
     )
     .extract(&consts)
     .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Termial of 2 is 3 \n\n\n*^(This action was performed by a bot.)*"
@@ -718,7 +718,7 @@ fn test_command_no_note() {
     )
     .extract(&consts)
     .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot.)*"
@@ -735,7 +735,7 @@ fn test_command_steps() {
             MAX_LENGTH,            "en"
         ).extract(&consts)
         .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of 3 is 6 \n\nFactorial of factorial of 3 is 720 \n\nFactorial of factorial of factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot.)*"
@@ -754,7 +754,7 @@ fn test_command_long() {
     )
     .extract(&consts)
     .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of 200 is 788657867364790503552363213932185062295135977687173263294742533244359449963403342920304284011984623904177212138919638830257642790242637105061926624952829931113462857270763317237396988943922445621451664240254033291864131227428294853277524242407573903240321257405579568660226031904170324062351700858796178922222789623703897374720000000000000000000000000000000000000000000000000 \n\n\n*^(This action was performed by a bot.)*"
@@ -788,7 +788,7 @@ fn test_command_note() {
     )
     .extract(&consts)
     .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot.)*"
@@ -805,7 +805,7 @@ fn test_command_no_steps() {
             MAX_LENGTH,            "en"
         ).extract(&consts)
         .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of factorial of factorial of 3 is roughly 2.601218943565795100204903227081 × 10^1746 \n\n\n*^(This action was performed by a bot.)*"
@@ -822,7 +822,7 @@ fn test_command_steps_tower() {
             MAX_LENGTH,            "en"
         ).extract(&consts)
         .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 9 is 362880 \n\nFactorial of factorial of 9 is roughly 1.609714400410012621103443610733 × 10^1859933 \n\nFactorial of factorial of factorial of 9 has approximately 2.993960567614282167996111938338 × 10^1859939 digits \n\nFactorial of factorial of factorial of factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -839,7 +839,7 @@ fn test_reply_text_shorten() {
             MAX_LENGTH,            "en"
         ).extract(&consts)
         .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I posted all numbers, the comment would get too long. So I had to remove some of them.\n\nFactorial of 3500 is roughly 2.391128199477649525095387493694 × 10^10886 \n\nFactorial of 3501 is roughly 8.371339826371250987358951615421 × 10^10889 \n\nFactorial of 3502 is roughly 2.931643207195212095773104855721 × 10^10893 \n\nFactorial of 3503 is roughly 1.026954615480482797149318630959 × 10^10897 \n\nFactorial of 3504 is roughly 3.59844897264361172121121248288 × 10^10900 \n\nFactorial of 3505 is roughly 1.261256364911585908284529975249 × 10^10904 \n\nFactorial of 3506 is roughly 4.421964815380020194445562093225 × 10^10907 \n\nFactorial of 3507 is roughly 1.550783060753773082192058626094 × 10^10911 \n\nFactorial of 3508 is roughly 5.440146977124235972329741660337 × 10^10914 \n\nFactorial of 3509 is roughly 1.908947574272894402690506348612 × 10^10918 \n\nFactorial of 3510 is roughly 6.700405985697859353443677283629 × 10^10921 \n\nFactorial of 3511 is roughly 2.352512541578518418994075094282 × 10^10925 \n\nFactorial of 3512 is roughly 8.262024046023756687507191731119 × 10^10928 \n\nFactorial of 3513 is roughly 2.902449047368145724321276455142 × 10^10932 \n\nFactorial of 3514 is roughly 1.019920595245166407526496546337 × 10^10936 \n\nFactorial of 3515 is roughly 3.585020892286759922455635360374 × 10^10939 \n\nFactorial of 3516 is roughly 1.260493345728024788735401392708 × 10^10943 \n\nFactorial of 3517 is roughly 4.433155096925463181982406698153 × 10^10946 \n\nFactorial of 3518 is roughly 1.55958396309837794742141067641 × 10^10950 \n\nFactorial of 3519 is roughly 5.488175966143191996975944170287 × 10^10953 \n\nFactorial of 3520 is roughly 1.931837940082403582935532347941 × 10^10957 \n\nFactorial of 3521 is roughly 6.802001387030143015516009397101 × 10^10960 \n\nFactorial of 3522 is roughly 2.395664888512016370064738509659 × 10^10964 \n\nFactorial of 3523 is roughly 8.439927402227833671738073769528 × 10^10967 \n\nFactorial of 3524 is roughly 2.974230416545088585920497196382 × 10^10971 \n\nFactorial of 3525 is roughly 1.048416221832143726536975261725 × 10^10975 \n\nFactorial of 3526 is roughly 3.696715598180138779769374772841 × 10^10978 \n\nFactorial of 3527 is roughly 1.303831591478134947624658482381 × 10^10982 \n\nFactorial of 3528 is roughly 4.59991785473486009521979512584 × 10^10985 \n\nFactorial of 3529 is roughly 1.623311010935932127603065699909 × 10^10989 \n\nFactorial of 3530 is roughly 5.730287868603840410438821920679 × 10^10992 \n\nFactorial of 3531 is roughly 2.023364646404016048925948020192 × 10^10996 \n\nFactorial of 3532 is roughly 7.146523931098984684806448407317 × 10^10999 \n\nFactorial of 3533 is roughly 2.524866904857271289142118222305 × 10^11003 \n\nFactorial of 3534 is roughly 8.922879641765596735828245797626 × 10^11006 \n\nFactorial of 3535 is roughly 3.154237953364138446115284889461 × 10^11010 \n\nFactorial of 3536 is roughly 1.115338540309559354546364736913 × 10^11014 \n\nFactorial of 3537 is roughly 3.944952417074911437030492074462 × 10^11017 \n\nFactorial of 3538 is roughly 1.395724165161103666421388095945 × 10^11021 \n\nFactorial of 3539 is roughly 4.939467820505145875465292471549 × 10^11024 \n\nFactorial of 3540 is roughly 1.748571608458821639914713534928 × 10^11028 \n\nFactorial of 3541 is roughly 6.191692065552687426938000627181 × 10^11031 \n\nFactorial of 3542 is roughly 2.193097329618761886621439822147 × 10^11035 \n\nFactorial of 3543 is roughly 7.770143838839273364299761289869 × 10^11038 \n\nFactorial of 3544 is roughly 2.753738976484638480307835401129 × 10^11042 \n\nFactorial of 3545 is roughly 9.762004671638043412691276497004 × 10^11045 \n\nFactorial of 3546 is roughly 3.461606856562850194140326645838 × 10^11049 \n\nFactorial of 3547 is roughly 1.227831952022842963861573861279 × 10^11053 \n\nFactorial of 3548 is roughly 4.356347765777046835780864059816 × 10^11056 \n\nFactorial of 3549 is roughly 1.546067822074273922018628654829 × 10^11060 \n\nFactorial of 3550 is roughly 5.488540768363672423166131724642 × 10^11063 \n\nFactorial of 3551 is roughly 1.948980826845940077466293375421 × 10^11067 \n\nFactorial of 3552 is roughly 6.922779896956779155160274069494 × 10^11070 \n\nFactorial of 3553 is roughly 2.459663697388743633828445376891 × 10^11074 \n\nFactorial of 3554 is roughly 8.741644780519594874626294869471 × 10^11077 \n\nFactorial of 3555 is roughly 3.107654719474715977929647826097 × 10^11081 \n\nFactorial of 3556 is roughly 1.10508201824520900175178276696 × 10^11085 \n\nFactorial of 3557 is roughly 3.930776738898208419231091302077 × 10^11088 \n\nFactorial of 3558 is roughly 1.398570363699982555562422285279 × 10^11092 \n\nFactorial of 3559 is roughly 4.977511924408237915246660913308 × 10^11095 \n\nFactorial of 3560 is roughly 1.771994245089332697827811285138 × 10^11099 \n\nFactorial of 3561 is roughly 6.310071506763113736964835986375 × 10^11102 \n\nFactorial of 3562 is roughly 2.247647470709021113106874578347 × 10^11106 \n\nFactorial of 3563 is roughly 8.00836793813624222599979412265 × 10^11109 \n\nFactorial of 3564 is roughly 2.854182333151756729346326625312 × 10^11113 \n\nFactorial of 3565 is roughly 1.017516001768601274011965441924 × 10^11117 \n\nFactorial of 3566 is roughly 3.6284620623068321431266687659 × 10^11120 \n\nFactorial of 3567 is roughly 1.294272417624847025453282748797 × 10^11124 \n\nFactorial of 3568 is roughly 4.617963986085454186817312847707 × 10^11127 \n\nFactorial of 3569 is roughly 1.648151346633898599275098955346 × 10^11131 \n\nFactorial of 3570 is roughly 5.883900307483017999412103270587 × 10^11134 \n\nFactorial of 3571 is roughly 2.101140799802185727590062077927 × 10^11138 \n\nFactorial of 3572 is roughly 7.505274936893407418951701742354 × 10^11141 \n\nFactorial of 3573 is roughly 2.681634734952014470791443032543 × 10^11145 \n\nFactorial of 3574 is roughly 9.584162542718499718608617398309 × 10^11148 \n\nFactorial of 3575 is roughly 3.426338109021863649402580719895 × 10^11152 \n\nFactorial of 3576 is roughly 1.225258507786218441026362865435 × 10^11156 \n\nFactorial of 3577 is roughly 4.382749682351303363551299969659 × 10^11159 \n\nFactorial of 3578 is roughly 1.568147836345296343478655129144 × 10^11163 \n\nFactorial of 3579 is roughly 5.612401106279815613310106707207 × 10^11166 \n\nFactorial of 3580 is roughly 2.00923959604817398956501820118 × 10^11170 \n\nFactorial of 3581 is roughly 7.195086993448511056632330178426 × 10^11173 \n\nFactorial of 3582 is roughly 2.577280161053256660485700669912 × 10^11177 \n\nFactorial of 3583 is roughly 9.234394817053818614520265500295 × 10^11180 \n\nFactorial of 3584 is roughly 3.309607102432088591444063155306 × 10^11184 \n\nFactorial of 3585 is roughly 1.186494146221903760032696641177 × 10^11188 \n\nFactorial of 3586 is roughly 4.254768008351746883477250155261 × 10^11191 \n\nFactorial of 3587 is roughly 1.526185284595771607103289630692 × 10^11195 \n\nFactorial of 3588 is roughly 5.475952801129628526286603194924 × 10^11198 \n\nFactorial of 3589 is roughly 1.965319460325423678084261886658 × 10^11202 \n\nFactorial of 3590 is roughly 7.055496862568271004322500173102 × 10^11205 \n\nFactorial of 3591 is roughly 2.533628923348266117652209812161 × 10^11209 \n\nFactorial of 3592 is roughly 9.100795092666971894606737645283 × 10^11212 \n\nFactorial of 3593 is roughly 3.26991567679524300173220083595 × 10^11216 \n\nFactorial of 3594 is roughly 1.17520769424021033482255298044 × 10^11220 \n\nFactorial of 3595 is roughly 4.224871660793556153687077964683 × 10^11223 \n\nFactorial of 3596 is roughly 1.5192638492213627928658732361 × 10^11227 \n\nFactorial of 3597 is roughly 5.464792065649241965938546030252 × 10^11230 \n\nFactorial of 3598 is roughly 1.966232185220597259344688861685 × 10^11234 \n\nFactorial of 3599 is roughly 7.076469634608929536381535213204 × 10^11237 \n\nFactorial of 3600 is roughly 2.547529068459214633097352676753 × 10^11241 \n\nFactorial of 3601 is roughly 9.173652175521631893783566988988 × 10^11244 \n\nFactorial of 3602 is roughly 3.304349513622891808140840829434 × 10^11248 \n\nFactorial of 3603 is roughly 1.190557129758327918473144950845 × 10^11252 \n\nFactorial of 3604 is roughly 4.290767895649013818177214402845 × 10^11255 \n\nFactorial of 3605 is roughly 1.546821826381469481452885792226 × 10^11259 \n\nFactorial of 3606 is roughly 5.577839505931578950119106166766 × 10^11262 \n\nFactorial of 3607 is roughly 2.011926709789520527307961594352 × 10^11266 \n\nFactorial of 3608 is roughly 7.259031568920590062527125432424 × 10^11269 \n\nFactorial of 3609 is roughly 2.619784493223440953566039568562 × 10^11273 \n\nFactorial of 3610 is roughly 9.457422020536621842373402842508 × 10^11276 \n\nFactorial of 3611 is roughly 3.41507509161577414728103576643 × 10^11280 \n\nFactorial of 3612 is roughly 1.233525123091617621997910118834 × 10^11284 \n\nFactorial of 3613 is roughly 4.456726269730014468278449259348 × 10^11287 \n\nFactorial of 3614 is roughly 1.610660873880427228835831562329 × 10^11291 \n\nFactorial of 3615 is roughly 5.822539059077744432241531097818 × 10^11294 \n\nFactorial of 3616 is roughly 2.105430123762512386698537644971 × 10^11298 \n\nFactorial of 3617 is roughly 7.61534075764900730268861066186 × 10^11301 \n\nFactorial of 3618 is roughly 2.755230286117410842112739337461 × 10^11305 \n\nFactorial of 3619 is roughly 9.971178405458909837606003662271 × 10^11308 \n\nFactorial of 3620 is roughly 3.609566582776125361213373325742 × 10^11312 \n\nFactorial of 3621 is roughly 1.307024059623234993295362481251 × 10^11316 \n\nFactorial of 3622 is roughly 4.734041143955357145715802907092 × 10^11319 \n\nFactorial of 3623 is roughly 1.715143106455025893892835393239 × 10^11323 \n\nFactorial of 3624 is roughly 6.215678617793013839467635465099 × 10^11326 \n\nFactorial of 3625 is roughly 2.253183498949967516807017856099 × 10^11330 \n\nFactorial of 3626 is roughly 8.170043367192582215942246746213 × 10^11333 \n\nFactorial of 3627 is roughly 2.963274729280749569722252894852 × 10^11337 \n\nFactorial of 3628 is roughly 1.075076071783055943895233350252 × 10^11341 \n\n\n*^(This action was performed by a bot.)*"
@@ -859,7 +859,7 @@ fn test_notify_reply() {
     .extract(&consts)
     .calc(&consts);
     comment.notify = Some("u/notified".to_string());
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Hey u/notified!\n\nFactorial of 2 is 2 \n\n\n*^(This action was performed by a bot.)*"
@@ -879,7 +879,7 @@ fn test_reply_too_long() {
     )
     .extract(&consts)
     .calc(&consts);
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Sorry, but the reply text for all those numbers would be _really_ long, so I'd rather not even try posting lmao\n\n*^(This action was performed by a bot.)*"
@@ -903,7 +903,7 @@ fn test_get_reply_for_multifactorial() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Triple-factorial of 10 is 280 \n\n\n*^(This action was performed by a bot.)*"
@@ -927,7 +927,7 @@ fn test_get_reply_for_subfactorial() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Subfactorial of 5 is 44 \n\n\n*^(This action was performed by a bot.)*"
@@ -950,7 +950,7 @@ fn test_get_reply_for_termial() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Termial of 5 is 15 \n\n\n*^(This action was performed by a bot.)*"
@@ -973,7 +973,7 @@ fn test_get_reply_for_multitermial() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Double-termial of 5 is 9 \n\n\n*^(This action was performed by a bot.)*"
@@ -996,7 +996,7 @@ fn test_get_reply_for_big_subfactorial() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\nSubfactorial of 5000 is roughly 1.555606884589543595233339289773 × 10^16325 \n\n\n*^(This action was performed by a bot.)*"
@@ -1020,7 +1020,7 @@ fn test_get_reply_for_high_multifactorial() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "12345-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot.)*"
@@ -1051,7 +1051,7 @@ fn test_get_reply_for_multiple() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of 5 is 120 \n\nFactorial of 6 is 720 \n\n\n*^(This action was performed by a bot.)*"
@@ -1087,7 +1087,7 @@ fn test_get_reply_too_long_with_multiple_numbers() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I post the whole numbers, the comment would get too long. So I had to turn them into scientific notation.\n\nDouble-factorial of 5 is 60 \n\nFactorial of 6 is 720 \n\nFactorial of 3249 is roughly 6.412337688276552183884096303057 × 10^10000 \n\n\n*^(This action was performed by a bot.)*"
@@ -1107,7 +1107,7 @@ fn test_get_reply_too_long_from_new_comment() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\nFactorial of 4000 is roughly 1.828801951514065013314743175574 × 10^12673 \n\n\n*^(This action was performed by a bot.)*"
@@ -1127,7 +1127,7 @@ fn test_get_reply_too_long_from_new_comment_for_multifactorial() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\nTriple-factorial of 9000 is roughly 9.588379914654826764034139164855 × 10^10561 \n\n\n*^(This action was performed by a bot.)*"
@@ -1147,7 +1147,7 @@ fn test_get_reply_too_long_from_3228() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\nFactorial of 3228 is roughly 1.225751447169156617072490231646 × 10^9927 \n\n\n*^(This action was performed by a bot.)*"
@@ -1167,7 +1167,7 @@ fn test_get_reply_too_long_from_number_3250() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I post the whole number, the comment would get too long. So I had to turn it into scientific notation.\n\nFactorial of 3250 is roughly 2.084009748689879459762331298493 × 10^10004 \n\n\n*^(This action was performed by a bot.)*"
@@ -1187,7 +1187,7 @@ fn test_get_reply_approximate_from_new_comment() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.120259616630154 × 10^8546211 \n\n\n*^(This action was performed by a bot.)*"
@@ -1207,7 +1207,7 @@ fn test_get_reply_approximate_from_number_1000002() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956480142832 × 10^5565720 \n\n\n*^(This action was performed by a bot.)*"
@@ -1227,7 +1227,7 @@ fn test_get_reply_approximate_multifactorial_from_new_comment() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot.)*"
@@ -1245,7 +1245,7 @@ fn test_get_reply_approximate_digits_from_new_comment() {
         ).extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 20446522215564236275041062436291735585615770688497033688635992348006569652526624848770315740147437774149118209115411567314791976403856295878031859754864941032834352021489210979065405760855940731542907166075497068156426030767735126902058810271396007949529366379073139457637180014292606643575007577178264993 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1264,7 +1264,7 @@ fn test_get_reply_approximate_digits_from_multifactorial() {
         ).extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nQuadruple-factorial of 67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374 has approximately 5111630553891059068760265609072933896403942672124258422158998087001642413131656212192578935036859443537279552278852891828697994100964073969507964938716235258208588005372302744766351440213985182885726791518874267039106507691933781725514702567849001987382341594768284864409295003573151660893751894294566362 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1282,7 +1282,7 @@ fn test_get_reply_approximate_digits_from_huge() {
         ).extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 has approximately 3005657055180967481723488710810833949177056029941963334338855462168341353507911292252707750506615682516812938932552336962663583207128410360934307789353371877341478729134313296704066291303411733116688363922615094857155651333231353413914864438517876512346564565642682746164377718604396951353347633904460774 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1302,7 +1302,7 @@ fn test_get_reply_factorial_chain() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 5 is 120 \n\nFactorial of factorial of factorial of factorial of 5 has on the order of 10^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1320,7 +1320,7 @@ fn test_get_reply_factorial_chain_huge() {
         ).extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 5 is 120 \n\nFactorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of factorial of 5 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1327137837206659786031747299606377028838214110127983264121956821748182259183419110243647989875487282380340365022219190769273781621333865377166444878565902856196867372963998070875391932298781352992969935\\)) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1337,7 +1337,7 @@ fn test_get_reply_factorial_chain_extreme() {
         ).extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 has on the order of ^(575)10 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1357,7 +1357,7 @@ fn test_get_reply_mixed_factorial_chain() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of factorial of subfactorial of triple-factorial of 5 has approximately 6.387668451985102626824622002774 × 10^7597505 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1376,7 +1376,7 @@ fn test_get_reply_mixed_factorial_chain2() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of subfactorial of 5 is 2658271574788448768043625811014615890319638528000000000 \n\nFactorial of factorial of 5 is 6689502913449127057588118054090372586752746333138029810295671352301633557244962989366874165271984981308157637893214090552534408589408121859898481114389650005964960521256960000000000000000000000000000 \n\n\n*^(This action was performed by a bot.)*"
@@ -1395,7 +1395,7 @@ fn test_get_reply_mixed_factorial_chain3() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nSubfactorial of termial of factorial of factorial of termial of double-factorial of termial of subfactorial of 5 has on the order of 10^(10\\^(2.107567304411394574160420056681 × 10^2542\\)) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1414,7 +1414,7 @@ fn test_get_reply_mixed_factorial_chain4() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Negative subfactorial of negative termial of factorial of factorial of termial of double-factorial of termial of negative subfactorial of -5 is ∞\u{303} \n\n\n*^(This action was performed by a bot.)*"
@@ -1434,7 +1434,7 @@ fn test_get_reply_factorial_chain_from_approximate() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of factorial of 20000000 has approximately 2.901348168358672858923433671149 × 10^137334722 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1448,7 +1448,7 @@ fn test_float_overflow_approximate() {
         .extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nFactorial of factorial of 44787927 has on the order of 10^(323228502) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1468,7 +1468,7 @@ fn test_get_reply_factorial_chain_gamma() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Factorial of factorial of factorial of factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot.)*"
@@ -1488,7 +1488,7 @@ fn test_get_reply_factorial_chain_gamma_diverge() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That number is so large, that I can't even approximate it well, so I can only give you an approximation on the number of digits.\n\nFactorial of factorial of factorial of factorial of 3.141592 has approximately 4.944306505469543218555360199314 × 10^25349 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1508,7 +1508,7 @@ fn test_get_reply_ridiculous_number() {
         .extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of roughly 1 × 10^2652 has on the order of ^(9041)10 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1530,7 +1530,7 @@ fn test_get_reply_biggest_possible_reddit() {
             .extract(&consts)
             .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of roughly 9 × 10^99 has on the order of ^(20000)10 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1550,7 +1550,7 @@ fn test_ridiculous_input() {
         .extract(&consts)
         .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nFactorial of 9 × 10^999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 has on the order of 10^(1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000164) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1598,7 +1598,7 @@ fn test_get_reply_approximate_digits_from_mixed_types() {
         locale: "en".to_owned(),
     };
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nFactorial of 37923648 is approximately 1.760585629143694 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1618,7 +1618,7 @@ fn test_german_locale() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Subfakultät von 2 ist 1 \n\nDoppelfakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2,5 ist ungefähr 7,184006321612229 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
@@ -1638,7 +1638,7 @@ fn test_number_inputs() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 2 is 2 \n\nSubfactorial of 10 is 1334961 \n\nFactorial of 10 is 3628800 \n\nFactorial of 11 is 39916800 \n\nFactorial of 1000000000000 is approximately 1.403661160373756 × 10^(11565705518103) \n\nFactorial of 10^(100) has on the order of 10^(103) digits \n\nFactorial of 10^(10\\^(100\\)) has on the order of 10^(10\\^(100\\)) digits \n\nFactorial of ^(400)10 has on the order of ^(400)10 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1658,7 +1658,7 @@ fn test_tower_largest_int() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nAll that of 9 × 10^(99999999) has on the order of ^(621)10 digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1678,7 +1678,7 @@ fn test_tower_all() {
     .extract(&consts)
     .calc(&consts);
 
-    let reply = comment.get_reply(&consts);
+    let reply = comment.get_reply(&consts, Formatting::Markdown);
     assert_eq!(
         reply,
         "If I posted all numbers, the comment would get too long. So I had to remove some of them.\n\nTermial of roughly 9 × 10^9999999 is approximately 4.05 × 10^(19999999) \n\nFactorial of termial of roughly 9 × 10^9999999 has approximately 8.099999665130019231123774157674 × 10^20000006 digits \n\nTermial of factorial of termial of roughly 9 × 10^9999999 has approximately 1.619999933026003846224754831535 × 10^20000007 digits \n\nFactorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(1.619999933026003846224754831535 × 10^20000007) digits \n\nTermial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(1.619999933026003846224754831535 × 10^20000007) digits \n\nFactorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nTermial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\nFactorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of factorial of termial of roughly 9 × 10^9999999 has on the order of 10^(10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^10\\^(1.619999933026003846224754831535 × 10^20000007\\)) digits \n\n\n*^(This action was performed by a bot.)*"
@@ -1699,7 +1699,7 @@ fn test_arbitrary_comment() {
         )
         .extract(&consts)
         .calc(&consts)
-        .get_reply(&consts);
+        .get_reply(&consts, Formatting::Markdown);
         Ok(())
     });
 }
