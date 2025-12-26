@@ -433,8 +433,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "factorion-cli"
+version = "1.0.0"
+dependencies = [
+ "dotenvy",
+ "env_logger",
+ "factorion-lib",
+ "log",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "factorion-lib"
-version = "4.1.1"
+version = "4.2.0"
 dependencies = [
  "arbtest",
  "chrono",

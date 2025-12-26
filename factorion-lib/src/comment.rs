@@ -1,5 +1,6 @@
 //! Parses comments and generates the reply.
 
+use std::cmp::PartialEq;
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
 
@@ -214,6 +215,12 @@ impl Commands {
     }
 }
 
+#[derive(PartialEq, Eq)]
+pub enum Formatting {
+    Markdown,
+    None
+}
+
 macro_rules! contains_comb {
     // top level (advance both separately)
     ($var:ident, [$start:tt,$($start_rest:tt),* $(,)?], [$end:tt,$($end_rest:tt),* $(,)?]) => {
@@ -408,7 +415,7 @@ impl<Meta> CommentExtracted<Meta> {
 }
 impl<Meta> CommentCalculated<Meta> {
     /// Does the formatting for the reply using [calculation_result](crate::calculation_results).
-    pub fn get_reply(&self, consts: &Consts) -> String {
+    pub fn get_reply(&self, consts: &Consts, formatting: Formatting) -> String {
         let mut fell_back = false;
         let locale = consts.locales.get(&self.locale).unwrap_or_else(|| {
             fell_back = true;
@@ -423,7 +430,12 @@ impl<Meta> CommentCalculated<Meta> {
         if fell_back {
             let _ = note.write_str("Sorry, I currently don't speak ");
             let _ = note.write_str(&self.locale);
-            let _ = note.write_str(". Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n");
+            if formatting == Formatting::Markdown {
+                let _ = note.write_str(". Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n");
+            }
+            if formatting == Formatting::None {
+                let _ = note.write_str(". Maybe you could teach me: https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation  \n\n");
+            }
         }
 
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
@@ -603,9 +615,13 @@ impl<Meta> CommentCalculated<Meta> {
             }
         }
         if !locale.bot_disclaimer().is_empty() {
-            reply.push_str("\n*^(");
+            if formatting == Formatting::Markdown {
+                reply.push_str("\n*^(");
+            }
             reply.push_str(locale.bot_disclaimer());
-            reply.push_str(")*");
+            if formatting == Formatting::Markdown {
+                reply.push_str(")*");
+            }
         }
         reply
     }
