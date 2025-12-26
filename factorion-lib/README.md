@@ -6,6 +6,7 @@ You can use the given abstraction for comments in [comment]:
 ```rust
 use factorion_lib::comment::{Comment, CommentConstructed, CommentExtracted, CommentCalculated, Commands, Status};
 use factorion_lib::Consts;
+use factorion_lib::comment::Formatting;
 
 // You need to define constants first
 let consts = Consts::default();
@@ -19,7 +20,7 @@ let mut comment: CommentCalculated<&str> = comment.calc(&consts);
 // Set flag, so a user will be notified (used when summoning on someone else)
 comment.notify = Some("@you".to_owned());
 // Format the reply
-let reply = comment.get_reply(&consts);
+let reply = comment.get_reply(&consts, Formatting::Markdown);
 // Metadata is retained throughout
 assert_eq!(comment.meta, "meta");
 // Useful status
@@ -30,6 +31,7 @@ assert_eq!(reply, "Hey @you!\n\nTermial of factorial of 5 is 7260 \n\n\n*^(This 
 Or manually do the steps:
 ```rust
 use factorion_lib::{parse::parse, calculation_tasks::{CalculationJob, CalculationBase}, calculation_results::{Calculation, CalculationResult, Number}, Consts};
+use factorion_lib::comment::Formatting;
 
 // You need to define constants first
 let consts = Consts::default();

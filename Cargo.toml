@@ -1,4 +1,4 @@
 [workspace]
 resolver = "3"
-members = [ "factorion-lib", "factorion-math","factorion-bot-reddit", "factorion-bot-discord"]
+members = [ "factorion-lib", "factorion-math","factorion-bot-reddit", "factorion-bot-discord", "factorion-cli"]
 exclude = [ ".old" ]

@@ -7,7 +7,7 @@ use std::time::SystemTime;
 
 use anyhow::Error;
 use factorion_lib::Consts;
-use factorion_lib::comment::{Commands, Comment, CommentConstructed};
+use factorion_lib::comment::{Commands, Comment, CommentConstructed, Formatting};
 use factorion_lib::influxdb::InfluxDbClient;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -178,7 +178,7 @@ impl<'a> Handler<'a> {
             return Ok(());
         }
 
-        let reply_text = comment.get_reply(&self.consts);
+        let reply_text = comment.get_reply(&self.consts, Formatting::Markdown);
         let message_locale = comment.locale;
 
         processed.insert(msg.id);

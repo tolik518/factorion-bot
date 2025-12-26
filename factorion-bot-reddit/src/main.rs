@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
+use crate::reddit_api::Thread;
 use dotenvy::dotenv;
+use factorion_lib::comment::Formatting;
 use factorion_lib::{
     Consts,
     comment::{Commands, Comment, Status},
@@ -19,8 +21,6 @@ use std::panic;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 use tokio::time::{Duration, sleep};
-
-use crate::reddit_api::Thread;
 
 mod reddit_api;
 
@@ -383,7 +383,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             if should_answer {
                 let Ok(reply): Result<String, _> =
-                    std::panic::catch_unwind(|| comment.get_reply(&consts))
+                    std::panic::catch_unwind(|| comment.get_reply(&consts, Formatting::Markdown))
                 else {
                     error!("Failed to format comment!");
                     continue;
