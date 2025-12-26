@@ -1,8 +1,8 @@
 //! Parses comments and generates the reply.
 
-use std::cmp::PartialEq;
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
+use std::cmp::PartialEq;
 
 use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
@@ -218,7 +218,7 @@ impl Commands {
 #[derive(PartialEq, Eq)]
 pub enum Formatting {
     Markdown,
-    None
+    None,
 }
 
 macro_rules! contains_comb {

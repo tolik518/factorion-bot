@@ -1,6 +1,6 @@
 //! Parses text and extracts calculations
 
-use crate::locale::{NumFormat};
+use crate::locale::NumFormat;
 use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::Consts;
@@ -833,9 +833,9 @@ fn parse_num_simple(
 mod test {
     use super::*;
     use crate::calculation_tasks::CalculationBase::Num;
-    use arbtest::arbtest;
     use crate::locale;
     use crate::recommended::FLOAT_PRECISION;
+    use arbtest::arbtest;
 
     #[test]
     fn test_text_only() {
