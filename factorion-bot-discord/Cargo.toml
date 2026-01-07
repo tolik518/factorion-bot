@@ -1,6 +1,6 @@
 [package]
 name = "factorion-bot-discord"
-version = "2.1.1"
+version = "2.1.3"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Discord"
 license = "MIT"

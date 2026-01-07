@@ -64,6 +64,10 @@ impl Default for Consts<'_> {
                 ("en".to_owned(), locale::get_en()),
                 #[cfg(any(feature = "serde", test))]
                 ("de".to_owned(), locale::get_de()),
+                #[cfg(any(feature = "serde", test))]
+                ("ru".to_owned(), locale::get_ru()),
+                #[cfg(any(feature = "serde", test))]
+                ("it".to_owned(), locale::get_it()),
             ]),
             default_locale: "en".to_owned(),
         }

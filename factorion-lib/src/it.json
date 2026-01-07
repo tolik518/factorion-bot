@@ -1,0 +1,46 @@
+{ "V2":
+  {
+    "bot_disclaimer": "Questa azione è stata fatta da un bot.",
+    "notes": {
+      "tower": "Quel numero è così grande che non posso neanche scrivere il numero di cifre, quindi devo fare una torre di potenze di dieci.",
+      "tower_mult": "Alcuni di questi numeri sono così grandi che non posso neanche scrivere il numero di cifre, quindi devo fare una torre di potenze di dieci.",
+      "digits": "Quel numero è così grande che non posso neanche approssimarlo bene, quindi posso solo dare un'approssimazione del numero di cifre.",
+      "digits_mult": "Alcuni di quei numeri sono così grandi che non posso neanche approssimarlo bene, quindi posso solo dare un'approssimazione del numero di cifre",
+      "approx": "Quel numero è così grande, che non posso neanche calcolarlo, quindi dovrò approssimare.",
+      "approx_mult": "Alcuni di quei numeri sono così grandi, che non posso neanche calcolarli, quindi dovrò approssimare.",
+      "round": "Non posso calcolare un fattoriale con così tante cifre decimali. Quindi ho dovuto arrotondare a un certo punto.",
+      "round_mult": "Non posso calcolare dei fattoriali con così tante cifre decimali. Quindi ho dovuto arrotondare a un certo punto.",
+      "too_big": "Se scrivessi il numero per intero, il commento sarebbe troppo lungo. Quindi ho dovuto trasformarlo in una notazione scientifica.",
+      "too_big_mult": "Se scrivessi questi numeri per intero, il commento sarebbe troppo lungo. Quindi ho dovuto trasformarli in una notazioni scientifiche.",
+      "remove": "Se scrivessi tutti i numeri, il commento sarebbe troppo lungo. Quindi ne ho dovuto togliere alcuni.",
+      "tetration": "Quel numero è così grande che non posso neanche scriverlo come torre di potenze di 10, quindi dovrò usare la tetrazione!",
+      "no_post": "Scusa ma la risposta a tutti quei numeri sarebbe _troppo_ lunga, quindi preferisco neanche provare a scriverla lmao",
+      "limit_hit": "Mi sono ripetuto abbastanza, non farò più quel calcolo.",
+      "mention": "Ciao {mention}!"
+    },
+    "format": {
+      "number_format": {
+        "decimal": ","
+      },
+      "capitalize_calc": false,
+      "termial": "termiale",
+      "factorial": "fattoriale",
+      "uple": "multi{factorial}",
+      "sub": "sotto{factorial}",
+      "negative": "{factorial} negativo",
+      "num_overrides": {
+        "2": "doppio-{factorial}",
+        "3": "triplo-{factorial}"
+      },
+      "force_num": false,
+      "nest": "Il {factorial} di {next}",
+      "exact": "Il {factorial} di {number} è {result}",
+      "rough": "Il {factorial} di {number} è circa {result}",
+      "approx": "Il {factorial} di {number} è approssimativamente {result}",
+      "digits": "Il {factorial} di {number} ha circa {result} cifre",
+      "order": "Il {factorial} di {number} ha cifre sull'ordine di {result}",
+      "all_that": "Tutto questo applicato a {number} ha cifre sull'ordine di {result}",
+      "rough_number": "circa {number}"
+    }
+  }
+}
