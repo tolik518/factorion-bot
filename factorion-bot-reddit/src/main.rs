@@ -235,7 +235,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &mut last_ids,
             )
             .await
-            .unwrap_or((Default::default(), (60.0, 0.0)));
+            .unwrap_or((Default::default(), (60.0, -1.0)));
         let end = SystemTime::now();
 
         factorion_lib::influxdb::reddit::log_time_consumed(
@@ -450,10 +450,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
 
         let sleep_between_requests = if rate.1 < requests_per_loop + 1.0 {
-            warn!(
-                "Rate limit hit! time remaining: {}, count remaining: {}",
-                rate.0, rate.1
-            );
+            if rate.1 >= 0.0 {
+                warn!(
+                    "Rate limit hit! time remaining: {}, count remaining: {}",
+                    rate.0, rate.1
+                );
+            }
             rate.0 + 1.0
         } else {
             (rate.0 / rate.1 * requests_per_loop).max(2.0) + 1.0
