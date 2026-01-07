@@ -1,6 +1,6 @@
 [package]
 name = "factorion-bot-reddit"
-version = "5.2.2"
+version = "5.2.3"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Reddit"
 license = "MIT"
