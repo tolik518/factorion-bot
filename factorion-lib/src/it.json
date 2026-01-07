@@ -36,7 +36,7 @@
       "nest": "Il {factorial} di {next}",
       "exact": "Il {factorial} di {number} è {result}",
       "rough": "Il {factorial} di {number} è circa {result}",
-      "approx": "Il {factorial} di {number} is approssimatamente {result}",
+      "approx": "Il {factorial} di {number} è approssimativamente {result}",
       "digits": "Il {factorial} di {number} ha circa {result} cifre",
       "order": "Il {factorial} di {number} ha cifre sull'ordine di {result}",
       "all_that": "Tutto questo applicato a {number} ha cifre sull'ordine di {result}",
