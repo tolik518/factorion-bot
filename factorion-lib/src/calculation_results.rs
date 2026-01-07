@@ -202,11 +202,13 @@ impl CalculationResult {
                 }
             }
             CalculationResult::Float(gamma) => {
+                let mut num = String::new();
                 if !gamma.as_float().to_f64().is_finite() {
-                    write!(acc, "{:.30}", gamma.as_float())?;
+                    write!(num, "{:.30}", gamma.as_float())?;
                 } else {
-                    write!(acc, "{}", gamma.as_float().to_f64())?;
+                    write!(num, "{}", gamma.as_float().to_f64())?;
                 }
+                acc.write_str(&num.replace('e', " × 10^"))?;
             }
             CalculationResult::ComplexInfinity => {
                 acc.write_str("∞\u{0303}")?;
