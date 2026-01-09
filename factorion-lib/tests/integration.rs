@@ -587,7 +587,7 @@ fn test_comment_new_fraction() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Subfactorial of 1 is 0 \n\nFactorial of 2 is 2 \n\nFactorial of 0.5 is approximately 0.886226925452758 \n\n\n*^(This action was performed by a bot.)*"
+        "Subfactorial of 1 is 0 \n\nFactorial of 2 is 2 \n\nFactorial of 0.5 is approximately 0.886226925452758013649083741671 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -664,7 +664,7 @@ fn test_can_reply_to_factorial_that_is_subfactorial() {
     .calc(&consts);
     assert_eq!(
         comment.get_reply(&consts),
-        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of subfactorial of 23 is approximately 5.973414105357603 × 10^204891707276976900386618 \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of subfactorial of 23 is approximately 5.973414105357602614762048340734 × 10^204891707276976900386618 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -721,7 +721,7 @@ fn test_command_no_note() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Factorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot.)*"
+        "Factorial of 10939742352358 is approximately 4.451909479489793754826968519779 × 10^137892308399887 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -791,7 +791,7 @@ fn test_command_note() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 10939742352358 is approximately 4.451909479489793 × 10^137892308399887 \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 10939742352358 is approximately 4.451909479489793754826968519779 × 10^137892308399887 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1190,7 +1190,7 @@ fn test_get_reply_approximate_from_new_comment() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.120259616630154 × 10^8546211 \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1489232 is approximately 2.120259616630153792054871850604 × 10^8546211 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1210,7 +1210,7 @@ fn test_get_reply_approximate_from_number_1000002() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956480142832 × 10^5565720 \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nFactorial of 1000002 is approximately 8.263956480142832919473495713236 × 10^5565720 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1230,7 +1230,7 @@ fn test_get_reply_approximate_multifactorial_from_new_comment() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.6646915965772817 × 10^2848739 \n\n\n*^(This action was performed by a bot.)*"
+        "That is so large, that I can't calculate it, so I'll have to approximate.\n\nTriple-factorial of 1489232 is approximately 1.664691596577281697204257586698 × 10^2848739 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1471,7 +1471,7 @@ fn test_get_reply_factorial_chain_gamma() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Factorial of factorial of factorial of factorial of 0.5 is approximately 0.9927771298141361 \n\n\n*^(This action was performed by a bot.)*"
+        "Factorial of factorial of factorial of factorial of 0.5 is approximately 0.992777129814136104340602091199 \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1601,7 +1601,7 @@ fn test_get_reply_approximate_digits_from_mixed_types() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nFactorial of 37923648 is approximately 1.760585629143694 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot.)*"
+        "Some of these are so large, that I can't even approximate them well, so I can only give you an approximation on the number of digits.\n\nDouble-factorial of 8 is 384 \n\nFactorial of 10000 is roughly 2.84625968091705451890641321212 × 10^35659 \n\nFactorial of 37923648 is approximately 1.760585629143694123242762673678 × 10^270949892 \n\nDouble-factorial of 283462 has approximately 711238 digits \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
@@ -1621,7 +1621,7 @@ fn test_german_locale() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Subfakultät von 2 ist 1 \n\nDoppelfakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2,5 ist ungefähr 7,184006321612229 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
+        "Subfakultät von 2 ist 1 \n\nDoppelfakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2,5 ist ungefähr 7,184006321612229702577147337803 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
     );
 }
 
@@ -1641,7 +1641,7 @@ fn test_number_inputs() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 2 is 2 \n\nSubfactorial of 10 is 1334961 \n\nFactorial of 10 is 3628800 \n\nFactorial of 11 is 39916800 \n\nFactorial of 1000000000000 is approximately 1.403661160373756 × 10^(11565705518103) \n\nFactorial of 10^(100) has on the order of 10^(103) digits \n\nFactorial of 10^(10\\^(100\\)) has on the order of 10^(10\\^(100\\)) digits \n\nFactorial of ^(400)10 has on the order of ^(400)10 digits \n\n\n*^(This action was performed by a bot.)*"
+        "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.\n\nFactorial of 2 is 2 \n\nSubfactorial of 10 is 1334961 \n\nFactorial of 10 is 3628800 \n\nFactorial of 11 is 39916800 \n\nFactorial of 1000000000000 is approximately 1.403661160373756090720133867713 × 10^(11565705518103) \n\nFactorial of 10^(100) has on the order of 10^(103) digits \n\nFactorial of 10^(10\\^(100\\)) has on the order of 10^(10\\^(100\\)) digits \n\nFactorial of ^(400)10 has on the order of ^(400)10 digits \n\n\n*^(This action was performed by a bot.)*"
     );
 }
 
