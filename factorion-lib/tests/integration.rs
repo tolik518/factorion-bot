@@ -1004,6 +1004,26 @@ fn test_get_reply_for_big_subfactorial() {
 }
 
 #[test]
+fn test_get_reply_gamma() {
+    let consts = Consts::default();
+    let comment = Comment::new(
+        "This is a test comment with a factorial of 3227.5!",
+        (),
+        Commands::NONE,
+        MAX_LENGTH,
+        "en",
+    )
+    .extract(&consts)
+    .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of 3227.5 is approximately 2.15734118329160977500279767046 × 10^9925 \n\n\n*^(This action was performed by a bot.)*"
+    );
+}
+
+#[test]
 fn test_get_reply_for_high_multifactorial() {
     let consts = Consts::default();
     let comment = Comment {
