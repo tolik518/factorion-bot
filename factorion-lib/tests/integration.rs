@@ -1686,6 +1686,20 @@ fn test_tower_all() {
 }
 
 #[test]
+fn test_separators() {
+    let consts = Consts::default();
+    let comment = Comment::new("1_000'0,0.1!", (), Commands::TERMIAL, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of 100000.1 is approximately 8.93100247602376302070849316650e456573 \n\n\n*^(This action was performed by a bot.)*"
+    )
+}
+
+#[test]
 fn test_arbitrary_comment() {
     let consts = Consts::default();
     arbtest::arbtest(|u| {
