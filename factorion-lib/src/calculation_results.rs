@@ -138,11 +138,7 @@ impl CalculationResult {
             }
             CalculationResult::Approximate(base, exponent) => {
                 let base = base.as_float();
-                if !base.to_f64().is_finite() {
-                    write!(acc, "{base:.30}")?;
-                } else {
-                    write!(acc, "{}", base.to_f64())?;
-                };
+                format_float(acc, base, consts)?;
                 acc.write_str(" × 10^")?;
                 if shorten {
                     acc.write_str("(")?;
@@ -202,11 +198,8 @@ impl CalculationResult {
                 }
             }
             CalculationResult::Float(gamma) => {
-                if !gamma.as_float().to_f64().is_finite() {
-                    write!(acc, "{:.30}", gamma.as_float())?;
-                } else {
-                    write!(acc, "{}", gamma.as_float().to_f64())?;
-                }
+                let gamma = gamma.as_float();
+                format_float(acc, gamma, consts)?;
             }
             CalculationResult::ComplexInfinity => {
                 acc.write_str("∞\u{0303}")?;
@@ -493,9 +486,10 @@ impl Calculation {
 /// Uses the last digit to decide the rounding direction. \
 /// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros. \
 /// If the input is all 9s, this will round to 10. \
+/// Stops when a decimal period is encountered, removing it.
 ///
 /// # Panic
-/// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10.
+/// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10, that is not a period.
 fn round(number: &mut String) {
     // Check additional digit if we need to round
     if let Some(digit) = number
@@ -509,14 +503,16 @@ fn round(number: &mut String) {
             .expect("Not a base 10 number");
         // Carry over at 9s
         while last_digit == 9 {
-            let Some(digit) = number
-                .pop()
-                .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-            else {
+            let Some(digit) = number.pop() else {
                 // If we reached the end we get 10
                 number.push_str("10");
                 return;
             };
+            // Stop at decimal
+            if digit == '.' {
+                break;
+            }
+            let digit = digit.to_digit(10).expect("Not a base 10 number");
             last_digit = digit;
         }
         // Round up
@@ -565,6 +561,54 @@ fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
     } else {
         (orig_number.to_string(), false)
     }
+}
+fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::Result {
+    // a.b x 10^c
+    // a
+    // .b
+    // x 10^c
+    let mut number = number.clone();
+    let exponent = number
+        .clone()
+        .log10()
+        .max(&Float::new(consts.float_precision))
+        .to_integer_round(factorion_math::rug::float::Round::Down)
+        .expect("Could not round exponent")
+        .0;
+    if exponent > consts.number_decimals_scientific {
+        number = number / Float::with_val(consts.float_precision, &exponent).exp10();
+    }
+    let whole_number = number
+        .to_integer_round(factorion_math::rug::float::Round::Down)
+        .expect("Could not get integer part")
+        .0;
+    let decimal_part = number - &whole_number + 1;
+    let mut decimal_part = format!("{decimal_part}");
+    // Remove "1."
+    decimal_part.remove(0);
+    decimal_part.remove(0);
+    decimal_part.truncate(consts.number_decimals_scientific + 1);
+    if decimal_part.len() > consts.number_decimals_scientific {
+        round(&mut decimal_part);
+    }
+    if let Some(mut digit) = decimal_part.pop() {
+        while digit == '0' {
+            digit = match decimal_part.pop() {
+                Some(x) => x,
+                None => break,
+            }
+        }
+        decimal_part.push(digit);
+    }
+    write!(acc, "{whole_number}")?;
+    if !decimal_part.is_empty() && decimal_part != "0" {
+        acc.write_str(".")?;
+        acc.write_str(&decimal_part)?;
+    }
+    if exponent > consts.number_decimals_scientific {
+        write!(acc, " × 10^{exponent}")?;
+    }
+    Ok(())
 }
 
 fn replace(s: &mut String, search_start: usize, from: &str, to: &str) -> usize {
@@ -751,7 +795,7 @@ mod tests {
             value: 5.into(),
             steps: vec![(1, false)],
             result: CalculationResult::Approximate(
-                Float::with_val(FLOAT_PRECISION, 1.2).into(),
+                Float::with_val(FLOAT_PRECISION, Float::parse("1.2").unwrap()).into(),
                 5.into(),
             ),
         };
@@ -808,6 +852,8 @@ mod tests {
 #[cfg(test)]
 mod test {
     use std::{str::FromStr, sync::LazyLock};
+
+    use factorion_math::rug::Complete;
 
     use super::*;
 
@@ -974,7 +1020,7 @@ mod test {
             value: 0.into(),
             steps: vec![(1, false)],
             result: CalculationResult::Approximate(
-                Float::with_val(FLOAT_PRECISION, 2.83947).into(),
+                Float::with_val(FLOAT_PRECISION, Float::parse("2.83947").unwrap()).into(),
                 10043.into(),
             ),
         };
@@ -1100,9 +1146,13 @@ mod test {
     fn test_format_gamma() {
         let consts = Consts::default();
         let fact = Calculation {
-            value: Number::Float(Float::with_val(FLOAT_PRECISION, 9.2).into()),
+            value: Number::Float(
+                Float::with_val(FLOAT_PRECISION, Float::parse("9.2").unwrap()).into(),
+            ),
             steps: vec![(1, false)],
-            result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 893.83924421).into()),
+            result: CalculationResult::Float(
+                Float::with_val(FLOAT_PRECISION, Float::parse("893.83924421").unwrap()).into(),
+            ),
         };
         let mut s = String::new();
         fact.format(
@@ -1140,7 +1190,7 @@ mod test {
         .unwrap();
         assert_eq!(
             s,
-            "Factorial of 0 is approximately 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 \n\n"
+            "Factorial of 0 is approximately 1.797693134862315708145274237317 × 10^308 \n\n"
         );
     }
     #[test]
@@ -1152,7 +1202,7 @@ mod test {
             ),
             steps: vec![(1, false)],
             result: CalculationResult::Approximate(
-                Float::with_val(FLOAT_PRECISION, 2.8394792834).into(),
+                Float::with_val(FLOAT_PRECISION, Float::parse("2.8394792834").unwrap()).into(),
                 Integer::from_str("10094283492304894983443984102489842984271").unwrap(),
             ),
         };
@@ -1342,5 +1392,76 @@ mod test {
             result: CalculationResult::Float(Float::with_val(FLOAT_PRECISION, 1.0).into()),
         };
         assert!(!fl.is_too_long(&TOO_BIG_NUMBER));
+    }
+
+    #[test]
+    fn test_number_decimals_scientific_respected() {
+        let mut consts = Consts::default();
+        consts.number_decimals_scientific = 10;
+        let mut acc = String::new();
+        CalculationResult::Exact(Integer::u_pow_u(10, 1000).complete() * 498149837492347328u64)
+            .format(
+                &mut acc,
+                &mut false,
+                true,
+                false,
+                false,
+                &consts,
+                &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            )
+            .unwrap();
+        assert_eq!(acc, "4.9814983749 × 10^1017");
+        let mut acc = String::new();
+        CalculationResult::Approximate(
+            Float::with_val(FLOAT_PRECISION, 4.98149837492347328f64).into(),
+            1017.into(),
+        )
+        .format(
+            &mut acc,
+            &mut false,
+            true,
+            false,
+            false,
+            &consts,
+            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        )
+        .unwrap();
+        assert_eq!(acc, "4.9814983749 × 10^(1017)");
+        consts.number_decimals_scientific = 50;
+        let mut acc = String::new();
+        CalculationResult::Exact(
+            Integer::u_pow_u(10, 1000).complete() * 49814983749234732849839849898438493843u128,
+        )
+        .format(
+            &mut acc,
+            &mut false,
+            true,
+            false,
+            false,
+            &consts,
+            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        )
+        .unwrap();
+        assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^1037");
+        let mut acc = String::new();
+        CalculationResult::Approximate(
+            Float::with_val(
+                FLOAT_PRECISION,
+                Float::parse("4.9814983749234732849839849898438493843").unwrap(),
+            )
+            .into(),
+            1037.into(),
+        )
+        .format(
+            &mut acc,
+            &mut false,
+            true,
+            false,
+            false,
+            &consts,
+            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        )
+        .unwrap();
+        assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^(1037)");
     }
 }
