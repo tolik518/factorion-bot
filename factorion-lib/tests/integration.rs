@@ -1695,7 +1695,7 @@ fn test_separators() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Factorial of 100000.1 is approximately 8.93100247602376302070849316650e456573 \n\n\n*^(This action was performed by a bot.)*"
+        "Factorial of 100000.1 is approximately 8.931002476023763020708493166497 × 10^456573 \n\n\n*^(This action was performed by a bot.)*"
     )
 }
 
