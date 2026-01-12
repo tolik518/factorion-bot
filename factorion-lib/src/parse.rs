@@ -74,6 +74,8 @@ static TAU: fn(u32) -> Number = |prec| {
     ))
 };
 
+const SEPARATORS: [char; 4] = ['.', ',', '_', '\''];
+
 const PREFIX_OPS: [char; 1] = ['!'];
 #[allow(dead_code)]
 const POSTFIX_OPS: [char; 2] = ['!', '?'];
@@ -673,14 +675,18 @@ fn parse_num_simple(
     prec: u32,
 ) -> Option<crate::calculation_results::CalculationResult> {
     let integer_part = {
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let end = text
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
         part
     };
     let decimal_part = if text.starts_with(*locale.decimal()) {
         *text = &text[1..];
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let end = text
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
         part
@@ -698,7 +704,9 @@ fn parse_num_simple(
         } else {
             false
         };
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let end = text
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
         (part, negative)
@@ -762,7 +770,9 @@ fn parse_num_simple(
     };
     let fraction_part = if !had_op && text.starts_with(['/']) {
         *text = &text[1..];
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let end = text
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
         part
@@ -770,6 +780,7 @@ fn parse_num_simple(
         &text[..0]
     };
     if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
+        let fraction_part = fraction_part.replace(SEPARATORS, "");
         let n = fraction_part.parse::<Integer>().ok()?;
         return Some(Number::Exact(n));
     }
@@ -777,6 +788,7 @@ fn parse_num_simple(
         return None;
     }
     let exponent = if !exponent_part.0.is_empty() {
+        let exponent_part = (exponent_part.0.replace(SEPARATORS, ""), exponent_part.1);
         let mut e = exponent_part.0.parse::<Integer>().ok()?;
         if exponent_part.1 {
             e *= -1;
@@ -786,10 +798,13 @@ fn parse_num_simple(
         0.into()
     };
     let divisor = if !fraction_part.is_empty() {
+        let fraction_part = fraction_part.replace(SEPARATORS, "");
         fraction_part.parse::<Integer>().ok()?
     } else {
         Integer::ONE.clone()
     };
+    let integer_part = integer_part.replace(SEPARATORS, "");
+    let decimal_part = decimal_part.replace(SEPARATORS, "");
     if exponent >= decimal_part.len() as i64
         && exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64
         && (divisor == 1 || exponent >= consts.integer_construction_limit.clone() / 10)
@@ -1444,6 +1459,46 @@ mod test {
         );
         let num = parse_num(
             &mut "1more !",
+            false,
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(1.into()));
+        let num = parse_num(
+            &mut "1_000more !",
+            false,
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(1000.into()));
+        let num = parse_num(
+            &mut "1,000more !",
+            false,
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(1000.into()));
+        let num = parse_num(
+            &mut "1'000more !",
+            false,
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, Some(1000.into()));
+        let num = parse_num(
+            &mut "1.000more !",
+            false,
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: ',' }),
+        );
+        assert_eq!(num, Some(1000.into()));
+        let num = parse_num(
+            &mut "1.000more !",
             false,
             true,
             &consts,
