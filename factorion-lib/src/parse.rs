@@ -570,7 +570,7 @@ fn parse_num(
         *text = &text[end..];
         if text.starts_with(")10") && !text[3..].starts_with(POSTFIX_OPS) {
             *text = &text[3..];
-            let n = part.parse::<u32>().ok()?;
+            let n = part.parse::<Integer>().ok()?;
             return Some(Number::ApproximateDigitsTower(
                 false,
                 false,
@@ -660,7 +660,12 @@ fn parse_num(
         if depth == 1 {
             return Some(Number::ApproximateDigits(false, top));
         } else {
-            return Some(Number::ApproximateDigitsTower(false, false, depth - 1, top));
+            return Some(Number::ApproximateDigitsTower(
+                false,
+                false,
+                (depth - 1).into(),
+                top,
+            ));
         }
     }
 
@@ -1732,7 +1737,12 @@ mod test {
         );
         assert_eq!(
             num,
-            Some(Number::ApproximateDigitsTower(false, false, 10, 1.into()))
+            Some(Number::ApproximateDigitsTower(
+                false,
+                false,
+                10.into(),
+                1.into()
+            ))
         );
         let num = parse_num(
             &mut "10^10^10^5!",
@@ -1751,7 +1761,12 @@ mod test {
         );
         assert_eq!(
             num,
-            Some(Number::ApproximateDigitsTower(false, false, 2, 5.into()))
+            Some(Number::ApproximateDigitsTower(
+                false,
+                false,
+                2.into(),
+                5.into()
+            ))
         );
         let num = parse_num(
             &mut "10^(10\\^10\\^\\(5\\))!",
@@ -1762,7 +1777,12 @@ mod test {
         );
         assert_eq!(
             num,
-            Some(Number::ApproximateDigitsTower(false, false, 2, 5.into()))
+            Some(Number::ApproximateDigitsTower(
+                false,
+                false,
+                2.into(),
+                5.into()
+            ))
         );
         let num = parse_num(
             &mut "10^5!",

@@ -65,7 +65,7 @@ pub enum CalculationResult {
     /// b digits (a is whether the number is negative)
     ApproximateDigits(bool, Integer),
     /// (^(c)10)^d digits (a is whether is negative, b is negative number of digits (super small))
-    ApproximateDigitsTower(bool, bool, u32, Integer),
+    ApproximateDigitsTower(bool, bool, Integer, Integer),
     Float(OrdFloat),
     ComplexInfinity,
 }
@@ -162,16 +162,21 @@ impl CalculationResult {
                 }
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
-                let depth = if is_value { depth + 1 } else { *depth };
+                let depth = if is_value {
+                    depth.clone() + 1
+                } else {
+                    depth.clone()
+                };
                 acc.write_str(if *negative { "-" } else { "" })?;
                 // If we have a one on top, we gain no information by printing the whole tower.
                 // If depth is one, it is nicer to write 10¹ than ¹10.
-                if !agressive && (depth <= 1 || exponent != &1) {
+                if !agressive && depth <= usize::MAX && (depth <= 1 || exponent != &1) {
                     if depth > 0 {
                         acc.write_str("10^(")?;
                     }
                     if depth > 1 {
-                        acc.write_str(&"10\\^".repeat(depth as usize - 1))?;
+                        // PANIC: We just checked, that it is <= usize::MAX and > 1 (implies >= 0), so it fits in usize
+                        acc.write_str(&"10\\^".repeat(depth.to_usize().unwrap() - 1))?;
                         acc.write_str("(")?;
                     }
                     if shorten {
@@ -1082,7 +1087,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, false)],
-            result: CalculationResult::ApproximateDigitsTower(false, false, 9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, false, 9.into(), 10375.into()),
         };
         let mut s = String::new();
         fact.format(
@@ -1105,7 +1110,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, false)],
-            result: CalculationResult::ApproximateDigitsTower(false, true, 9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, true, 9.into(), 10375.into()),
         };
         let mut s = String::new();
         fact.format(
@@ -1128,7 +1133,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, false)],
-            result: CalculationResult::ApproximateDigitsTower(false, false, 9, 10375.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, false, 9.into(), 10375.into()),
         };
         let mut s = String::new();
         fact.format(
@@ -1260,7 +1265,7 @@ mod test {
             result: CalculationResult::ApproximateDigitsTower(
                 false,
                 false,
-                9,
+                9.into(),
                 Integer::from_str("7084327410873502875032857120358730912469148632").unwrap(),
             ),
         };
@@ -1313,7 +1318,7 @@ mod test {
         let fact = Calculation {
             value: 0.into(),
             steps: vec![(1, false)],
-            result: CalculationResult::ApproximateDigitsTower(false, false, 4, 1.into()),
+            result: CalculationResult::ApproximateDigitsTower(false, false, 4.into(), 1.into()),
         };
         let mut s = String::new();
         fact.format(
