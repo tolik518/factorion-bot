@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         v.set_bot_disclaimer("".into());
                         (k.to_owned(), v)
                     })
-                    .into()
+                    .collect()
             }),
         default_locale: "en".to_owned(),
     };

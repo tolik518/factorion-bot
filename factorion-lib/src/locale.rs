@@ -9,6 +9,10 @@ pub fn get_en() -> Locale<'static> {
     serde_json::de::from_str(include_str!("en.json")).unwrap()
 }
 #[cfg(any(feature = "serde", test))]
+pub fn get_en_fuck() -> Locale<'static> {
+    serde_json::de::from_str(include_str!("en_fuck.json")).unwrap()
+}
+#[cfg(any(feature = "serde", test))]
 pub fn get_de() -> Locale<'static> {
     serde_json::de::from_str(include_str!("de.json")).unwrap()
 }
@@ -20,14 +24,15 @@ pub fn get_ru() -> Locale<'static> {
 pub fn get_it() -> Locale<'static> {
     serde_json::de::from_str(include_str!("it.json")).unwrap()
 }
-#[cfg(any(feature = "serde", test))]
-pub fn get_all() -> [(&'static str, Locale<'static>); 4] {
+pub fn get_all() -> impl Iterator<Item = (&'static str, Locale<'static>)> {
     [
         ("en", get_en()),
+        ("en_fuck", get_en_fuck()),
         ("de", get_de()),
         ("ru", get_ru()),
         ("it", get_it()),
     ]
+    .into_iter()
 }
 
 /// This can be used to retroactively add fields, that exist in all versions.

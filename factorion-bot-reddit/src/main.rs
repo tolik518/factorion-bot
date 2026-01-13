@@ -109,11 +109,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or_else(|_| {
                 factorion_lib::locale::get_all()
                     .map(|(k, v)| (k.to_owned(), v))
-                    .into()
+                    .collect()
             }),
         default_locale: "en".to_owned(),
     };
-
     let influx_client = &*INFLUX_CLIENT;
 
     if influx_client.is_none() {
