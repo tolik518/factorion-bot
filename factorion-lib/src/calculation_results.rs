@@ -416,7 +416,7 @@ impl Calculation {
             "quingen",
             "sescen",
             "septingen",
-            "octingen ",
+            "octingen",
             "nongen",
         ];
         // Note that other than milluple, these are not found in a list, but continue the pattern from mill with different starts
