@@ -147,7 +147,7 @@ impl CalculationJob {
                     } else {
                         let mut exponent = exponent;
                         exponent.add_from(math::length(&exponent, prec));
-                        CalculationResult::ApproximateDigitsTower(false, false, 1, exponent)
+                        CalculationResult::ApproximateDigitsTower(false, false, 1.into(), exponent)
                     });
                 }
             }
@@ -161,7 +161,7 @@ impl CalculationJob {
                 } else {
                     let mut digits = digits;
                     digits.add_from(math::length(&digits, prec));
-                    CalculationResult::ApproximateDigitsTower(false, false, 1, digits)
+                    CalculationResult::ApproximateDigitsTower(false, false, 1.into(), digits)
                 });
             }
             CalculationResult::ApproximateDigitsTower(was_neg, neg, depth, exponent) => {
