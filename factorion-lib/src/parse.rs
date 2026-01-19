@@ -565,11 +565,19 @@ fn parse_num(
     if text.starts_with("^(") {
         let orig_text = &text[..];
         *text = &text[2..];
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+        let end = text
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
-        if text.starts_with(")10") && !text[3..].starts_with(POSTFIX_OPS) {
+        if text.starts_with(")10")
+            && !text[3..].starts_with(POSTFIX_OPS)
+            && !text[3..].starts_with(char::is_numeric)
+            // Intentionally not allowing decimal
+            && !(text[3..].starts_with(SEPARATORS) && text[4..].starts_with(char::is_numeric))
+        {
             *text = &text[3..];
+            let part = part.replace(SEPARATORS, "");
             let n = part.parse::<Integer>().ok()?;
             return Some(Number::ApproximateDigitsTower(
                 false,
@@ -1729,6 +1737,30 @@ mod test {
         );
         assert_eq!(num, None);
         let num = parse_num(
+            &mut "^(50)100!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        let num = parse_num(
+            &mut "^(50)1000!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        let num = parse_num(
+            &mut "^(50)10,000!",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(num, None);
+        let num = parse_num(
             &mut "^(11)10",
             false,
             false,
@@ -1741,6 +1773,22 @@ mod test {
                 false,
                 false,
                 10.into(),
+                1.into()
+            ))
+        );
+        let num = parse_num(
+            &mut "^(11,000)10",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(
+            num,
+            Some(Number::ApproximateDigitsTower(
+                false,
+                false,
+                10999.into(),
                 1.into()
             ))
         );
@@ -1874,6 +1922,13 @@ mod test {
         assert_eq!(num, None);
         assert_eq!(text, "^30!");
     }
+
+    #[test]
+    fn test_parse_num_absorb() {
+        // Note that we want one extra character when we get None, as in such a situation a char will always be skipped
+        let consts = Consts::default();
+    }
+
     #[allow(clippy::uninlined_format_args)]
     #[test]
     fn test_biggest_num() {
