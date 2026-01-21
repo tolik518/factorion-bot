@@ -24,7 +24,7 @@ pub use factorion_math::rug;
 /// The parser
 pub use parse::parse;
 
-use crate::locale::{Locale, get_all};
+use crate::locale::Locale;
 
 pub mod recommended {
     pub use crate::calculation_results::recommended::*;
@@ -59,7 +59,12 @@ impl Default for Consts<'_> {
             integer_construction_limit: parse::recommended::INTEGER_CONSTRUCTION_LIMIT(),
             number_decimals_scientific:
                 calculation_results::recommended::NUMBER_DECIMALS_SCIENTIFIC,
-            locales: get_all().map(|(s, l)| (s.to_owned(), l)).collect(),
+            #[cfg(any(feature = "serde", test))]
+            locales: crate::locale::get_all()
+                .map(|(s, l)| (s.to_owned(), l))
+                .collect(),
+            #[cfg(not(any(feature = "serde", test)))]
+            locales: HashMap::new(),
             default_locale: "en".to_owned(),
         }
     }
