@@ -1,6 +1,6 @@
 [package]
 name = "factorion-bot-discord"
-version = "2.1.9"
+version = "2.1.10"
 edition = "2024"
 description = "factorion-bot (for factorials and related) on Discord"
 license = "MIT"
@@ -10,7 +10,7 @@ keywords = ["factorial", "termial", "bot", "math", "discord"]
 categories = ["mathematics", "web-programming", "parser-implementations"]
 
 [dependencies]
-factorion-lib = { path = "../factorion-lib", version = "4.1.9", features = ["serde", "influxdb"] }
+factorion-lib = { path = "../factorion-lib", version = "4.1.10", features = ["serde", "influxdb"] }
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "cache"] }
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "time"] }
 dotenvy = "^0.15.7"

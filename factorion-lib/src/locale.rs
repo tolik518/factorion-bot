@@ -24,6 +24,7 @@ pub fn get_ru() -> Locale<'static> {
 pub fn get_it() -> Locale<'static> {
     serde_json::de::from_str(include_str!("it.json")).unwrap()
 }
+#[cfg(any(feature = "serde", test))]
 pub fn get_all() -> impl Iterator<Item = (&'static str, Locale<'static>)> {
     [
         ("en", get_en()),
