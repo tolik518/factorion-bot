@@ -568,11 +568,14 @@ fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
     }
 }
 fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::Result {
-    // a.b x 10^c
+    // -a.b x 10^c
+    // -
     // a
     // .b
     // x 10^c
     let mut number = number.clone();
+    let negative = number.is_sign_negative();
+    number = number.abs();
     let exponent = number
         .clone()
         .log10()
@@ -604,6 +607,9 @@ fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::
             }
         }
         decimal_part.push(digit);
+    }
+    if negative {
+        acc.write_str("-")?;
     }
     write!(acc, "{whole_number}")?;
     if !decimal_part.is_empty() && decimal_part != "0" {
@@ -754,6 +760,28 @@ mod tests {
             .0,
             "1 × 10^2000000"
         );
+    }
+
+    #[test]
+    fn test_format_float() {
+        let consts = Consts::default();
+        let x = Float::with_val(consts.float_precision, 1.5);
+        let mut acc = String::new();
+        format_float(&mut acc, &x, &consts).unwrap();
+        assert_eq!(acc, "1.5");
+        let x = Float::with_val(consts.float_precision, -1.5);
+        let mut acc = String::new();
+        format_float(&mut acc, &x, &consts).unwrap();
+        assert_eq!(acc, "-1.5");
+        let x = Float::with_val(consts.float_precision, 1);
+        let mut acc = String::new();
+        format_float(&mut acc, &x, &consts).unwrap();
+        assert_eq!(acc, "1");
+        let x = Float::with_val(consts.float_precision, 1.5)
+            * Float::with_val(consts.float_precision, 50000).exp10();
+        let mut acc = String::new();
+        format_float(&mut acc, &x, &consts).unwrap();
+        assert_eq!(acc, "1.5 × 10^50000");
     }
 
     #[test]

@@ -1156,6 +1156,24 @@ mod test {
         );
     }
     #[test]
+    fn test_negative_decimal() {
+        let consts = Consts::default();
+        let jobs = parse(
+            "a factorial (-1.5)!",
+            true,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(
+            jobs,
+            [CalculationJob {
+                base: CalculationBase::Num(Float::with_val(FLOAT_PRECISION, -1.5).into()),
+                level: 1,
+                negative: 0
+            }]
+        );
+    }
+    #[test]
     fn test_paren_negation() {
         let consts = Consts::default();
         let jobs = parse(
