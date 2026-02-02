@@ -47,7 +47,7 @@ We can bring the [continuation](#float-multifactorial) into a calculable form (t
 z!_k &= k^{\frac{z}{k}} \cdot \frac{z}{k}! \cdot T_k(z) \quad \text{ | we already have implementations for z! and T k(z)} \\
 \\
 k^{\frac{z}{k}} &= k^m \cdot 10^n \
-10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \quad \text{ | log {10)} \\
+10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \quad \text{ | log {10}} \\
 log_{10}(k) \cdot \frac{z}{k} &= log_{10}(k) \cdot m + n \quad \text{ | n should be as large as possible} \\
 \\
 n &= \left\lfloor log_{10}(k) \cdot \frac{z}{k} \right\rfloor \\
