@@ -29,25 +29,26 @@ n! \approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^n
 Which can be brought into a calculable form with a separate order of magnitude like so:
 ```math
 \begin{aligned}
-n! &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^n \text{ | Stirling's Approximation (A(n) only contains negative powers of n, not in exponents)} \\
-   &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^m \cdot 10^k \text{ | factoring out the 10 exponent (k)} \\
-   &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^{m + \frac{ln(10)}{ln\left(\frac{n}{e}\right)} k} \text{ | factoring it back in (to calculate it)} \\
+n! &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^n \quad \text{(Stirling's Approximation (A(n) only contains negative powers of n, not in exponents))} \\
+   &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^m \cdot 10^k \quad \text{(factoring out the 10 exponent (k))} \\
+   &\approx \sqrt{2 \pi n} \cdot A(n) \cdot \left(\frac{n}{e}\right)^{m + \frac{ln(10)}{ln\left(\frac{n}{e}\right)} k} \quad \text{(factoring it back in (to calculate it))} \\
 \\
-n &= m + log_{\frac{n}{e}}(10) \cdot k \text{ | got out of exponents} \\
-n &\approx log_{\frac{n}{e}}(10) \cdot k \text{ | m should be small} \\
-k &= \left\lfloor n / log_{\frac{n}{e}}(10) \right\rfloor \text{ | calculate k which is an integer (floor because otherwise m < 0)} \\
-m &= n - log_{\frac{n}{e}}(10) \cdot k \text{ | calculate the exponent for the calculation}
+n &= m + log_{\frac{n}{e}}(10) \cdot k \quad \text{(got out of exponents)} \\
+n &\approx log_{\frac{n}{e}}(10) \cdot k \quad \text{(m should be small)} \\
+k &= \left\lfloor n / log_{\frac{n}{e}}(10) \right\rfloor \quad \text{(calculate k which is an integer (floor because otherwise m < 0))} \\
+m &= n - log_{\frac{n}{e}}(10) \cdot k \quad \text{(calculate the exponent for the calculation)}
 \end{aligned}
 ```
 ## Approximate Multifactorial
 We can bring the [continuation](#float-multifactorial) into a calculable form (the major part) like so:
+
 ```math
 \begin{aligned}
-z!_k &= k^{\frac{z}{k}} \cdot \frac{z}{k}! \cdot T_k(z) \text{ | we already have implementations for z! and T_k(z)} \\
+z!_k &= k^{\frac{z}{k}} \cdot \frac{z}{k}! \cdot T_k(z) \quad \text{(we already have implementations for z! and T k(z))} \\
 \\
 k^{\frac{z}{k}} &= k^m \cdot 10^n \
-10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \text{ | log_{10}} \\
-log_{10}(k) \cdot \frac{z}{k} &= log_{10}(k) \cdot m + n \text{ | n should be as large as possible} \\
+10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \quad \text{(log {10})} \\
+log_{10}(k) \cdot \frac{z}{k} &= log_{10}(k) \cdot m + n \quad \text{(n should be as large as possible)} \\
 \\
 n &= \left\lfloor log_{10}(k) \cdot \frac{z}{k} \right\rfloor \\
 
@@ -55,6 +56,7 @@ m \cdot log_{10}(k) &= log_{10}(k) \cdot \frac{z}{k} - n | \div log_{10}(k) \\
 m &= \frac{z}{k} - \frac{n}{log_{10}(k)}
 \end{aligned}
 ```
+
 ## Approximate Multitermial
 Multitermials have a simple formula:
 ```math
@@ -65,7 +67,7 @@ Which can be brought into a calculable form with a separate order of magnitude l
 \begin{aligned}
 n?_k &\approx \frac{n(n+k)}{2k} \\
 \\
-m &= \left\lfloor log_{10}(n) \right\rfloor \\
+m &= \left\lfloor \log_{10}(n) \right\rfloor \\
 \\
 n?_k &\approx k \frac{l}{2k} 10^{2m} \\
 n?_k &\approx k 10^m \cdot l \frac{10^m}{2k} \\
@@ -88,10 +90,10 @@ n! \approx \sqrt{2 \pi n} \cdot A(n) \cdot (\frac{n}{e})^n
 Its log_10 can be roughly approximated like so:
 ```math
 \begin{aligned}
-log_{10}(n!) &\approx log_{10}(\sqrt{2 \pi n} \cdot \left(\frac{n}{e})^n\right) \text{ | Stirling's Approximation} \\
-           &\approx \frac{1}{2} log_{10}(2 \pi n) + n \cdot log_{10}\left(\frac{n}{e}\right) \text{ | splitting up, taking exponents out} \\
-           &\approx \frac{1}{2} log_{10}(2 \pi) + \frac{1}{2} log_{10}(n) + n \cdot log_{10}(n) - n \cdot log_{10}(e) \text{ | splitting further} \\
-\text{digits} &\approx \left\lfloor \left(\frac{1}{2}+n\right) log_{10}(n) + \frac{1}{2} log_{10}(2 \pi) - \frac{n}{ln(10)} \right\rfloor +1 \text{ | combining log_10(n) and turning into number of digits}
+\log_{10}(n!) &\approx \log_{10}(\sqrt{2 \pi n} \cdot \left(\frac{n}{e})^n\right) \quad \text{(Stirling's Approximation)} \\
+           &\approx \frac{1}{2} \log_{10}(2 \pi n) + n \cdot \log_{10}\left(\frac{n}{e}\right) \quad \text{(splitting up, taking exponents out)} \\
+           &\approx \frac{1}{2} \log_{10}(2 \pi) + \frac{1}{2} \log_{10}(n) + n \cdot \log_{10}(n) - n \cdot \log_{10}(e) \quad \text{(splitting further)} \\
+\text{digits} &\approx \left\lfloor \left(\frac{1}{2}+n\right) \log_{10}(n) + \frac{1}{2} \log_{10}(2 \pi) - \frac{n}{ln(10)} \right\rfloor +1 \quad \text{(combining log10(n) and turning into number of digits)}
 \end{aligned}
 ```
 ## Approximate Multifactorial Digits
@@ -104,9 +106,9 @@ n?_k \approx \frac{n(n+k)}{2k}
 Its log_10 can be roughly approximated like so:
 ```math
 \begin{aligned}
-log_{10}(n?_k) &= log_{10}\left(\frac{n(n+k)}{2k}\right) \\
-           &= log_{10}\left(n^2+nk\right) - log_{10}(2k) \text{ | drop inconsequential n} \\
-          &\approx 2 log_{10}(n) - log_{10}(2k)
+\log_{10}(n?_k) &= \log_{10}\left(\frac{n(n+k)}{2k}\right) \\
+           &= \log_{10}\left(n^2+nk\right) - \log_{10}(2k) \quad \text{(drop inconsequential n)} \\
+          &\approx 2 \log_{10}(n) - \log_{10}(2k)
 \end{aligned}
 ```
 ## Approximate Subfactorial Digits
