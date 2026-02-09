@@ -7,12 +7,13 @@ use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
 use crate::Consts;
-use crate::calculation_results::Calculation;
+use crate::calculation_results::{Calculation, FormatOptions, Number};
 use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use crate::parse::parse;
 
 use std::fmt::Write;
 use std::ops::*;
+#[macro_export]
 macro_rules! impl_bitwise {
     ($s_name:ident {$($s_fields:ident),*}, $t_name:ident, $fn_name:ident) => {
         impl $t_name for $s_name {
@@ -25,6 +26,7 @@ macro_rules! impl_bitwise {
         }
     };
 }
+#[macro_export]
 macro_rules! impl_all_bitwise {
     ($s_name:ident {$($s_fields:ident,)*}) => {impl_all_bitwise!($s_name {$($s_fields),*});};
     ($s_name:ident {$($s_fields:ident),*}) => {
@@ -152,6 +154,9 @@ pub struct Commands {
     /// Disable the beginning note.
     #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub no_note: bool,
+    /// Write out the number as a word if possible.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
+    pub write_out: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
@@ -159,6 +164,7 @@ impl_all_bitwise!(Commands {
     nested,
     termial,
     no_note,
+    write_out,
 });
 #[allow(dead_code)]
 impl Commands {
@@ -168,6 +174,7 @@ impl Commands {
         nested: false,
         termial: false,
         no_note: false,
+        write_out: false,
     };
     pub const SHORTEN: Self = Self {
         shorten: true,
@@ -187,6 +194,10 @@ impl Commands {
     };
     pub const NO_NOTE: Self = Self {
         no_note: true,
+        ..Self::NONE
+    };
+    pub const WRITE_OUT: Self = Self {
+        write_out: true,
         ..Self::NONE
     };
 }
@@ -211,6 +222,8 @@ impl Commands {
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
                 || Self::contains_command_format(text, "no_note"),
+            write_out: Self::contains_command_format(text, "write_out")
+                || Self::contains_command_format(text, "write_num"),
         }
     }
     pub fn overrides_from_comment_text(text: &str) -> Self {
@@ -223,6 +236,8 @@ impl Commands {
             termial: !(Self::contains_command_format(text, "no termial")
                 || Self::contains_command_format(text, "no_termial")),
             no_note: !Self::contains_command_format(text, "note"),
+            write_out: !(Self::contains_command_format(text, "dont_write_out")
+                || Self::contains_command_format(text, "normal_num")),
         }
     }
 }
@@ -570,6 +585,11 @@ impl<Meta> CommentCalculated<Meta> {
                 .calculation_list
                 .iter()
                 .any(|c| c.is_too_long(too_big_number))
+                && !(self.commands.write_out
+                    && self
+                        .calculation_list
+                        .iter()
+                        .all(|c| c.can_write_out(consts.float_precision)))
             {
                 if multiple {
                     let _ = note.write_str(locale.notes().too_big_mult());
@@ -588,8 +608,11 @@ impl<Meta> CommentCalculated<Meta> {
             .fold(note.clone(), |mut acc, factorial| {
                 let _ = factorial.format(
                     &mut acc,
-                    self.commands.shorten,
-                    false,
+                    FormatOptions {
+                        force_shorten: self.commands.shorten,
+                        write_out: self.commands.write_out,
+                        ..FormatOptions::NONE
+                    },
                     too_big_number,
                     consts,
                     &locale.format(),
@@ -619,8 +642,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .fold(note, |mut acc, factorial| {
                     let _ = factorial.format(
                         &mut acc,
-                        true,
-                        false,
+                        FormatOptions {
+                            write_out: self.commands.write_out,
+                            ..FormatOptions::FORCE_SHORTEN
+                        },
                         too_big_number,
                         consts,
                         &locale.format(),
@@ -640,8 +665,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .fold(note, |mut acc, factorial| {
                     let _ = factorial.format(
                         &mut acc,
-                        true,
-                        true,
+                        FormatOptions {
+                            write_out: self.commands.write_out,
+                            ..{ FormatOptions::FORCE_SHORTEN | FormatOptions::AGRESSIVE_SHORTEN }
+                        },
                         too_big_number,
                         consts,
                         &locale.format(),
@@ -660,8 +687,11 @@ impl<Meta> CommentCalculated<Meta> {
                     let mut res = String::new();
                     let _ = fact.format(
                         &mut res,
-                        true,
-                        !self.commands.steps,
+                        FormatOptions {
+                            agressive_shorten: !self.commands.steps,
+                            write_out: self.commands.write_out,
+                            ..FormatOptions::FORCE_SHORTEN
+                        },
                         too_big_number,
                         consts,
                         &locale.format(),

@@ -1733,6 +1733,20 @@ fn test_all_that_on_multiple_calcs() {
 }
 
 #[test]
+fn test_command_write_out() {
+    let consts = Consts::default();
+    let comment = Comment::new("176902! !write_out", (), Commands::NONE, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of one hundred seventy six thousand nine hundred two is seventy five quintriginoctingentrilloctogintillducentillillion five hundred fourty five quattuortriginoctingentrilloctogintillducentillillion seven hundred sixty six tretriginoctingentrilloctogintillducentillillion three hundred five duotriginoctingentrilloctogintillducentillillion fourty seven untriginoctingentrilloctogintillducentillillion one hundred fourty three triginoctingentrilloctogintillducentillillion \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    )
+}
+
+#[test]
 fn test_arbitrary_comment() {
     let consts = Consts::default();
     arbtest::arbtest(|u| {
