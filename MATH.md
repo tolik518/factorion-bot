@@ -43,10 +43,10 @@ m &= n - log_{\frac{n}{e}}(10) \cdot k \text{ | calculate the exponent for the c
 We can bring the [continuation](#float-multifactorial) into a calculable form (the major part) like so:
 ```math
 \begin{aligned}
-z!_k &= k^{\frac{z}{k}} \cdot \frac{z}{k}! \cdot T_k(z) \text{ | we already have implementations for z! and T_k(z)} \\
+z!_k &= k^{\frac{z}{k}} \cdot \frac{z}{k}! \cdot T_k(z) \text{ | we already have implementations for z! and T\_k(z)} \\
 \\
 k^{\frac{z}{k}} &= k^m \cdot 10^n \
-10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \text{ | log_{10}} \\
+10^{log_{10}(k) \cdot \frac{z}{k}} &= 10^{log_{10}(k) \cdot m} \cdot 10^n \text{ | log\_{10}} \\
 log_{10}(k) \cdot \frac{z}{k} &= log_{10}(k) \cdot m + n \text{ | n should be as large as possible} \\
 \\
 n &= \left\lfloor log_{10}(k) \cdot \frac{z}{k} \right\rfloor \\
@@ -91,7 +91,7 @@ Its log_10 can be roughly approximated like so:
 log_{10}(n!) &\approx log_{10}(\sqrt{2 \pi n} \cdot \left(\frac{n}{e})^n\right) \text{ | Stirling's Approximation} \\
            &\approx \frac{1}{2} log_{10}(2 \pi n) + n \cdot log_{10}\left(\frac{n}{e}\right) \text{ | splitting up, taking exponents out} \\
            &\approx \frac{1}{2} log_{10}(2 \pi) + \frac{1}{2} log_{10}(n) + n \cdot log_{10}(n) - n \cdot log_{10}(e) \text{ | splitting further} \\
-\text{digits} &\approx \left\lfloor \left(\frac{1}{2}+n\right) log_{10}(n) + \frac{1}{2} log_{10}(2 \pi) - \frac{n}{ln(10)} \right\rfloor +1 \text{ | combining log_10(n) and turning into number of digits}
+\text{digits} &\approx \left\lfloor \left(\frac{1}{2}+n\right) log_{10}(n) + \frac{1}{2} log_{10}(2 \pi) - \frac{n}{ln(10)} \right\rfloor +1 \text{ | combining log\_10(n) and turning into number of digits}
 \end{aligned}
 ```
 ## Approximate Multifactorial Digits
