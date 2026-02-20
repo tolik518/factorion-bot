@@ -50,7 +50,14 @@ fn init() {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let args = std::env::args().collect::<Vec<_>>();
+    if args.len() > 1 && (args[1] == "--version" || args[1] == "-v") {
+        println!("factorion-bot-discord v{}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     init();
+
     let consts = Consts {
         float_precision: std::env::var("FLOAT_PRECISION")
             .map(|s| s.parse().unwrap())

@@ -60,6 +60,12 @@ impl Default for SubredditMode {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let args = std::env::args().collect::<Vec<_>>();
+    if args.len() > 1 && (args[1] == "--version" || args[1] == "-v") {
+        println!("factorion-bot-reddit v{}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     init();
 
     let consts = Consts {
