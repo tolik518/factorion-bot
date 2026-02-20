@@ -112,7 +112,7 @@ jobs:
             cd $SSH_PATH && \
             git fetch origin --tags && \
             git checkout "refs/tags/$VERSION" && \
-            docker build -t factorion-bot:"$VERSION" . && \
+            docker build -t factorion-bot:"$VERSION" --build-arg VERSION="$VERSION" . && \
             docker stop factorion-bot || true && \
             sleep 3 && \
             docker rm factorion-bot || true && \
