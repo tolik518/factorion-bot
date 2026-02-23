@@ -1,6 +1,6 @@
 { "V2":
   {
-    "bot_disclaimer": "Questa azione è stata fatta da un bot.",
+    "bot_disclaimer": "Questa azione è stata fatta da un bot | [Source code](http://f.r0.fyi)",
     "notes": {
       "tower": "Quel numero è così grande che non posso neanche scrivere il numero di cifre, quindi devo fare una torre di potenze di dieci.",
       "tower_mult": "Alcuni di questi numeri sono così grandi che non posso neanche scrivere il numero di cifre, quindi devo fare una torre di potenze di dieci.",

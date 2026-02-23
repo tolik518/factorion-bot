@@ -730,7 +730,7 @@ mod tests {
         let reply = comment.get_reply(&consts);
         assert_eq!(
             reply,
-            "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n\n*^(This action was performed by a bot.)*"
+            "Sorry, I currently don't speak n/a. Maybe you could [teach me](https://github.com/tolik518/factorion-bot/blob/master/CONTRIBUTING.md#translation)? \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
         );
     }
 
@@ -744,7 +744,7 @@ mod tests {
         let reply = comment.get_reply(&consts);
         assert_eq!(
             reply,
-            "I have repeated myself enough, I won't do that calculation again.\n\n\n*^(This action was performed by a bot.)*"
+            "I have repeated myself enough, I won't do that calculation again.\n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
         );
     }
 }
