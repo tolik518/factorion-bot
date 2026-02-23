@@ -16,7 +16,7 @@ Locales contain a few different kinds of settings:
 { "V1":
   {
     // The little disclaimer at the end of a comment
-    "bot_disclaimer": "This action was performed by a bot.",
+    "bot_disclaimer": "This action was performed by a bot | [Source code](http://f.r0.fyi)",
     // The notes at the beginning of a comment
     "notes": {
       "tower": "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.",
