@@ -1,6 +1,6 @@
 { "V2":
   {
-    "bot_disclaimer": "This action was performed by a bot.",
+    "bot_disclaimer": "This action was performed by a bot. Source code is available on [Github](http://f.r0.fyi).",
     "notes": {
       "tower": "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.",
       "tower_mult": "Some of these are so large, that I can't even give the number of digits of them, so I have to make a power of ten tower.",
