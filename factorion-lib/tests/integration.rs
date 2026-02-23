@@ -1621,7 +1621,7 @@ fn test_german_locale() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "Subfakultät von 2 ist 1 \n\nDoppelfakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2,5 ist ungefähr 7,184006321612229702577147337803 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben.)*"
+        "Subfakultät von 2 ist 1 \n\nDoppelfakultät von 4 ist 8 \n\nFakultät von 5 ist 120 \n\nTermial von Fakultät von 2,5 ist ungefähr 7,184006321612229702577147337803 \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben | [Quelltext](http://f.r0.fyi))*"
     );
 }
 
