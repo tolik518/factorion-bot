@@ -228,10 +228,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut thread_calcs_changed = false;
 
         let start = SystemTime::now();
-        // force checking of "old" messages ca. every 15 minutes
-        if i == 0 {
-            last_ids = Default::default();
-        }
         let (comments, mut rate) = reddit_client
             .get_comments(
                 &mut already_replied_or_rejected,

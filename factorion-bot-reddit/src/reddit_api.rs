@@ -75,6 +75,12 @@ impl std::fmt::Display for RateLimitErr {
     }
 }
 impl std::error::Error for RateLimitErr {}
+#[derive(Debug, Clone, Default)]
+pub struct LastIds {
+    pub comments: (String, String),
+    pub posts: (String, String),
+    pub mentions: (String, String),
+}
 
 impl RedditClient {
     /// Creates a new client using the env variables APP_CLIENT_ID and APP_SECRET.
@@ -107,7 +113,7 @@ impl RedditClient {
         already_replied_to_comments: &mut Vec<DenseId>,
         check_mentions: bool,
         check_posts: bool,
-        last_ids: &mut (String, String, String),
+        last_ids: &mut LastIds,
     ) -> Result<(Vec<CommentConstructed<Meta>>, (f64, f64)), ()> {
         static SUBREDDIT_URL: LazyLock<Option<Url>> = LazyLock::new(|| {
             let mut subreddits = SUBREDDIT_COMMANDS
@@ -118,6 +124,7 @@ impl RedditClient {
                 .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             subreddits.sort();
+            info!("Setting comments to be checked in: {subreddits:?}");
             if !(subreddits.is_empty() || subreddits == [""]) {
                 Some(
                     Url::parse(&format!(
@@ -143,6 +150,7 @@ impl RedditClient {
                 .map(|(sub, _)| sub.to_string())
                 .collect::<Vec<_>>();
             post_subreddits.sort();
+            info!("Setting posts to be checked in: {post_subreddits:?}");
             if !(post_subreddits.is_empty() || post_subreddits == [""]) {
                 Some(
                     Url::parse(&format!(
@@ -201,7 +209,7 @@ impl RedditClient {
         let (subs_response, posts_response, mentions_response) = join!(
             OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
                 let request = self.client.get(subreddit_url);
-                let request = add_query(request, &last_ids.0);
+                let request = add_query(request, &last_ids.comments.0);
                 request.bearer_auth(&self.token.access_token).send()
             })),
             OptionFuture::from(
@@ -210,14 +218,14 @@ impl RedditClient {
                     .flatten()
                     .map(|subreddit_url| {
                         let request = self.client.get(subreddit_url);
-                        let request = add_query(request, &last_ids.1);
+                        let request = add_query(request, &last_ids.posts.0);
                         request.bearer_auth(&self.token.access_token).send()
                     })
             ),
             OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
                 |subreddit_url| {
                     let request = self.client.get(subreddit_url);
-                    let request = add_query(request, &last_ids.2);
+                    let request = add_query(request, &last_ids.mentions.0);
                     request.bearer_auth(&self.token.access_token).send()
                 }
             )),
@@ -257,9 +265,19 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
+                    if !a.is_empty()
+                        && last_ids.mentions.1 != ""
+                        && !a.iter().any(|x| x.meta.id == last_ids.mentions.1)
+                    {
+                        warn!(
+                            "Failed to keep up with mentions. last_id: {}",
+                            last_ids.mentions.1
+                        );
+                    }
+
                     if let Some(id) = id {
-                        last_ids.2 = id;
-                    };
+                        last_ids.mentions = id;
+                    }
                     (Some(a), Some(b))
                 } else {
                     (None, None)
@@ -278,9 +296,19 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
+                    if !a.is_empty()
+                        && last_ids.comments.1 != ""
+                        && !a.iter().any(|x| x.meta.id == last_ids.comments.1)
+                    {
+                        warn!(
+                            "Failed to keep up with comments. last_id: {}",
+                            last_ids.comments.1
+                        );
+                    }
+
                     if let Some(id) = id {
-                        last_ids.0 = id;
-                    };
+                        last_ids.comments = id;
+                    }
                     a
                 } else {
                     Vec::new()
@@ -299,9 +327,19 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
+                    if !posts.is_empty()
+                        && last_ids.posts.1 != ""
+                        && !posts.iter().any(|x| x.meta.id == last_ids.posts.1)
+                    {
+                        warn!(
+                            "Failed to keep up with posts. last_id: {}",
+                            last_ids.posts.1
+                        );
+                    }
+
                     if let Some(id) = id {
-                        last_ids.1 = id;
-                    };
+                        last_ids.posts = id;
+                    }
                     res.extend(posts);
                 }
                 if let Some(ids) = ids {
@@ -597,7 +635,7 @@ impl RedditClient {
             Vec<CommentConstructed<Meta>>,
             Vec<(String, (String, Commands, String))>,
             Option<(f64, f64)>,
-            Option<String>,
+            Option<(String, String)>,
         ),
         Box<dyn std::error::Error>,
     > {
@@ -735,9 +773,12 @@ impl RedditClient {
             comments.push(extracted_comment);
         }
         let id = if comments.is_empty() {
-            Some(String::new())
+            warn!("No comments. Requested comment (last_id or summon) is gone.");
+            Some((String::new(), String::new()))
         } else {
-            comments.get(1).map(|comment| comment.meta.id.clone())
+            comments
+                .get(1)
+                .map(|o| (o.meta.id.clone(), comments.get(0).unwrap().meta.id.clone()))
         };
 
         Ok((
@@ -1048,11 +1089,11 @@ mod tests {
         );
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
-        let mut last_ids = (
-            "t1_m86nsre".to_owned(),
-            "t3_83us27sa".to_owned(),
-            "".to_owned(),
-        );
+        let mut last_ids = LastIds {
+            comments: ("t1_m86nsre".to_owned(), "".to_owned()),
+            posts: ("t3_83us27sa".to_owned(), "".to_owned()),
+            mentions: ("".to_owned(), "".to_owned()),
+        };
         let (status, comments) = join!(
             async {
                 dummy_server(&[(
@@ -1284,7 +1325,10 @@ mod tests {
         );
         println!("{comments:?}");
         assert_eq!(t, Some((350.0, 10.0)));
-        assert_eq!(id.unwrap(), "t3_m38msug");
+        assert_eq!(
+            id.unwrap(),
+            ("t3_m38msug".to_owned(), "t3_m38msum".to_owned())
+        );
     }
 
     #[test]
