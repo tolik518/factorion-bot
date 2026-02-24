@@ -707,6 +707,20 @@ fn test_command_termial() {
 }
 
 #[test]
+fn test_command_nest() {
+    let consts = Consts::default();
+    let comment = Comment::new("9!!!!?? !nest", (), Commands::TERMIAL, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "That is so large, that I can't even give the number of digits of it, so I have to make a power of ten tower.\n\nTermial of termial of factorial of factorial of factorial of factorial of 9 has on the order of 10^(2.993960567614282167996111938338 × 10^1859939) digits \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    )
+}
+
+#[test]
 fn test_command_no_note() {
     let consts = Consts::default();
     let comment = Comment::new(
