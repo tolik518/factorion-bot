@@ -573,25 +573,23 @@ impl<Meta> CommentCalculated<Meta> {
                     // remove last factorial (probably the biggest)
                     factorial_list.pop();
                     if factorial_list.is_empty() {
-                        if self.calculation_list.len() == 1 {
-                            let note = locale.notes().tetration().clone().into_owned() + "\n\n";
-                            reply =
-                                self.calculation_list
-                                    .iter()
-                                    .fold(note, |mut acc, factorial| {
-                                        let _ = factorial.format(
-                                            &mut acc,
-                                            true,
-                                            true,
-                                            too_big_number,
-                                            consts,
-                                            &locale.format(),
-                                        );
-                                        acc
-                                    });
-                            if reply.len() <= self.max_length {
-                                break 'drop_last;
-                            }
+                        let note = locale.notes().tetration().clone().into_owned() + "\n\n";
+                        reply = self
+                            .calculation_list
+                            .iter()
+                            .fold(note, |mut acc, factorial| {
+                                let _ = factorial.format(
+                                    &mut acc,
+                                    true,
+                                    true,
+                                    too_big_number,
+                                    consts,
+                                    &locale.format(),
+                                );
+                                acc
+                            });
+                        if reply.len() <= self.max_length {
+                            break 'drop_last;
                         }
                         reply = locale.notes().no_post().to_string();
                         break 'drop_last;
