@@ -25,7 +25,7 @@ pub mod recommended {
     pub static UPPER_APPROXIMATION_LIMIT: fn() -> Integer =
         || Integer::u64_pow_u64(10, 300).complete();
     // Limit for exact subfactorial calculation, set to limit calculation time
-    pub static UPPER_SUBFACTORIAL_LIMIT: fn() -> Integer = || 1_000_000.into();
+    pub static UPPER_SUBFACTORIAL_LIMIT: fn() -> Integer = || 100_000.into();
     // Limit for exact termial calculation, set to limit calculation time (absurdly high)
     pub static UPPER_TERMIAL_LIMIT: fn() -> Integer = || Integer::u64_pow_u64(10, 10000).complete();
     // Limit for approximation, set to ensure enough accuracy (5 decimals)
