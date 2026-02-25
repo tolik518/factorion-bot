@@ -342,7 +342,9 @@ impl RedditClient {
                     }
                     res.extend(posts);
                 }
-                if let Some(ids) = ids {
+                if let Some(ids) = ids
+                    && !ids.is_empty()
+                {
                     'get_summons: loop {
                         let response = self
                             .client
