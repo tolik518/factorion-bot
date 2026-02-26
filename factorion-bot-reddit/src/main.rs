@@ -277,7 +277,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
             let Ok(mut dense_id) = u64::from_str_radix(&comment.meta.thread, 36) else {
-                warn!("Failed to make id dense {}", comment.meta.thread);
+                if comment.meta.thread == "" {
+                    info!("Empty thread id on comment {}", comment.meta.id);
+                } else {
+                    warn!("Failed to make id dense {}", comment.meta.thread);
+                }
                 continue;
             };
             dense_id |= 3 << 61;
@@ -413,7 +417,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 if let Some(t) = t {
                                     rate = t;
                                 } else {
-                                    warn!("Missing ratelimit");
+                                    info!("Missing ratelimit");
                                 }
                                 factorion_lib::influxdb::reddit::log_comment_reply(
                                     influx_client,

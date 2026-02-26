@@ -77,9 +77,9 @@ impl std::fmt::Display for RateLimitErr {
 impl std::error::Error for RateLimitErr {}
 #[derive(Debug, Clone, Default)]
 pub struct LastIds {
-    pub comments: (String, String),
-    pub posts: (String, String),
-    pub mentions: (String, String),
+    pub comments: String,
+    pub posts: String,
+    pub mentions: String,
 }
 
 impl RedditClient {
@@ -209,7 +209,7 @@ impl RedditClient {
         let (subs_response, posts_response, mentions_response) = join!(
             OptionFuture::from(SUBREDDIT_URL.clone().map(|subreddit_url| {
                 let request = self.client.get(subreddit_url);
-                let request = add_query(request, &last_ids.comments.0);
+                let request = add_query(request, &last_ids.comments);
                 request.bearer_auth(&self.token.access_token).send()
             })),
             OptionFuture::from(
@@ -218,14 +218,14 @@ impl RedditClient {
                     .flatten()
                     .map(|subreddit_url| {
                         let request = self.client.get(subreddit_url);
-                        let request = add_query(request, &last_ids.posts.0);
+                        let request = add_query(request, &last_ids.posts);
                         request.bearer_auth(&self.token.access_token).send()
                     })
             ),
             OptionFuture::from(check_mentions.then_some(MENTION_URL.clone()).map(
                 |subreddit_url| {
                     let request = self.client.get(subreddit_url);
-                    let request = add_query(request, &last_ids.mentions.0);
+                    let request = add_query(request, &last_ids.mentions);
                     request.bearer_auth(&self.token.access_token).send()
                 }
             )),
@@ -265,14 +265,11 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                    if !a.is_empty()
-                        && last_ids.mentions.1 != ""
-                        && !a.iter().any(|x| x.meta.id == last_ids.mentions.1)
+                    if last_ids.mentions != ""
+                        && a.len()
+                            == *COMMENT_COUNT.get().expect("Comment count uninitialized") as usize
                     {
-                        warn!(
-                            "Failed to keep up with mentions. last_id: {}",
-                            last_ids.mentions.1
-                        );
+                        warn!("Got a full response, meaning capacity is reached!");
                     }
 
                     if let Some(id) = id {
@@ -296,14 +293,11 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                    if !a.is_empty()
-                        && last_ids.comments.1 != ""
-                        && !a.iter().any(|x| x.meta.id == last_ids.comments.1)
+                    if last_ids.comments != ""
+                        && a.len()
+                            == *COMMENT_COUNT.get().expect("Comment count uninitialized") as usize
                     {
-                        warn!(
-                            "Failed to keep up with comments. last_id: {}",
-                            last_ids.comments.1
-                        );
+                        warn!("Got a full response, meaning capacity is reached!");
                     }
 
                     if let Some(id) = id {
@@ -327,14 +321,11 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                    if !posts.is_empty()
-                        && last_ids.posts.1 != ""
-                        && !posts.iter().any(|x| x.meta.id == last_ids.posts.1)
+                    if last_ids.posts != ""
+                        && posts.len()
+                            == *COMMENT_COUNT.get().expect("Comment count uninitialized") as usize
                     {
-                        warn!(
-                            "Failed to keep up with posts. last_id: {}",
-                            last_ids.posts.1
-                        );
+                        warn!("Got a full response, meaning capacity is reached!");
                     }
 
                     if let Some(id) = id {
@@ -603,17 +594,28 @@ impl RedditClient {
 
     fn check_response_status(response: &Response) -> Result<(), ()> {
         if !response.status().is_success() {
-            if response.status().as_u16() == 500 {
-                error!(
+            match response.status().as_u16() {
+                500 => error!(
                     "Failed to get comments. Statuscode: {:?}. Internal server error.",
                     response.status()
-                );
-            } else {
-                error!(
+                ),
+                502 => error!(
+                    "Failed to get comments. Statuscode: {:?}. Bad Gateway.",
+                    response.status()
+                ),
+                503 => error!(
+                    "Failed to get comments. Statuscode: {:?}. Service unavailable.",
+                    response.status()
+                ),
+                504 => error!(
+                    "Failed to get comments. Statuscode: {:?}. Gateway Timeout.",
+                    response.status()
+                ),
+                _ => error!(
                     "Failed to get comments. Statuscode: {:?}. Response: {:?}",
                     response.status(),
                     response
-                );
+                ),
             }
             return Err(());
         }
@@ -637,7 +639,7 @@ impl RedditClient {
             Vec<CommentConstructed<Meta>>,
             Vec<(String, (String, Commands, String))>,
             Option<(f64, f64)>,
-            Option<(String, String)>,
+            Option<String>,
         ),
         Box<dyn std::error::Error>,
     > {
@@ -775,12 +777,10 @@ impl RedditClient {
             comments.push(extracted_comment);
         }
         let id = if comments.is_empty() {
-            warn!("No comments. Requested comment (last_id or summon) is gone.");
-            Some((String::new(), String::new()))
+            info!("No comments. Requested comment (last_id or summon) is gone.");
+            Some(String::new())
         } else {
-            comments
-                .get(1)
-                .map(|o| (o.meta.id.clone(), comments.get(0).unwrap().meta.id.clone()))
+            comments.get(1).map(|o| o.meta.id.clone())
         };
 
         Ok((
@@ -1092,9 +1092,9 @@ mod tests {
         let _ = COMMENT_COUNT.set(100);
         let mut already_replied = vec![];
         let mut last_ids = LastIds {
-            comments: ("t1_m86nsre".to_owned(), "".to_owned()),
-            posts: ("t3_83us27sa".to_owned(), "".to_owned()),
-            mentions: ("".to_owned(), "".to_owned()),
+            comments: "t1_m86nsre".to_owned(),
+            posts: "t3_83us27sa".to_owned(),
+            mentions: "".to_owned(),
         };
         let (status, comments) = join!(
             async {
@@ -1327,10 +1327,7 @@ mod tests {
         );
         println!("{comments:?}");
         assert_eq!(t, Some((350.0, 10.0)));
-        assert_eq!(
-            id.unwrap(),
-            ("t3_m38msug".to_owned(), "t3_m38msum".to_owned())
-        );
+        assert_eq!(id.unwrap(), "t3_m38msug".to_owned());
     }
 
     #[test]
