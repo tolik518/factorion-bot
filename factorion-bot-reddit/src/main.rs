@@ -7,7 +7,7 @@ use factorion_lib::{
     locale::Locale,
     rug::{Complete, Integer, integer::IntegerExt64},
 };
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use reddit_api::RedditClient;
 use reddit_api::id::DenseId;
 use serde::{Deserialize, Serialize};
@@ -224,7 +224,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Polling Reddit for new comments
     for i in (0..u8::MAX).cycle() {
-        info!("Polling Reddit for new comments...");
+        debug!("Polling Reddit for new comments...");
         let mut thread_calcs_changed = false;
 
         let start = SystemTime::now();
