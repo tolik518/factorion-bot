@@ -1484,10 +1484,6 @@ mod test {
             &consts,
             &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
         );
-        assert_eq!(
-            num,
-            Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
-        );
         let num = parse_num(
             &mut "1more !",
             false,

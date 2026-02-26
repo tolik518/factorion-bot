@@ -499,9 +499,11 @@ impl Calculation {
 /// If the input is all 9s, this will round to 10. \
 /// Stops when a decimal period is encountered, removing it.
 ///
+/// Returns whether it overflowed.
+///
 /// # Panic
 /// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10, that is not a period.
-fn round(number: &mut String) {
+fn round(number: &mut String) -> bool {
     // Check additional digit if we need to round
     if let Some(digit) = number
         .pop()
@@ -517,7 +519,7 @@ fn round(number: &mut String) {
             let Some(digit) = number.pop() else {
                 // If we reached the end we get 10
                 number.push_str("10");
-                return;
+                return true;
             };
             // Stop at decimal
             if digit == '.' {
@@ -529,6 +531,7 @@ fn round(number: &mut String) {
         // Round up
         let _ = write!(number, "{}", last_digit + 1);
     }
+    false
 }
 fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
     let prec = consts.float_precision;
@@ -582,17 +585,21 @@ fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::
     let mut number = number.clone();
     let negative = number.is_sign_negative();
     number = number.abs();
+    if number == 0 {
+        return acc.write_char('0');
+    }
     let exponent = number
         .clone()
         .log10()
-        .max(&Float::new(consts.float_precision))
         .to_integer_round(factorion_math::rug::float::Round::Down)
         .expect("Could not round exponent")
         .0;
-    if exponent > consts.number_decimals_scientific {
+    if exponent > consts.number_decimals_scientific
+        || exponent < -(consts.number_decimals_scientific as isize)
+    {
         number = number / Float::with_val(consts.float_precision, &exponent).exp10();
     }
-    let whole_number = number
+    let mut whole_number = number
         .to_integer_round(factorion_math::rug::float::Round::Down)
         .expect("Could not get integer part")
         .0;
@@ -603,7 +610,10 @@ fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::
     decimal_part.remove(0);
     decimal_part.truncate(consts.number_decimals_scientific + 1);
     if decimal_part.len() > consts.number_decimals_scientific {
-        round(&mut decimal_part);
+        if round(&mut decimal_part) {
+            decimal_part.clear();
+            whole_number += 1;
+        }
     }
     if let Some(mut digit) = decimal_part.pop() {
         while digit == '0' {
@@ -622,7 +632,9 @@ fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::
         acc.write_str(".")?;
         acc.write_str(&decimal_part)?;
     }
-    if exponent > consts.number_decimals_scientific {
+    if exponent > consts.number_decimals_scientific
+        || exponent < -(consts.number_decimals_scientific as isize)
+    {
         write!(acc, " × 10^{exponent}")?;
     }
     Ok(())
@@ -1502,5 +1514,59 @@ mod test {
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^(1037)");
+    }
+    #[test]
+    fn test_format_float() {
+        let mut consts = Consts::default();
+        let mut acc = String::new();
+        format_float(
+            &mut acc,
+            &Float::with_val(
+                FLOAT_PRECISION,
+                Float::parse("0.999999999999999999999999999999999").unwrap(),
+            ),
+            &consts,
+        )
+        .unwrap();
+        assert_eq!(acc, "1");
+        let mut acc = String::new();
+        format_float(
+            &mut acc,
+            &Float::with_val(
+                FLOAT_PRECISION,
+                Float::parse("0.000000000000000000000000000000009").unwrap(),
+            ),
+            &consts,
+        )
+        .unwrap();
+        assert_eq!(acc, "9 × 10^-33");
+        consts.number_decimals_scientific = 2;
+        acc.clear();
+        format_float(
+            &mut acc,
+            &Float::with_val(FLOAT_PRECISION, Float::parse("0.10").unwrap()),
+            &consts,
+        )
+        .unwrap();
+        assert_eq!(acc, "0.1");
+
+        let consts = Consts::default();
+        acc.clear();
+        format_float(
+            &mut acc,
+            &Float::with_val(FLOAT_PRECISION, Float::parse("6.631537423e-34").unwrap()),
+            &consts,
+        )
+        .unwrap();
+        assert_eq!(acc, "6.631537423 × 10^-34");
+        let consts = Consts::default();
+        acc.clear();
+        format_float(
+            &mut acc,
+            &Float::with_val(FLOAT_PRECISION, Float::parse("6.631537423e34").unwrap()),
+            &consts,
+        )
+        .unwrap();
+        assert_eq!(acc, "6.631537423 × 10^34");
     }
 }
