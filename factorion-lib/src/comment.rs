@@ -8,7 +8,7 @@ use crate::rug::{Complete, Integer};
 
 use crate::Consts;
 use crate::calculation_results::Calculation;
-use crate::calculation_tasks::CalculationJob;
+use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use crate::parse::parse;
 
 use std::fmt::Write;
@@ -143,6 +143,9 @@ pub struct Commands {
     /// Return all the intermediate results for nested calculations.
     #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub steps: bool,
+    /// Interpret multi-ops as nested ops.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
+    pub nested: bool,
     /// Parse and calculate termials.
     #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub termial: bool,
@@ -153,6 +156,7 @@ pub struct Commands {
 impl_all_bitwise!(Commands {
     shorten,
     steps,
+    nested,
     termial,
     no_note,
 });
@@ -161,6 +165,7 @@ impl Commands {
     pub const NONE: Self = Self {
         shorten: false,
         steps: false,
+        nested: false,
         termial: false,
         no_note: false,
     };
@@ -170,6 +175,10 @@ impl Commands {
     };
     pub const STEPS: Self = Self {
         steps: true,
+        ..Self::NONE
+    };
+    pub const NESTED: Self = Self {
+        nested: true,
         ..Self::NONE
     };
     pub const TERMIAL: Self = Self {
@@ -196,6 +205,8 @@ impl Commands {
                 || Self::contains_command_format(text, "shorten"),
             steps: Self::contains_command_format(text, "steps")
                 || Self::contains_command_format(text, "all"),
+            nested: Self::contains_command_format(text, "nest")
+                || Self::contains_command_format(text, "nested"),
             termial: Self::contains_command_format(text, "termial")
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
@@ -206,9 +217,11 @@ impl Commands {
         Self {
             shorten: !Self::contains_command_format(text, "long"),
             steps: !(Self::contains_command_format(text, "no steps")
-                | Self::contains_command_format(text, "no_steps")),
+                || Self::contains_command_format(text, "no_steps")),
+            nested: !(Self::contains_command_format(text, "no_nest")
+                || Self::contains_command_format(text, "multi")),
             termial: !(Self::contains_command_format(text, "no termial")
-                | Self::contains_command_format(text, "no_termial")),
+                || Self::contains_command_format(text, "no_termial")),
             no_note: !Self::contains_command_format(text, "note"),
         }
     }
@@ -286,16 +299,56 @@ impl<Meta> CommentConstructed<Meta> {
         contains_comb!(
             text,
             [
-                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ")", "e", "pi", "phi", "tau",
-                "π", "ɸ", "τ"
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                ")",
+                "e",
+                "pi",
+                "phi",
+                "tau",
+                "π",
+                "ɸ",
+                "τ",
+                "infinity",
+                "inf",
+                "∞\u{303}",
+                "∞"
             ],
             ["!", "?"]
         ) || contains_comb!(
             text,
             ["!"],
             [
-                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "(", "e", "pi", "phi", "tau",
-                "π", "ɸ", "τ"
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "(",
+                "e",
+                "pi",
+                "phi",
+                "tau",
+                "π",
+                "ɸ",
+                "τ",
+                "infinity",
+                "inf",
+                "∞\u{303}",
+                "∞"
             ]
         )
     }
@@ -311,7 +364,7 @@ impl<Meta> CommentConstructed<Meta> {
             max_length,
             locale,
         } = self;
-        let pending_list: Vec<CalculationJob> = parse(
+        let mut pending_list: Vec<CalculationJob> = parse(
             &comment_text,
             commands.termial,
             consts,
@@ -322,6 +375,12 @@ impl<Meta> CommentConstructed<Meta> {
                 .format()
                 .number_format(),
         );
+
+        if commands.nested {
+            for calc in &mut pending_list {
+                Self::multi_to_nested(calc);
+            }
+        }
 
         if pending_list.is_empty() {
             status.no_factorial = true;
@@ -335,6 +394,32 @@ impl<Meta> CommentConstructed<Meta> {
             commands,
             max_length,
             locale,
+        }
+    }
+
+    fn multi_to_nested(mut calc: &mut CalculationJob) {
+        loop {
+            let level = calc.level.clamp(-1, 1);
+            let depth = calc.level.abs();
+            calc.level = level;
+            for _ in 1..depth {
+                let base = std::mem::replace(
+                    &mut calc.base,
+                    CalculationBase::Num(
+                        crate::calculation_results::CalculationResult::ComplexInfinity,
+                    ),
+                );
+                let new_base = CalculationBase::Calc(Box::new(CalculationJob {
+                    base,
+                    level,
+                    negative: 0,
+                }));
+                let _ = std::mem::replace(&mut calc.base, new_base);
+            }
+            let CalculationBase::Calc(next) = &mut calc.base else {
+                return;
+            };
+            calc = next;
         }
     }
 
@@ -677,36 +762,41 @@ mod tests {
 
     #[test]
     fn test_commands_from_comment_text() {
-        let cmd1 = Commands::from_comment_text("!shorten!all !triangle !no_note");
+        let cmd1 = Commands::from_comment_text("!shorten!all !triangle !no_note !nested");
         assert!(cmd1.shorten);
         assert!(cmd1.steps);
         assert!(cmd1.termial);
         assert!(cmd1.no_note);
-        let cmd2 = Commands::from_comment_text("[shorten][all] [triangle] [no_note]");
+        assert!(cmd1.nested);
+        let cmd2 = Commands::from_comment_text("[shorten][all] [triangle] [no_note] [nest]");
         assert!(cmd2.shorten);
         assert!(cmd2.steps);
         assert!(cmd2.termial);
         assert!(cmd2.no_note);
-        let comment = r"\[shorten\]\[all\] \[triangle\] \[no_note\]";
+        assert!(cmd2.nested);
+        let comment = r"\[shorten\]\[all\] \[triangle\] \[no_note\] \[nest\]";
         let cmd3 = Commands::from_comment_text(comment);
         assert!(cmd3.shorten);
         assert!(cmd3.steps);
         assert!(cmd3.termial);
         assert!(cmd3.no_note);
-        let cmd4 = Commands::from_comment_text("shorten all triangle no_note");
+        assert!(cmd3.nested);
+        let cmd4 = Commands::from_comment_text("shorten all triangle no_note nest");
         assert!(!cmd4.shorten);
         assert!(!cmd4.steps);
         assert!(!cmd4.termial);
         assert!(!cmd4.no_note);
+        assert!(!cmd4.nested);
     }
 
     #[test]
     fn test_commands_overrides_from_comment_text() {
-        let cmd1 = Commands::overrides_from_comment_text("long no_steps no_termial note");
+        let cmd1 = Commands::overrides_from_comment_text("long no_steps no_termial note multi");
         assert!(cmd1.shorten);
         assert!(cmd1.steps);
         assert!(cmd1.termial);
         assert!(cmd1.no_note);
+        assert!(cmd1.nested);
     }
 
     #[test]
