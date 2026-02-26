@@ -293,20 +293,26 @@ impl Calculation {
         locale: &locale::Format<'_>,
     ) -> Result<(), std::fmt::Error> {
         let frame_start = acc.len();
-        acc.write_str(match (&self.value, &self.result, agressive_shorten) {
-            // All that
-            (_, _, true) => locale.all_that(),
-            // on the order
-            (_, CalculationResult::ApproximateDigitsTower(_, _, _, _), _) => locale.order(),
-            // digits
-            (_, CalculationResult::ApproximateDigits(_, _), _) => locale.digits(),
-            // approximately
-            (Number::Float(_), _, _) | (_, CalculationResult::Approximate(_, _), _) => {
-                locale.approx()
-            }
-            // is
-            _ => locale.exact(),
-        })?;
+        acc.write_str(
+            match (
+                &self.value,
+                &self.result,
+                agressive_shorten && self.steps.len() > 1,
+            ) {
+                // All that
+                (_, _, true) => locale.all_that(),
+                // on the order
+                (_, CalculationResult::ApproximateDigitsTower(_, _, _, _), _) => locale.order(),
+                // digits
+                (_, CalculationResult::ApproximateDigits(_, _), _) => locale.digits(),
+                // approximately
+                (Number::Float(_), _, _) | (_, CalculationResult::Approximate(_, _), _) => {
+                    locale.approx()
+                }
+                // is
+                _ => locale.exact(),
+            },
+        )?;
         acc.write_str(" \n\n")?;
 
         let mut number = String::new();
@@ -1172,7 +1178,7 @@ mod test {
         let consts = Consts::default();
         let fact = Calculation {
             value: 0.into(),
-            steps: vec![(1, false)],
+            steps: vec![(1, false), (1, false)],
             result: CalculationResult::ApproximateDigitsTower(false, false, 9.into(), 10375.into()),
         };
         let mut s = String::new();

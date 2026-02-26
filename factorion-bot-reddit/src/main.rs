@@ -7,7 +7,7 @@ use factorion_lib::{
     locale::Locale,
     rug::{Complete, Integer, integer::IntegerExt64},
 };
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use reddit_api::RedditClient;
 use reddit_api::id::DenseId;
 use serde::{Deserialize, Serialize};
@@ -224,14 +224,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Polling Reddit for new comments
     for i in (0..u8::MAX).cycle() {
-        info!("Polling Reddit for new comments...");
+        debug!("Polling Reddit for new comments...");
         let mut thread_calcs_changed = false;
 
         let start = SystemTime::now();
-        // force checking of "old" messages ca. every 15 minutes
-        if i == 0 {
-            last_ids = Default::default();
-        }
         let (comments, mut rate) = reddit_client
             .get_comments(
                 &mut already_replied_or_rejected,
@@ -281,7 +277,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
             let Ok(mut dense_id) = u64::from_str_radix(&comment.meta.thread, 36) else {
-                warn!("Failed to make id dense {}", comment.meta.thread);
+                if comment.meta.thread == "" {
+                    info!("Empty thread id on comment {}", comment.meta.id);
+                } else {
+                    warn!("Failed to make id dense {}", comment.meta.thread);
+                }
                 continue;
             };
             dense_id |= 3 << 61;
@@ -417,7 +417,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 if let Some(t) = t {
                                     rate = t;
                                 } else {
-                                    warn!("Missing ratelimit");
+                                    info!("Missing ratelimit");
                                 }
                                 factorion_lib::influxdb::reddit::log_comment_reply(
                                     influx_client,
