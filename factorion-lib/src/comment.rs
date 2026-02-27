@@ -629,11 +629,15 @@ impl<Meta> CommentCalculated<Meta> {
                 });
         }
 
+        let note = if !self.commands.no_note {
+            locale.notes().tetration().clone().into_owned() + "\n\n"
+        } else {
+            String::new()
+        };
         // If the reply was too long try agressive shortening all factorials
         if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
             && !self.commands.steps
         {
-            let note = locale.notes().tetration().clone().into_owned() + "\n\n";
             reply = self
                 .calculation_list
                 .iter()
@@ -650,9 +654,13 @@ impl<Meta> CommentCalculated<Meta> {
                 });
         }
 
+        let note = if !self.commands.no_note {
+            locale.notes().remove().clone().into_owned() + "\n\n"
+        } else {
+            String::new()
+        };
         // Remove factorials until we can fit them in a comment
         if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length {
-            let note = locale.notes().remove().clone().into_owned() + "\n\n";
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()

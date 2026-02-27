@@ -399,7 +399,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-discord"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -414,7 +414,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-reddit"
-version = "5.4.0"
+version = "5.4.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-lib"
-version = "4.3.0"
+version = "4.3.1"
 dependencies = [
  "arbtest",
  "chrono",
