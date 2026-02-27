@@ -10,7 +10,7 @@ keywords = ["factorial", "termial", "math"]
 categories = ["mathematics"]
 
 [dependencies]
-rug = { version = "1.27.0", features = ["integer", "float"], default-features = false }
+rug = { version = "1.28.0", features = ["integer", "float"], default-features = false }
 gmp-mpfr-sys = "=1.6.4"
 
 [features]
