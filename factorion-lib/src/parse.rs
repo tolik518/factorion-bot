@@ -1,6 +1,6 @@
 //! Parses text and extracts calculations
 
-use crate::locale::{self, NumFormat};
+use crate::locale::NumFormat;
 use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::Consts;
@@ -566,7 +566,7 @@ fn parse_num(
         let orig_text = &text[..];
         *text = &text[2..];
         let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
             .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
@@ -684,21 +684,21 @@ fn parse_num_simple(
     text: &mut &str,
     had_op: bool,
     consts: &Consts<'_>,
-    locale: &NumFormat<'_>,
+    locale: &NumFormat,
     prec: u32,
 ) -> Option<crate::calculation_results::CalculationResult> {
     let integer_part = {
         let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
             .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
         part
     };
-    let decimal_part = if text.starts_with(*locale.decimal()) {
+    let decimal_part = if text.starts_with(locale.decimal) {
         *text = &text[1..];
         let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
             .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
@@ -718,7 +718,7 @@ fn parse_num_simple(
             false
         };
         let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
             .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
@@ -784,7 +784,7 @@ fn parse_num_simple(
     let fraction_part = if !had_op && text.starts_with(['/']) {
         *text = &text[1..];
         let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
+            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
             .unwrap_or(text.len());
         let part = &text[..end];
         *text = &text[end..];
@@ -872,7 +872,7 @@ mod test {
             "just some words of encouragement!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -883,7 +883,7 @@ mod test {
             "a factorial 15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -901,7 +901,7 @@ mod test {
             "a factorial 15!!! actually a multi",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -919,7 +919,7 @@ mod test {
             "a factorial !15 actually a sub",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -937,19 +937,14 @@ mod test {
             "not well defined !!!15",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_termial() {
         let consts = Consts::default();
-        let jobs = parse(
-            "a termial 15?",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("a termial 15?", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -966,7 +961,7 @@ mod test {
             "not enabled 15?",
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -977,7 +972,7 @@ mod test {
             "a termial 15??? actually a multi",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -995,7 +990,7 @@ mod test {
             "a termial ?15 actually a sub",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1006,7 +1001,7 @@ mod test {
             "a factorialchain (15!)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1028,7 +1023,7 @@ mod test {
             "a factorialchain !(15!)",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1050,7 +1045,7 @@ mod test {
             "a factorialchain -15!?",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1072,7 +1067,7 @@ mod test {
             "a factorial ---15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1090,7 +1085,7 @@ mod test {
             "a factorial --- 15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1108,7 +1103,7 @@ mod test {
             "a factorial (15)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1126,7 +1121,7 @@ mod test {
             "a factorial (15!)",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1144,7 +1139,7 @@ mod test {
             "a factorial 1.5!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1162,7 +1157,7 @@ mod test {
             "a factorial (-1.5)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1180,7 +1175,7 @@ mod test {
             "a factorial -(--(-(-(-3))!))!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1202,7 +1197,7 @@ mod test {
             ">!5 a factorial 15! !<",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1213,7 +1208,7 @@ mod test {
             ">!5 a factorial 15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1238,7 +1233,7 @@ mod test {
             "\\>!5 a factorial 15! !<",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1263,7 +1258,7 @@ mod test {
             ">!5 a factorial 15! \\!<",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1289,7 +1284,7 @@ mod test {
             "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1297,12 +1292,7 @@ mod test {
     #[test]
     fn test_uri_poi_doesnt_cause_infinite_loop() {
         let consts = Consts::default();
-        let jobs = parse(
-            "84!:",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("84!:", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1319,7 +1309,7 @@ mod test {
             "\\://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1338,7 +1328,7 @@ mod test {
             "(x-2)! (2 word)! ((x/k)-3)! (,x-4)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1346,12 +1336,7 @@ mod test {
     #[test]
     fn test_multi_number_paren() {
         let consts = Consts::default();
-        let jobs = parse(
-            "(5-2)!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("(5-2)!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(jobs, []);
     }
     #[test]
@@ -1359,12 +1344,7 @@ mod test {
         let consts = Consts::default();
         arbtest(|u| {
             let text: &str = u.arbitrary()?;
-            let _ = parse(
-                text,
-                u.arbitrary()?,
-                &consts,
-                &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-            );
+            let _ = parse(text, u.arbitrary()?, &consts, &NumFormat { decimal: '.' });
             Ok(())
         });
     }
@@ -1372,18 +1352,13 @@ mod test {
     #[test]
     fn test_constant() {
         let consts = Consts::default();
-        let jobs = parse(
-            "!espi!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("!espi!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(jobs, []);
         let jobs = parse(
             "some. pi!",
             true,
             &consts,
-            &consts.locales.get("en").unwrap().format().number_format(),
+            &consts.locales.get("en").unwrap().format.number_format,
         );
         assert_eq!(
             jobs,
@@ -1401,12 +1376,7 @@ mod test {
     #[test]
     fn test_fraction() {
         let consts = Consts::default();
-        let jobs = parse(
-            "!5/6!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("!5/6!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [
@@ -1422,12 +1392,7 @@ mod test {
                 }
             ]
         );
-        let jobs = parse(
-            "5/6!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("5/6!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1436,12 +1401,7 @@ mod test {
                 negative: 0
             }]
         );
-        let jobs = parse(
-            "(10/2)!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("(10/2)!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1460,7 +1420,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1471,7 +1431,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: ',' }),
+            &NumFormat { decimal: ',' },
         );
         assert_eq!(
             num,
@@ -1482,14 +1442,18 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
+        );
+        assert_eq!(
+            num,
+            Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
         let num = parse_num(
             &mut "1more !",
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1.into()));
         let num = parse_num(
@@ -1497,7 +1461,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1505,7 +1469,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1513,7 +1477,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1521,7 +1485,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: ',' }),
+            &NumFormat { decimal: ',' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1529,7 +1493,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1.into()));
         let num = parse_num(
@@ -1537,7 +1501,7 @@ mod test {
             true,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1.into()));
         let num = parse_num(
@@ -1545,7 +1509,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(150.into()));
         let num = parse_num(
@@ -1553,7 +1517,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(150.into()));
         let num = parse_num(
@@ -1561,7 +1525,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(100.into()));
         let num = parse_num(
@@ -1569,7 +1533,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(100.into()));
         let num = parse_num(
@@ -1577,7 +1541,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
@@ -1588,7 +1552,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1599,7 +1563,7 @@ mod test {
             true,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1607,7 +1571,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1615,7 +1579,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(E(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1623,7 +1587,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1631,7 +1595,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1639,7 +1603,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PHI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1647,7 +1611,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PHI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1655,7 +1619,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1663,7 +1627,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1671,7 +1635,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::ComplexInfinity));
         let num = parse_num(
@@ -1679,7 +1643,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::ComplexInfinity));
         let num = parse_num(
@@ -1687,7 +1651,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1698,7 +1662,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(5.into())));
         let num = parse_num(
@@ -1706,7 +1670,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1717,7 +1681,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1731,7 +1695,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(10.into())));
         let num = parse_num(
@@ -1739,7 +1703,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(2.into())));
         let num = parse_num(
@@ -1747,7 +1711,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1755,7 +1719,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1763,7 +1727,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1771,7 +1735,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1779,7 +1743,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1795,7 +1759,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1811,7 +1775,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1819,7 +1783,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1835,7 +1799,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1851,7 +1815,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1859,7 +1823,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::ApproximateDigits(false, 5.into())));
         let num = parse_num(
@@ -1867,7 +1831,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(10.into())));
     }
@@ -1881,7 +1845,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(5!)");
@@ -1891,7 +1855,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(10 10");
@@ -1901,7 +1865,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(10)1");
@@ -1911,7 +1875,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(10^10^\\(5\\)");
@@ -1921,7 +1885,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^10^\\(5\\)!");
@@ -1931,16 +1895,10 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^30!");
-    }
-
-    #[test]
-    fn test_parse_num_absorb() {
-        // Note that we want one extra character when we get None, as in such a situation a char will always be skipped
-        let consts = Consts::default();
     }
 
     #[allow(clippy::uninlined_format_args)]
@@ -1952,7 +1910,7 @@ mod test {
             true,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(
@@ -1960,7 +1918,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert!(num.is_some());
     }
