@@ -598,6 +598,10 @@ impl<Meta> CommentCalculated<Meta> {
                     let _ = note.write_str(locale.notes().too_big());
                     let _ = note.write_str("\n\n");
                 }
+            } else if self.commands.write_out && self.locale != "en" {
+                let _ =
+                    note.write_str("I can only write out numbers in english, so I will do that.");
+                let _ = note.write_str("\n\n");
             }
         }
 
@@ -867,6 +871,19 @@ mod tests {
         assert_eq!(
             reply,
             "I have repeated myself enough, I won't do that calculation again.\n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+        );
+    }
+
+    #[test]
+    fn test_write_out_unsupported_note() {
+        let consts = Consts::default();
+        let comment = Comment::new("1!", (), Commands::WRITE_OUT, MAX_LENGTH, "de")
+            .extract(&consts)
+            .calc(&consts);
+        let reply = comment.get_reply(&consts);
+        assert_eq!(
+            reply,
+            "I can only write out numbers in english, so I will do that.\n\nFakultät von one ist one \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben | [Quelltext](http://f.r0.fyi))*"
         );
     }
 }
