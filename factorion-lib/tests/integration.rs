@@ -1043,7 +1043,7 @@ fn test_get_reply_for_high_multifactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 10.into(),
-            steps: vec![(12345, false)],
+            steps: vec![(1234567, false)],
             result: CalculationResult::Exact(Integer::from(10)),
         }],
         notify: None,
@@ -1056,7 +1056,7 @@ fn test_get_reply_for_high_multifactorial() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "12345-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+        "1234567-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
     );
 }
 
@@ -1748,6 +1748,20 @@ fn test_all_that_on_multiple_calcs() {
     assert_eq!(
         reply,
         "That is so large, I can't even fit it in a comment with a power of 10 tower, so I'll have to use tetration!\n\nFactorial of 99 is roughly 9.332621544394415268169923885627 × 10^155 \n\nAll that of 9999999999999999999999999 has on the order of ^(613)10 digits \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    )
+}
+
+#[test]
+fn test_command_write_out() {
+    let consts = Consts::default();
+    let comment = Comment::new("176902! !write_out", (), Commands::NONE, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of one hundred seventy six thousand nine hundred two is seventy five quintriginoctingentrilloctogintillducentillillion five hundred fourty five quattuortriginoctingentrilloctogintillducentillillion seven hundred sixty six tretriginoctingentrilloctogintillducentillillion three hundred five duotriginoctingentrilloctogintillducentillillion fourty seven untriginoctingentrilloctogintillducentillillion one hundred fourty three triginoctingentrilloctogintillducentillillion \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
     )
 }
 
