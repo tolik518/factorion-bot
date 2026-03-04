@@ -1,0 +1,46 @@
+{
+  "V2": {
+    "bot_disclaimer": "Cette action a été effectuée par un bot | [Code source](http://f.r0.fyi)",
+    "notes": {
+      "tower": "C'est tellement grand que je ne peux même pas donner son nombre de chiffres, je dois donc utiliser une tour de puissances de dix.",
+      "tower_mult": "Certains d'entre eux sont tellement grands que je ne peux même pas donner leur nombre de chiffres, je dois donc utiliser une tour de puissances de dix.",
+      "digits": "Ce nombre est si grand que je ne peux même pas bien l'estimer, je ne peux donc vous donner qu'une approximation de son nombre de chiffres.",
+      "digits_mult": "Certains de ces nombres sont si grands que je ne peux même pas bien les estimer, je ne peux donc vous donner qu'une approximation de leur nombre de chiffres.",
+      "approx": "C'est tellement grand que je ne peux pas le calculer, je vais donc devoir l'estimer.",
+      "approx_mult": "Certains de ces nombres sont si grands que je ne peux pas les calculer, je vais donc devoir les estimer.",
+      "round": "Je ne peux pas calculer une si grande factorielle de nombres décimaux. J'ai donc dû arrondir à un moment donné.",
+      "round_mult": "Je ne peux pas calculer de si grandes factorielles de nombres décimaux. J'ai donc dû arrondir à un moment donné.",
+      "too_big": "Si je postais le nombre en entier, le commentaire serait trop long. J'ai donc dû le convertir en notation scientifique.",
+      "too_big_mult": "Si je postais les nombres en entier, le commentaire serait trop long. J'ai donc dû les convertir en notation scientifique.",
+      "remove": "Si je postais tous les nombres, le commentaire serait trop long. J'ai donc dû en supprimer certains.",
+      "tetration": "C'est tellement grand que ça ne rentre même pas dans un commentaire avec une tour de puissances de 10, je vais donc devoir utiliser la tétration !",
+      "no_post": "Désolé, mais le texte de réponse pour tous ces nombres serait _vraiment_ long, donc je préfère même pas essayer de poster mdr",
+      "limit_hit": "Je me suis assez répété, je ne referai pas ce calcul.",
+      "mention": "Salut {mention} !"
+    },
+    "format": {
+      "number_format": {
+        "decimal": ","
+      },
+      "capitalize_calc": false,
+      "termial": "termielle",
+      "factorial": "factorielle",
+      "uple": "uple-{factorial}",
+      "sub": "sous-{factorial}",
+      "negative": "{factorial} négative",
+      "num_overrides": {
+        "2": "double-{factorial}",
+        "3": "triple-{factorial}"
+      },
+      "force_num": false,
+      "nest": "{factorial} de {next}",
+      "exact": "La {factorial} de {number} est {result}",
+      "rough": "La {factorial} de {number} est à peu près {result}",
+      "approx": "La {factorial} de {number} est d'environ {result}",
+      "digits": "La {factorial} de {number} a environ {result} chiffres",
+      "order": "La {factorial} de {number} a de l'ordre de {result} chiffres",
+      "all_that": "Tout ça de {number} a de l'ordre de {result} chiffres",
+      "rough_number": "environ {number}"
+    }
+  }
+}
