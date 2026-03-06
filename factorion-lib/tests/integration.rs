@@ -1043,7 +1043,7 @@ fn test_get_reply_for_high_multifactorial() {
         meta: (),
         calculation_list: vec![Calculation {
             value: 10.into(),
-            steps: vec![(12345, false)],
+            steps: vec![(1234567, false)],
             result: CalculationResult::Exact(Integer::from(10)),
         }],
         notify: None,
@@ -1056,7 +1056,7 @@ fn test_get_reply_for_high_multifactorial() {
     let reply = comment.get_reply(&consts);
     assert_eq!(
         reply,
-        "12345-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+        "1234567-factorial of 10 is 10 \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
     );
 }
 

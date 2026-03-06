@@ -435,7 +435,31 @@ impl Calculation {
             "", "mill", "bill", "trill", "quadrill", "quintill", "sextill", "septill", "octill",
             "nonill",
         ];
-        const BINDING_T: [[bool; 10]; 4] = [
+        const TEN_THOUSANDS: [&str; 10] = [
+            "",
+            "decill",
+            "vigintill",
+            "trigintill",
+            "quadragintill",
+            "quinquagintill",
+            "sexagintill",
+            "septuagintill",
+            "octogintill",
+            "nonagintill",
+        ];
+        const HUNDRED_THOUSANDS: [&str; 10] = [
+            "",
+            "centill",
+            "ducentill",
+            "tricentill",
+            "quadringentill",
+            "quingentill",
+            "sescentill",
+            "septingentill",
+            "octingentill",
+            "nongentill",
+        ];
+        const BINDING_T: [[bool; 10]; 6] = [
             // Singles
             [
                 false, false, false, false, false, false, false, false, false, false,
@@ -448,6 +472,14 @@ impl Calculation {
             [
                 false, false, false, false, false, false, false, false, false, false,
             ],
+            // Tenthousands
+            [
+                false, false, false, false, false, false, false, false, false, false,
+            ],
+            // Hundredthousands
+            [
+                false, false, false, false, false, false, false, false, false, false,
+            ],
         ];
         if let Some(s) = locale.num_overrides().get(&level) {
             return s.as_ref().into();
@@ -455,7 +487,7 @@ impl Calculation {
         match level {
             0 => locale.sub().as_ref().into(),
             1 => "{factorial}".into(),
-            ..=9999 if !locale.force_num() => {
+            ..=999999 if !locale.force_num() => {
                 let singles = if level < 10 { SINGLES_LAST } else { SINGLES };
                 let mut acc = String::new();
                 let mut n = level;
@@ -469,9 +501,15 @@ impl Calculation {
                 n /= 10;
                 acc.write_str(HUNDREDS[h as usize]).unwrap();
                 let th = n % 10;
+                n /= 10;
                 acc.write_str(THOUSANDS[th as usize]).unwrap();
+                let tth = n % 10;
+                n /= 10;
+                acc.write_str(TEN_THOUSANDS[tth as usize]).unwrap();
+                let hth = n % 10;
+                acc.write_str(HUNDRED_THOUSANDS[hth as usize]).unwrap();
                 // Check if we need tuple not uple
-                let last_written = [s, t, h, th]
+                let last_written = [s, t, h, th, tth, hth]
                     .iter()
                     .cloned()
                     .enumerate()
@@ -724,8 +762,16 @@ mod tests {
             "unvigintricenquadrilluple-{factorial}"
         );
         assert_eq!(
-            Calculation::get_factorial_level_string(10000, &en.format()),
-            "10000-{factorial}"
+            Calculation::get_factorial_level_string(89342, &en.format()),
+            "duoquadragintricennonilloctogintilluple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(654321, &en.format()),
+            "unvigintricenquadrillquinquagintillsescentilluple-{factorial}"
+        );
+        assert_eq!(
+            Calculation::get_factorial_level_string(1000000, &en.format()),
+            "1000000-{factorial}"
         );
         let de = locale::get_de();
         assert_eq!(
