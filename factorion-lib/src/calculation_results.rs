@@ -188,16 +188,20 @@ impl CalculationResult {
                 }
             }
             CalculationResult::ApproximateDigits(_, digits) => {
-                if is_value {
-                    acc.write_str("10^(")?;
-                }
-                if opts.force_shorten {
-                    acc.write_str(&truncate(digits, consts).0)?;
+                if opts.write_out && !is_value && length(digits, consts.float_precision) < 3000000 {
+                    write_out_number(acc, digits, consts)?;
                 } else {
-                    write!(acc, "{digits}")?;
-                }
-                if is_value {
-                    acc.write_str(")")?;
+                    if is_value {
+                        acc.write_str("10^(")?;
+                    }
+                    if opts.force_shorten {
+                        acc.write_str(&truncate(digits, consts).0)?;
+                    } else {
+                        write!(acc, "{digits}")?;
+                    }
+                    if is_value {
+                        acc.write_str(")")?;
+                    }
                 }
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
@@ -247,7 +251,11 @@ impl CalculationResult {
                 format_float(acc, gamma, consts)?;
             }
             CalculationResult::ComplexInfinity => {
-                acc.write_str("∞\u{0303}")?;
+                if opts.write_out {
+                    acc.write_str("complex infinity")?;
+                } else {
+                    acc.write_str("∞\u{0303}")?;
+                }
             }
         }
         if *locale.decimal() != '.' {
@@ -587,7 +595,7 @@ const EN_SINGLES: [&str; 10] = [
     "", "one ", "two ", "three ", "four ", "five ", "six ", "seven ", "eight ", "nine ",
 ];
 const EN_TENS: [&str; 10] = [
-    "", "ten ", "twenty ", "thirty ", "fourty ", "fivety ", "sixty ", "seventy ", "eighty ",
+    "", "ten ", "twenty ", "thirty ", "forty ", "fivety ", "sixty ", "seventy ", "eighty ",
     "ninety ",
 ];
 const EN_TENS_SINGLES: [&str; 10] = [
@@ -607,7 +615,11 @@ const SINGLES_LAST_ILLION: [&str; 10] = [
 ];
 // TODO: localize (illion, illiard, type of scale, numbers, digit order, thousand)
 fn write_out_number(acc: &mut String, num: &Integer, consts: &Consts) -> std::fmt::Result {
-    let num = Float::with_val(consts.float_precision, num);
+    if num == &0 {
+        return acc.write_str("zero");
+    }
+    let negative = num < &0;
+    let num = Float::with_val(consts.float_precision, num).abs();
     let ten = Float::with_val(consts.float_precision, 10);
     let digit_blocks = num
         .clone()
@@ -615,6 +627,9 @@ fn write_out_number(acc: &mut String, num: &Integer, consts: &Consts) -> std::fm
         .to_u32_saturating_round(factorion_math::rug::float::Round::Down)
         .unwrap()
         / 3;
+    if negative {
+        acc.write_str("minus ")?;
+    }
     for digit_blocks_left in (digit_blocks.saturating_sub(5)..=digit_blocks).rev() {
         let current_digits = Float::to_u32_saturating_round(
             &((num.clone() / ten.clone().pow(digit_blocks_left * 3)) % 1000),
