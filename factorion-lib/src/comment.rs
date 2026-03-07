@@ -387,8 +387,8 @@ impl<Meta> CommentConstructed<Meta> {
                 .locales
                 .get(&locale)
                 .unwrap_or(consts.locales.get(&consts.default_locale).unwrap())
-                .format()
-                .number_format(),
+                .format
+                .number_format,
         );
 
         if commands.nested {
@@ -517,7 +517,7 @@ impl<Meta> CommentCalculated<Meta> {
         let mut note = self
             .notify
             .as_ref()
-            .map(|user| locale.notes().mention().replace("{mention}", user) + "\n\n")
+            .map(|user| locale.notes.mention.replace("{mention}", user) + "\n\n")
             .unwrap_or_default();
 
         if fell_back {
@@ -533,9 +533,16 @@ impl<Meta> CommentCalculated<Meta> {
         let multiple = self.calculation_list.len() > 1;
         if !self.commands.no_note {
             if self.status.limit_hit {
-                let _ = note.write_str(locale.notes().limit_hit().map(AsRef::as_ref).unwrap_or(
-                    "I have repeated myself enough, I won't do that calculation again.",
-                ));
+                let _ = note.write_str(
+                    locale
+                        .notes
+                        .limit_hit
+                        .as_ref()
+                        .map(AsRef::as_ref)
+                        .unwrap_or(
+                            "I have repeated myself enough, I won't do that calculation again.",
+                        ),
+                );
                 let _ = note.write_str("\n\n");
             } else if self
                 .calculation_list
@@ -543,10 +550,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_digit_tower)
             {
                 if multiple {
-                    let _ = note.write_str(locale.notes().tower_mult());
+                    let _ = note.write_str(&locale.notes.tower_mult);
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(locale.notes().tower());
+                    let _ = note.write_str(&locale.notes.tower);
                     let _ = note.write_str("\n\n");
                 }
             } else if self
@@ -555,10 +562,10 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_aproximate_digits)
             {
                 if multiple {
-                    let _ = note.write_str(locale.notes().digits_mult());
+                    let _ = note.write_str(&locale.notes.digits_mult);
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(locale.notes().digits());
+                    let _ = note.write_str(&locale.notes.digits);
                     let _ = note.write_str("\n\n");
                 }
             } else if self
@@ -567,18 +574,18 @@ impl<Meta> CommentCalculated<Meta> {
                 .any(Calculation::is_approximate)
             {
                 if multiple {
-                    let _ = note.write_str(locale.notes().approx_mult());
+                    let _ = note.write_str(&locale.notes.approx_mult);
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(locale.notes().approx());
+                    let _ = note.write_str(&locale.notes.approx);
                     let _ = note.write_str("\n\n");
                 }
             } else if self.calculation_list.iter().any(Calculation::is_rounded) {
                 if multiple {
-                    let _ = note.write_str(locale.notes().round_mult());
+                    let _ = note.write_str(&locale.notes.round_mult);
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(locale.notes().round());
+                    let _ = note.write_str(&locale.notes.round);
                     let _ = note.write_str("\n\n");
                 }
             } else if self
@@ -592,10 +599,10 @@ impl<Meta> CommentCalculated<Meta> {
                         .all(|c| c.can_write_out(consts.float_precision)))
             {
                 if multiple {
-                    let _ = note.write_str(locale.notes().too_big_mult());
+                    let _ = note.write_str(&locale.notes.too_big_mult);
                     let _ = note.write_str("\n\n");
                 } else {
-                    let _ = note.write_str(locale.notes().too_big());
+                    let _ = note.write_str(&locale.notes.too_big);
                     let _ = note.write_str("\n\n");
                 }
             } else if self.commands.write_out && self.locale != "en" {
@@ -619,13 +626,13 @@ impl<Meta> CommentCalculated<Meta> {
                     },
                     too_big_number,
                     consts,
-                    &locale.format(),
+                    &locale.format,
                 );
                 acc
             });
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length
             && !self.commands.shorten
             && !self
                 .calculation_list
@@ -634,9 +641,9 @@ impl<Meta> CommentCalculated<Meta> {
         {
             if note.is_empty() && !self.commands.no_note {
                 if multiple {
-                    let _ = note.write_str(locale.notes().too_big_mult());
+                    let _ = note.write_str(&locale.notes.too_big_mult);
                 } else {
-                    let _ = note.write_str(locale.notes().too_big());
+                    let _ = note.write_str(&locale.notes.too_big);
                 }
                 let _ = note.write_str("\n\n");
             };
@@ -652,20 +659,19 @@ impl<Meta> CommentCalculated<Meta> {
                         },
                         too_big_number,
                         consts,
-                        &locale.format(),
+                        &locale.format,
                     );
                     acc
                 });
         }
 
         let note = if !self.commands.no_note {
-            locale.notes().tetration().clone().into_owned() + "\n\n"
+            locale.notes.tetration.clone().into_owned() + "\n\n"
         } else {
             String::new()
         };
         // If the reply was too long try agressive shortening all factorials
-        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
-            && !self.commands.steps
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length && !self.commands.steps
         {
             reply = self
                 .calculation_list
@@ -679,19 +685,19 @@ impl<Meta> CommentCalculated<Meta> {
                         },
                         too_big_number,
                         consts,
-                        &locale.format(),
+                        &locale.format,
                     );
                     acc
                 });
         }
 
         let note = if !self.commands.no_note {
-            locale.notes().remove().clone().into_owned() + "\n\n"
+            locale.notes.remove.clone().into_owned() + "\n\n"
         } else {
             String::new()
         };
         // Remove factorials until we can fit them in a comment
-        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length {
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length {
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()
@@ -706,7 +712,7 @@ impl<Meta> CommentCalculated<Meta> {
                         },
                         too_big_number,
                         consts,
-                        &locale.format(),
+                        &locale.format,
                     );
                     res
                 })
@@ -714,14 +720,14 @@ impl<Meta> CommentCalculated<Meta> {
             'drop_last: {
                 while note.len()
                     + factorial_list.iter().map(|s| s.len()).sum::<usize>()
-                    + locale.bot_disclaimer().len()
+                    + locale.bot_disclaimer.len()
                     + 16
                     > self.max_length
                 {
                     // remove last factorial (probably the biggest)
                     factorial_list.pop();
                     if factorial_list.is_empty() {
-                        reply = locale.notes().no_post().to_string();
+                        reply = locale.notes.no_post.to_string();
                         break 'drop_last;
                     }
                 }
@@ -731,9 +737,9 @@ impl<Meta> CommentCalculated<Meta> {
                 });
             }
         }
-        if !locale.bot_disclaimer().is_empty() {
+        if !locale.bot_disclaimer.is_empty() {
             reply.push_str("\n*^(");
-            reply.push_str(locale.bot_disclaimer());
+            reply.push_str(&locale.bot_disclaimer);
             reply.push_str(")*");
         }
         reply
@@ -761,7 +767,7 @@ mod tests {
             "24! -24! 2!? (2!?)!",
             true,
             &consts,
-            &NumFormat::V1(&crate::locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,

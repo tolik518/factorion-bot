@@ -262,8 +262,8 @@ impl CalculationResult {
                 }
             }
         }
-        if *locale.decimal() != '.' {
-            let decimal = locale.decimal().to_string();
+        if locale.decimal != '.' {
+            let decimal = locale.decimal.to_string();
             while start < acc.len() {
                 start = replace(acc, start, ".", &decimal);
             }
@@ -358,17 +358,17 @@ impl Calculation {
                 options.agressive_shorten && self.steps.len() > 1,
             ) {
                 // All that
-                (_, _, true) => locale.all_that(),
+                (_, _, true) => &locale.all_that,
                 // on the order
-                (_, CalculationResult::ApproximateDigitsTower(_, _, _, _), _) => locale.order(),
+                (_, CalculationResult::ApproximateDigitsTower(_, _, _, _), _) => &locale.order,
                 // digits
-                (_, CalculationResult::ApproximateDigits(_, _), _) => locale.digits(),
+                (_, CalculationResult::ApproximateDigits(_, _), _) => &locale.digits,
                 // approximately
                 (Number::Float(_), _, _) | (_, CalculationResult::Approximate(_, _), _) => {
-                    locale.approx()
+                    &locale.approx
                 }
                 // is
-                _ => locale.exact(),
+                _ => &locale.exact,
             },
         )?;
         acc.write_str(" \n\n")?;
@@ -386,10 +386,10 @@ impl Calculation {
             },
             true,
             consts,
-            &locale.number_format(),
+            &locale.number_format,
         )?;
         if rough {
-            replace(acc, frame_start, "{number}", locale.rough_number());
+            replace(acc, frame_start, "{number}", &locale.rough_number);
         }
         replace(acc, frame_start, "{number}", &number);
         replace(acc, frame_start, "{result}", "{number}");
@@ -406,10 +406,10 @@ impl Calculation {
             },
             false,
             consts,
-            &locale.number_format(),
+            &locale.number_format,
         )?;
         if rough {
-            replace(acc, frame_start, "{number}", locale.rough_number());
+            replace(acc, frame_start, "{number}", &locale.rough_number);
         }
         replace(acc, frame_start, "{number}", &number);
 
@@ -417,7 +417,7 @@ impl Calculation {
         let mut start = frame_start;
         for (i, (level, neg)) in self.steps.iter().copied().rev().enumerate() {
             if i != len - 1 {
-                replace(acc, start, "{factorial}", locale.nest());
+                replace(acc, start, "{factorial}", &locale.nest);
             }
 
             if neg {
@@ -436,12 +436,12 @@ impl Calculation {
                 start,
                 "{factorial}",
                 if level < 0 {
-                    locale.termial()
+                    &locale.termial
                 } else {
-                    locale.factorial()
+                    &locale.factorial
                 },
             );
-            if *locale.capitalize_calc() {
+            if locale.capitalize_calc {
                 let mut ind = acc[calc_start..].char_indices();
                 if let Some((start, _)) = ind.next()
                     && let Some((end, _)) = ind.next()
@@ -491,7 +491,7 @@ mod test {
                 FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 is 120 \n\n");
@@ -508,7 +508,7 @@ mod test {
                 FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Subfactorial of 5 is 120 \n\n");
@@ -528,7 +528,7 @@ mod test {
                 FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 is approximately 1.2 × 10^5 \n\n");
@@ -545,7 +545,7 @@ mod test {
                 FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 has approximately 3 digits \n\n");
@@ -562,7 +562,7 @@ mod test {
                 FormatOptions::FORCE_SHORTEN,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 is 120 \n\n");
@@ -579,7 +579,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
@@ -598,7 +598,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Triple-factorial of 0.5 is approximately 280 \n\n");
@@ -617,7 +617,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
@@ -638,7 +638,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -662,7 +662,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -684,7 +684,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of triple-factorial of 5 is 3628800 \n\n");
@@ -703,7 +703,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Negative factorial of 0 is 3628800 \n\n");
@@ -725,7 +725,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 is approximately 2.83947 × 10^10043 \n\n");
@@ -744,7 +744,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 has approximately 10043394 digits \n\n");
@@ -763,7 +763,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 is ∞\u{0303} \n\n");
@@ -782,7 +782,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -804,7 +804,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -826,7 +826,7 @@ mod test {
             FormatOptions::AGRESSIVE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "All that of 0 has on the order of ^(10)10 digits \n\n");
@@ -849,7 +849,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 9.2 is approximately 893.83924421 \n\n");
@@ -872,7 +872,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -899,7 +899,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -926,7 +926,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -955,7 +955,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -981,7 +981,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1004,7 +1004,7 @@ mod test {
             FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 has on the order of ^(4)10 digits \n\n");
@@ -1088,7 +1088,7 @@ mod test {
                 FormatOptions::FORCE_SHORTEN,
                 false,
                 &consts,
-                &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+                &locale::NumFormat { decimal: '.' },
             )
             .unwrap();
         assert_eq!(acc, "4.9814983749 × 10^1017");
@@ -1103,7 +1103,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             false,
             &consts,
-            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &locale::NumFormat { decimal: '.' },
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749 × 10^(1017)");
@@ -1118,7 +1118,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             false,
             &consts,
-            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &locale::NumFormat { decimal: '.' },
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^1037");
@@ -1137,7 +1137,7 @@ mod test {
             FormatOptions::FORCE_SHORTEN,
             false,
             &consts,
-            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &locale::NumFormat { decimal: '.' },
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^(1037)");
