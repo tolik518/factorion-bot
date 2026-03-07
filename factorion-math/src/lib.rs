@@ -347,12 +347,13 @@ pub fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     (x, total_exponent)
 }
 
-/// Number of digits of n (log10, but 1 if 0)
+/// Number of digits of n (log10 of absolute, but 1 if 0)
 pub fn length(n: &Integer, prec: u32) -> Integer {
     if n == &0 {
         return Integer::ONE.clone();
     }
-    (Float::with_val(prec, n).ln() / Float::with_val(prec, 10).ln())
+
+    (Float::with_val(prec, n).abs().ln() / Float::with_val(prec, 10).ln())
         .to_integer_round(rug::float::Round::Down)
         .unwrap()
         .0
