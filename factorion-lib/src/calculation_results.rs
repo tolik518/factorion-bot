@@ -1,5 +1,7 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 
+use factorion_math::rug::Complete;
+use factorion_math::rug::integer::IntegerExt64;
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
 
@@ -583,11 +585,16 @@ fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
         .to_integer_round(crate::rug::float::Round::Down)
         .unwrap()
         .0;
-    let truncated_number: Integer = &number
-        / (Float::with_val(prec, 10)
-            .pow((length.clone() - consts.number_decimals_scientific - 1u8).max(Integer::ZERO))
-            .to_integer()
-            .unwrap());
+    let ten_exp = Integer::u64_pow_u64(
+        10,
+        (length.clone() - consts.number_decimals_scientific - 1u8)
+            .max(Integer::ZERO)
+            .to_u64()
+            .unwrap(),
+    )
+    .complete();
+    let rough = !number.is_divisible(&ten_exp);
+    let truncated_number: Integer = &number / ten_exp;
     let mut truncated_number = truncated_number.to_string();
     if truncated_number.len() > consts.number_decimals_scientific {
         round(&mut truncated_number);
@@ -609,7 +616,11 @@ fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
         truncated_number.insert(0, '-');
     }
     if length > consts.number_decimals_scientific + 1 {
-        (format!("{truncated_number} × 10^{length}"), true)
+        if truncated_number == "1" {
+            (format!("10^{length}"), rough)
+        } else {
+            (format!("{truncated_number} × 10^{length}"), rough)
+        }
     } else {
         (orig_number.to_string(), false)
     }
@@ -806,23 +817,39 @@ mod tests {
                 &consts
             )
             .0,
-            "1 × 10^300"
+            "10^300"
         );
         assert_eq!(
             truncate(
-                &-Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
+                &Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
                 &consts
             )
-            .0,
-            "-1 × 10^300"
+            .1,
+            false
         );
         assert_eq!(
             truncate(
-                &Integer::from_str(&format!("1{}", "0".repeat(2000000))).unwrap(),
+                &Integer::from_str(&format!("2{}", "0".repeat(300))).unwrap(),
                 &consts
             )
             .0,
-            "1 × 10^2000000"
+            "2 × 10^300"
+        );
+        assert_eq!(
+            truncate(
+                &-Integer::from_str(&format!("2{}", "0".repeat(300))).unwrap(),
+                &consts
+            )
+            .0,
+            "-2 × 10^300"
+        );
+        assert_eq!(
+            truncate(
+                &Integer::from_str(&format!("2{}", "0".repeat(2000000))).unwrap(),
+                &consts
+            )
+            .0,
+            "2 × 10^2000000"
         );
     }
 
