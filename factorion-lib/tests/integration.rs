@@ -1772,6 +1772,78 @@ fn test_same_in_different_writing() {
 }
 
 #[test]
+fn test_command_write_out() {
+    let consts = Consts::default();
+    let comment = Comment::new("176902! !write_out", (), Commands::NONE, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of one hundred seventy six thousand nine hundred two is seventy five quintriginoctingentrilloctogintillducentillillion five hundred forty five quattuortriginoctingentrilloctogintillducentillillion seven hundred sixty six tretriginoctingentrilloctogintillducentillillion three hundred five duotriginoctingentrilloctogintillducentillillion forty seven untriginoctingentrilloctogintillducentillillion one hundred forty three triginoctingentrilloctogintillducentillillion \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    )
+}
+
+#[test]
+fn test_write_out_zero_factorial() {
+    let consts = Consts::default();
+    let comment = Comment::new("0! [write_out]", (), Commands::NONE, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of zero is one \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    );
+}
+
+#[test]
+fn test_write_out_minus_one_factorial() {
+    let consts = Consts::default();
+    let comment = Comment::new("(-1)! [write_out]", (), Commands::NONE, MAX_LENGTH, "en")
+        .extract(&consts)
+        .calc(&consts);
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of minus one is complex infinity \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    );
+}
+
+#[test]
+fn test_write_out_factorial_digits() {
+    let consts = Consts::default();
+    let comment = Comment::new(
+        "67839127837442873498364307437846329874293874384739847347394748012940124093748389701473461687364012630527560276507263724678234685360158032147349867349837403928573587255865587234672880756378340253167320767378467507576450878320574087430274607215697523720397460949849834384772847384738474837484774639847374! [write_out]",
+        (),
+        Commands::NO_NOTE,
+        MAX_LENGTH,
+        "en"
+    ).extract(&consts)
+        .calc(&consts);
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "Factorial of sixty seven novemnonagintillion eight hundred thirty nine octononagintillion one hundred twenty seven septennonagintillion eight hundred thirty seven sexnonagintillion four hundred forty two quinnonagintillion eight hundred seventy three quattuornonagintillion has approximately twenty centillion four hundred forty six novemnonagintillion five hundred twenty two octononagintillion two hundred fiveteen septennonagintillion five hundred sixty four sexnonagintillion two hundred thirty six quinnonagintillion digits \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+    );
+}
+
+#[test]
+fn test_command_write_out_non_en() {
+    let consts = Consts::default();
+    let comment = Comment::new("176902! !write_out", (), Commands::NONE, MAX_LENGTH, "de")
+        .extract(&consts)
+        .calc(&consts);
+
+    let reply = comment.get_reply(&consts);
+    assert_eq!(
+        reply,
+        "I can only write out numbers in english, so I will do that.\n\nFakultät von one hundred seventy six thousand nine hundred two ist seventy five quintriginoctingentrilloctogintillducentillillion five hundred forty five quattuortriginoctingentrilloctogintillducentillillion seven hundred sixty six tretriginoctingentrilloctogintillducentillillion three hundred five duotriginoctingentrilloctogintillducentillillion forty seven untriginoctingentrilloctogintillducentillillion one hundred forty three triginoctingentrilloctogintillducentillillion \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben | [Quelltext](http://f.r0.fyi))*"
+    )
+}
+
+#[test]
 fn test_arbitrary_comment() {
     let consts = Consts::default();
     arbtest::arbtest(|u| {
