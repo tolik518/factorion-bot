@@ -12,7 +12,7 @@ use crate::{
 pub mod recommended {
     use factorion_math::rug::Integer;
 
-    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 10_000_000u128.into();
+    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 200_000_000u128.into();
 }
 
 const POI_STARTS: &[char] = &[
@@ -579,12 +579,19 @@ fn parse_num(
             *text = &text[3..];
             let part = part.replace(SEPARATORS, "");
             let n = part.parse::<Integer>().ok()?;
-            return Some(Number::ApproximateDigitsTower(
-                false,
-                false,
-                n - 1,
-                1.into(),
-            ));
+            match n.to_usize() {
+                Some(0) => return Some(1.into()),
+                Some(1) => return Some(10.into()),
+                Some(2) => return Some(Number::Exact(10_000_000_000u64.into())),
+                _ => {
+                    return Some(Number::ApproximateDigitsTower(
+                        false,
+                        false,
+                        n - 1,
+                        1.into(),
+                    ));
+                }
+            }
         } else {
             // Skip ^ only (because ret None)
             *text = orig_text;
@@ -666,6 +673,11 @@ fn parse_num(
         }
 
         if depth == 1 {
+            if top < consts.integer_construction_limit {
+                return Some(Number::Exact(
+                    Integer::u64_pow_u64(10, top.to_u64().unwrap()).complete(),
+                ));
+            }
             return Some(Number::ApproximateDigits(false, top));
         } else {
             return Some(Number::ApproximateDigitsTower(
@@ -1811,6 +1823,17 @@ mod test {
             ))
         );
         let num = parse_num(
+            &mut "10^50000000000",
+            false,
+            false,
+            &consts,
+            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+        );
+        assert_eq!(
+            num,
+            Some(Number::ApproximateDigits(false, 50000000000u64.into()))
+        );
+        let num = parse_num(
             &mut "10^5!",
             false,
             false,
@@ -1825,7 +1848,7 @@ mod test {
             &consts,
             &NumFormat { decimal: '.' },
         );
-        assert_eq!(num, Some(Number::ApproximateDigits(false, 5.into())));
+        assert_eq!(num, Some(Number::Exact(100000.into())));
         let num = parse_num(
             &mut "10^5",
             false,

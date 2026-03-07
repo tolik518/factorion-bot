@@ -11,7 +11,7 @@ use crate::{
 use anyhow::{Error, anyhow};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeDelta, Utc};
 use factorion_lib::comment::{Commands, Comment, CommentCalculated, CommentConstructed, Status};
 use futures::future::OptionFuture;
 use id::{DenseId, id_to_dense};
@@ -126,16 +126,17 @@ impl RedditClient {
             subreddits.sort();
             info!("Setting comments to be checked in: {subreddits:?}");
             if !(subreddits.is_empty() || subreddits == [""]) {
+                let url = format!(
+                    "{}/r/{}/comments",
+                    REDDIT_OAUTH_URL,
+                    subreddits
+                        .into_iter()
+                        .reduce(|a, e| format!("{a}+{e}"))
+                        .unwrap_or_default(),
+                );
                 Some(
-                    Url::parse(&format!(
-                        "{}/r/{}/comments",
-                        REDDIT_OAUTH_URL,
-                        subreddits
-                            .into_iter()
-                            .reduce(|a, e| format!("{a}+{e}"))
-                            .unwrap_or_default(),
-                    ))
-                    .expect("Failed to parse Url"),
+                    Url::parse(&url)
+                        .unwrap_or_else(|err| panic!("Failed to parse Url: {err} in {url}")),
                 )
             } else {
                 None
@@ -152,23 +153,25 @@ impl RedditClient {
             post_subreddits.sort();
             info!("Setting posts to be checked in: {post_subreddits:?}");
             if !(post_subreddits.is_empty() || post_subreddits == [""]) {
+                let url = format!(
+                    "{}/r/{}/new",
+                    REDDIT_OAUTH_URL,
+                    post_subreddits
+                        .into_iter()
+                        .reduce(|a, e| format!("{a}+{e}"))
+                        .unwrap_or_default(),
+                );
                 Some(
-                    Url::parse(&format!(
-                        "{}/r/{}/new",
-                        REDDIT_OAUTH_URL,
-                        post_subreddits
-                            .into_iter()
-                            .reduce(|a, e| format!("{a}+{e}"))
-                            .unwrap_or_default(),
-                    ))
-                    .expect("Failed to parse Url"),
+                    Url::parse(&url)
+                        .unwrap_or_else(|err| panic!("Failed to parse Url: {err} in {url}")),
                 )
             } else {
                 None
             }
         });
         static MENTION_URL: LazyLock<Url> = LazyLock::new(|| {
-            Url::parse(&format!("{REDDIT_OAUTH_URL}/message/inbox")).expect("Failed to parse Url")
+            let url = format!("{REDDIT_OAUTH_URL}/message/inbox");
+            Url::parse(&url).unwrap_or_else(|err| panic!("Failed to parse Url: {err} in {url}"))
         });
         #[cfg(not(test))]
         if self.is_token_expired() {
@@ -337,22 +340,23 @@ impl RedditClient {
                     && !ids.is_empty()
                 {
                     'get_summons: loop {
+                        let url = format!(
+                            "{}/api/info?id={}",
+                            REDDIT_OAUTH_URL,
+                            ids.iter()
+                                .map(|(id, _)| id)
+                                .fold(String::new(), |mut a, e| {
+                                    let _ = write!(a, "{e}");
+                                    a
+                                })
+                        );
                         let response = self
                             .client
-                            .get(format!(
-                                "{}/api/info?id={}",
-                                REDDIT_OAUTH_URL,
-                                ids.iter()
-                                    .map(|(id, _)| id)
-                                    .fold(String::new(), |mut a, e| {
-                                        let _ = write!(a, "{e}");
-                                        a
-                                    })
-                            ))
+                            .get(&url)
                             .bearer_auth(&self.token.access_token)
                             .send()
                             .await
-                            .expect("Failed to get comment");
+                            .unwrap_or_else(|err| panic!("Failed to get comment: {err} on {url}"));
                         if Self::check_response_status(&response).is_ok() {
                             let (comments, _, t, _) = self
                                 .extract_comments(
@@ -406,7 +410,7 @@ impl RedditClient {
     }
 
     fn is_token_expired(&self) -> bool {
-        let now = Utc::now();
+        let now = Utc::now() + TimeDelta::seconds(1);
         now > self.token.expiration_time
     }
 
@@ -456,8 +460,9 @@ impl RedditClient {
 
         let response_text = &response.text().await?;
         let response_text = response_text.as_str();
-        let response_json =
-            from_str::<Value>(response_text).expect("Failed to convert response to json");
+        let response_json = from_str::<Value>(response_text).unwrap_or_else(|err| {
+            panic!("Failed to convert response to json: {err} in {response_text}")
+        });
         let response_status_err = !RedditClient::is_success(response_text);
 
         let error_message = RedditClient::get_error_message(response_json);
@@ -518,8 +523,9 @@ impl RedditClient {
     }
 
     fn is_success(response_text: &str) -> bool {
-        let response_json =
-            from_str::<Value>(response_text).expect("Failed to convert response to json");
+        let response_json = from_str::<Value>(response_text).unwrap_or_else(|err| {
+            panic!("Failed to convert response to json: {err} in {response_text}")
+        });
 
         response_json["success"].as_bool().unwrap_or(false)
     }
@@ -575,17 +581,18 @@ impl RedditClient {
         let jwt_payload = jwt[1];
         let jwt_payload = STANDARD_NO_PAD
             .decode(jwt_payload.as_bytes())
-            .expect("Failed to decode jwt payload");
+            .unwrap_or_else(|err| panic!("Failed to decode jwt payload: {err} in {jwt_payload}"));
 
         let jwt_payload =
             String::from_utf8(jwt_payload).expect("Failed to convert jwt payload to string");
 
-        let jwt_payload =
-            from_str::<Value>(&jwt_payload).expect("Failed to convert jwt payload to json");
+        let jwt_payload = from_str::<Value>(&jwt_payload).unwrap_or_else(|err| {
+            panic!("Failed to convert jwt payload to json: {err} in {jwt_payload}")
+        });
 
         let exp = jwt_payload["exp"]
             .as_f64()
-            .expect("Failed to get exp field");
+            .unwrap_or_else(|| panic!("Failed to get exp field as f64 in {jwt_payload}"));
         let naive = NaiveDateTime::from_timestamp(exp as i64, 0);
         let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
 
