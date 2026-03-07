@@ -300,7 +300,9 @@ impl CalculationJob {
                     factorial.1,
                 )
             } else {
-                let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
+                let calc_num = calc_num
+                    .to_u64()
+                    .unwrap_or_else(|| panic!("Failed to convert BigInt to u64: {calc_num}"));
                 let factorial = math::factorial(calc_num, level as u32)
                     * if negative % 2 != 0 { -1 } else { 1 };
                 CalculationResult::Exact(factorial)
@@ -318,7 +320,9 @@ impl CalculationJob {
                     factorial.1,
                 )
             } else {
-                let calc_num = calc_num.to_u64().expect("Failed to convert BigInt to u64");
+                let calc_num = calc_num
+                    .to_u64()
+                    .unwrap_or_else(|| panic!("Failed to convert BigInt to u64: {calc_num}"));
                 let factorial =
                     math::subfactorial(calc_num) * if negative % 2 != 0 { -1 } else { 1 };
                 CalculationResult::Exact(factorial)
