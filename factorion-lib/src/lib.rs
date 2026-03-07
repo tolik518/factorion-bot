@@ -7,6 +7,7 @@ use rug::Integer;
 pub mod calculation_results;
 pub mod calculation_tasks;
 pub mod comment;
+pub(crate) mod format;
 pub mod locale;
 pub mod parse;
 

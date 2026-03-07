@@ -132,9 +132,9 @@ impl CalculationJob {
         let prec = consts.float_precision;
         let calc_num = match num {
             CalculationResult::Approximate(base, exponent) => {
-                let res = base.as_float() * Float::with_val(prec, 10).pow(&exponent);
-                if Float::is_finite(&(res.clone() * math::APPROX_FACT_SAFE_UPPER_BOUND_FACTOR)) {
-                    res.to_integer().unwrap()
+                if exponent <= consts.integer_construction_limit {
+                    let x: Float = base.as_float() * Float::with_val(prec, 10).pow(&exponent);
+                    x.to_integer().unwrap()
                 } else {
                     return Some(if base.as_float() < &0.0 {
                         CalculationResult::ComplexInfinity
@@ -143,7 +143,11 @@ impl CalculationJob {
                             (Float::from(base), exponent),
                             -level as u32,
                         );
-                        CalculationResult::Approximate(termial.0.into(), termial.1)
+                        if termial.0 == 1 {
+                            CalculationResult::ApproximateDigits(false, termial.1)
+                        } else {
+                            CalculationResult::Approximate(termial.0.into(), termial.1)
+                        }
                     } else {
                         let mut exponent = exponent;
                         exponent.add_from(math::length(&exponent, prec));
@@ -152,17 +156,32 @@ impl CalculationJob {
                 }
             }
             CalculationResult::ApproximateDigits(was_neg, digits) => {
-                return Some(if digits.is_negative() {
-                    CalculationResult::Float(Float::new(prec).into())
-                } else if was_neg {
-                    CalculationResult::ComplexInfinity
-                } else if level < 0 {
-                    CalculationResult::ApproximateDigits(false, (digits - 1) * 2 + 1)
+                if digits <= consts.integer_construction_limit {
+                    let x: Float = Float::with_val(prec, 10).pow(digits.clone() - 1);
+                    x.to_integer().unwrap()
                 } else {
-                    let mut digits = digits;
-                    digits.add_from(math::length(&digits, prec));
-                    CalculationResult::ApproximateDigitsTower(false, false, 1.into(), digits)
-                });
+                    return Some(if digits.is_negative() {
+                        CalculationResult::Float(Float::new(prec).into())
+                    } else if was_neg {
+                        CalculationResult::ComplexInfinity
+                    } else if level < 0 {
+                        let mut one = Float::with_val(consts.float_precision, 1);
+                        if was_neg {
+                            one *= -1;
+                        }
+                        let termial =
+                            math::approximate_approx_termial((one, digits), -level as u32);
+                        if termial.0 == 1 {
+                            CalculationResult::ApproximateDigits(false, termial.1)
+                        } else {
+                            CalculationResult::Approximate(termial.0.into(), termial.1)
+                        }
+                    } else {
+                        let mut digits = digits;
+                        digits.add_from(math::length(&digits, prec));
+                        CalculationResult::ApproximateDigitsTower(false, false, 1.into(), digits)
+                    });
+                }
             }
             CalculationResult::ApproximateDigitsTower(was_neg, neg, depth, exponent) => {
                 return Some(if neg {
