@@ -543,15 +543,18 @@ impl Calculation {
 /// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10, that is not a period.
 fn round(number: &mut String) -> bool {
     // Check additional digit if we need to round
-    if let Some(digit) = number
-        .pop()
-        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-        && digit >= 5
+    if let Some(digit) = number.pop().map(|n| {
+        n.to_digit(10)
+            .unwrap_or_else(|| panic!("Not a base 10 number, encountered char {n}"))
+    }) && digit >= 5
     {
         let mut last_digit = number
             .pop()
-            .and_then(|n| n.to_digit(10))
-            .expect("Not a base 10 number");
+            .map(|n| {
+                n.to_digit(10)
+                    .unwrap_or_else(|| panic!("Not a base 10 number, encountered char {n}"))
+            })
+            .expect("Number to round had less than two digits!");
         // Carry over at 9s
         while last_digit == 9 {
             let Some(digit) = number.pop() else {
@@ -563,7 +566,9 @@ fn round(number: &mut String) -> bool {
             if digit == '.' {
                 break;
             }
-            let digit = digit.to_digit(10).expect("Not a base 10 number");
+            let digit = digit
+                .to_digit(10)
+                .unwrap_or_else(|| panic!("Not a base 10 number, encountered char {digit}"));
             last_digit = digit;
         }
         // Round up
@@ -630,7 +635,7 @@ fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::
         .clone()
         .log10()
         .to_integer_round(factorion_math::rug::float::Round::Down)
-        .expect("Could not round exponent")
+        .unwrap_or_else(|| panic!("Could not round exponent of {number}"))
         .0;
     if exponent > consts.number_decimals_scientific
         || exponent < -(consts.number_decimals_scientific as isize)
@@ -639,7 +644,7 @@ fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::
     }
     let mut whole_number = number
         .to_integer_round(factorion_math::rug::float::Round::Down)
-        .expect("Could not get integer part")
+        .unwrap_or_else(|| panic!("Could not get integer part of {number}"))
         .0;
     let decimal_part = number - &whole_number + 1;
     let mut decimal_part = format!("{decimal_part}");

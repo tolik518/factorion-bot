@@ -152,7 +152,7 @@ pub fn approximate_factorial_float(n: Float) -> (Float, Integer) {
     let ten_in_base = Float::with_val(prec, 10).ln() / base.clone().ln();
     let (extra, _) = (n.clone() / ten_in_base.clone())
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, n is likely non-positive");
+        .unwrap_or_else(|| panic!("Got non-finite number, n was {n}"));
     let exponent = n.clone() - ten_in_base * Float::with_val(prec, extra.clone());
     let factorial = base.pow(exponent)
         * (Float::with_val(prec, rug::float::Constant::Pi) * Float::with_val(prec, 2) * n.clone())
@@ -313,9 +313,9 @@ pub fn approximate_multifactorial_digits_float(k: u32, n: Float) -> Integer {
     let k = Float::with_val(prec, k);
     let ln10 = Float::with_val(prec, 10).ln();
     let base = n.clone().ln() / &ln10;
-    ((Float::with_val(prec, 0.5) + n.clone() / k.clone()) * base - n / k / ln10)
+    ((Float::with_val(prec, 0.5) + n.clone() / k.clone()) * base - n.clone() / k / ln10)
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, n is likely non-positive")
+        .unwrap_or_else(|| panic!("Got non-finite number, n was {n}"))
         .0
         + Integer::ONE
 }
@@ -341,7 +341,7 @@ pub fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     let prec = x.prec();
     let (extra, _) = (x.clone().ln() / Float::with_val(prec, 10).ln())
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, x is likely not finite");
+        .unwrap_or_else(|| panic!("Got non-finite number, x was {x}"));
     let x = x / (Float::with_val(prec, 10).pow(extra.clone()));
     let total_exponent = extra + e;
     (x, total_exponent)
