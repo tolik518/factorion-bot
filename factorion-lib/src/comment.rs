@@ -7,7 +7,7 @@ use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
 use crate::Consts;
-use crate::calculation_results::{Calculation, FormatOptions, Number};
+use crate::calculation_results::{Calculation, FormatOptions};
 use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use crate::parse::parse;
 
@@ -732,7 +732,7 @@ impl<Meta> CommentCalculated<Meta> {
                     }
                 }
                 reply = factorial_list.iter().fold(note, |mut acc, factorial| {
-                    let _ = acc.write_str(&factorial);
+                    let _ = acc.write_str(factorial);
                     acc
                 });
             }

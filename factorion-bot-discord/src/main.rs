@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         info!("InfluxDB client configured. Metrics will be logged.");
     }
 
-    discord_api::start_bot(token, consts, &*INFLUX_CLIENT).await?;
+    discord_api::start_bot(token, consts, &INFLUX_CLIENT).await?;
 
     Ok(())
 }

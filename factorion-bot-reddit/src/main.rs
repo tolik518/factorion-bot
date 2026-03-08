@@ -47,15 +47,12 @@ fn en_str() -> &'static str {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default)]
 enum SubredditMode {
     All,
     PostOnly,
+    #[default]
     None,
-}
-impl Default for SubredditMode {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[tokio::main]
@@ -135,7 +132,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let dont_reply = dont_reply == "true";
 
     let sub_entries = if let Ok(path) = std::env::var("SUBREDDITS_FILE") {
-        if let Ok(_) = std::env::var("SUBREDDITS") {
+        if std::env::var("SUBREDDITS").is_ok() {
             panic!("SUBREDDITS and SUBREDDITS_FILE can not be set simultaneusly!")
         }
         let text = std::fs::read_to_string(path).unwrap();
@@ -277,7 +274,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
             let Ok(mut dense_id) = u64::from_str_radix(&comment.meta.thread, 36) else {
-                if comment.meta.thread == "" {
+                if comment.meta.thread.is_empty() {
                     info!("Empty thread id on comment {}", comment.meta.id);
                 } else {
                     warn!("Failed to make id dense {}", comment.meta.thread);
@@ -421,10 +418,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 }
                                 factorion_lib::influxdb::reddit::log_comment_reply(
                                     influx_client,
-                                    &comment_id,
-                                    &comment_author,
-                                    &comment_subreddit,
-                                    &comment_locale,
+                                    comment_id,
+                                    comment_author,
+                                    comment_subreddit,
+                                    comment_locale,
                                 )
                                 .await?;
                             }

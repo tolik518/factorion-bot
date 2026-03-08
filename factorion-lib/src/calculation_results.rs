@@ -6,8 +6,6 @@ use crate::format::{
 use crate::impl_all_bitwise;
 use crate::impl_bitwise;
 use factorion_math::length;
-use factorion_math::rug::Complete;
-use factorion_math::rug::integer::IntegerExt64;
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
 use std::ops::BitAnd;

@@ -268,7 +268,7 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                    if last_ids.mentions != ""
+                    if !last_ids.mentions.is_empty()
                         && a.len()
                             == *COMMENT_COUNT.get().expect("Comment count uninitialized") as usize
                     {
@@ -296,7 +296,7 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                    if last_ids.comments != ""
+                    if !last_ids.comments.is_empty()
                         && a.len()
                             == *COMMENT_COUNT.get().expect("Comment count uninitialized") as usize
                     {
@@ -324,7 +324,7 @@ impl RedditClient {
 
                     reset_timer = Self::update_reset_timer(reset_timer, t);
 
-                    if last_ids.posts != ""
+                    if !last_ids.posts.is_empty()
                         && posts.len()
                             == *COMMENT_COUNT.get().expect("Comment count uninitialized") as usize
                     {
@@ -859,7 +859,7 @@ impl RedditClient {
                 error!("Failed to construct comment {comment_id}!");
                 return None;
             };
-            comment.meta.used_commands = !(comment.commands == pre_commands);
+            comment.meta.used_commands = (comment.commands != pre_commands);
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
                 comment.meta.id = mention.clone();
                 comment.commands = *commands;

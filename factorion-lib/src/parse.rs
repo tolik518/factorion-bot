@@ -1827,7 +1827,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
