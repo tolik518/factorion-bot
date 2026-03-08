@@ -85,13 +85,13 @@ const BINDING_T: [[bool; 10]; 6] = [
     ],
 ];
 pub fn get_factorial_level_string<'a>(level: i32, locale: &'a locale::Format<'a>) -> Cow<'a, str> {
-    if let Some(s) = locale.num_overrides().get(&level) {
+    if let Some(s) = locale.num_overrides.get(&level) {
         return s.as_ref().into();
     }
     match level {
-        0 => locale.sub().as_ref().into(),
+        0 => locale.sub.as_ref().into(),
         1 => "{factorial}".into(),
-        ..=999999 if !locale.force_num() => {
+        ..=999999 if !locale.force_num => {
             let singles = if level < 10 { SINGLES_LAST } else { SINGLES };
             let mut acc = String::new();
             let mut n = level;
@@ -123,7 +123,7 @@ pub fn get_factorial_level_string<'a>(level: i32, locale: &'a locale::Format<'a>
             if BINDING_T[last_written.0][last_written.1 as usize] {
                 acc.write_str("t").unwrap();
             }
-            acc.write_str(locale.uple()).unwrap();
+            acc.write_str(&locale.uple).unwrap();
 
             acc.into()
         }
@@ -354,7 +354,7 @@ pub fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::f
     if exponent > consts.number_decimals_scientific
         || exponent < -(consts.number_decimals_scientific as isize)
     {
-        number = number / Float::with_val(consts.float_precision, &exponent).exp10();
+        number /= Float::with_val(consts.float_precision, &exponent).exp10();
     }
     let mut whole_number = number
         .to_integer_round(factorion_math::rug::float::Round::Down)
@@ -366,11 +366,9 @@ pub fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::f
     decimal_part.remove(0);
     decimal_part.remove(0);
     decimal_part.truncate(consts.number_decimals_scientific + 1);
-    if decimal_part.len() > consts.number_decimals_scientific {
-        if round(&mut decimal_part) {
-            decimal_part.clear();
-            whole_number += 1;
-        }
+    if decimal_part.len() > consts.number_decimals_scientific && round(&mut decimal_part) {
+        decimal_part.clear();
+        whole_number += 1;
     }
     if let Some(mut digit) = decimal_part.pop() {
         while digit == '0' {
@@ -436,67 +434,67 @@ mod tests {
     #[test]
     fn test_factorial_level_string() {
         let en = locale::get_en();
-        assert_eq!(get_factorial_level_string(1, &en.format()), "{factorial}");
+        assert_eq!(get_factorial_level_string(1, &en.format), "{factorial}");
         assert_eq!(
-            get_factorial_level_string(2, &en.format()),
+            get_factorial_level_string(2, &en.format),
             "double-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(3, &en.format()),
+            get_factorial_level_string(3, &en.format),
             "triple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(10, &en.format()),
+            get_factorial_level_string(10, &en.format),
             "decuple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(45, &en.format()),
+            get_factorial_level_string(45, &en.format),
             "quinquadragintuple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(50, &en.format()),
+            get_factorial_level_string(50, &en.format),
             "quinquagintuple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(100, &en.format()),
+            get_factorial_level_string(100, &en.format),
             "centuple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(521, &en.format()),
+            get_factorial_level_string(521, &en.format),
             "unviginquingentuple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(1000, &en.format()),
+            get_factorial_level_string(1000, &en.format),
             "milluple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(4321, &en.format()),
+            get_factorial_level_string(4321, &en.format),
             "unvigintricenquadrilluple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(89342, &en.format()),
+            get_factorial_level_string(89342, &en.format),
             "duoquadragintricennonilloctogintilluple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(654321, &en.format()),
+            get_factorial_level_string(654321, &en.format),
             "unvigintricenquadrillquinquagintillsescentilluple-{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(1000000, &en.format()),
+            get_factorial_level_string(1000000, &en.format),
             "1000000-{factorial}"
         );
         let de = locale::get_de();
-        assert_eq!(get_factorial_level_string(1, &de.format()), "{factorial}");
+        assert_eq!(get_factorial_level_string(1, &de.format), "{factorial}");
         assert_eq!(
-            get_factorial_level_string(2, &de.format()),
+            get_factorial_level_string(2, &de.format),
             "doppel{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(3, &de.format()),
+            get_factorial_level_string(3, &de.format),
             "trippel{factorial}"
         );
         assert_eq!(
-            get_factorial_level_string(45, &de.format()),
+            get_factorial_level_string(45, &de.format),
             "quinquadragintupel{factorial}"
         );
     }

@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             std::fs::read_to_string(file.path()).unwrap().leak(),
                         )
                         .unwrap();
-                        locale.set_bot_disclaimer("".into());
+                        locale.bot_disclaimer = "".into();
                         (file.file_name().into_string().unwrap(), locale)
                     })
                     .collect::<Box<_>>()
@@ -106,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or_else(|_| {
                 factorion_lib::locale::get_all()
                     .map(|(k, mut v)| {
-                        v.set_bot_disclaimer("".into());
+                        v.bot_disclaimer = "".into();
                         (k.to_owned(), v)
                     })
                     .collect()
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         info!("InfluxDB client configured. Metrics will be logged.");
     }
 
-    discord_api::start_bot(token, consts, &*INFLUX_CLIENT).await?;
+    discord_api::start_bot(token, consts, &INFLUX_CLIENT).await?;
 
     Ok(())
 }

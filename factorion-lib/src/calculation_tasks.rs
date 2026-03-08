@@ -202,7 +202,7 @@ impl CalculationJob {
                 }
                 -1 => {
                     let res: Float = math::fractional_termial(num.as_float().clone())
-                        * if negative % 2 != 0 { -1 } else { 1 };
+                        * if !negative.is_multiple_of(2) { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(CalculationResult::Float(res.into()));
                     } else {
@@ -215,7 +215,7 @@ impl CalculationJob {
                 }
                 1 => {
                     let res: Float = math::fractional_factorial(num.as_float().clone())
-                        * if negative % 2 != 0 { -1 } else { 1 };
+                        * if !negative.is_multiple_of(2) { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(CalculationResult::Float(res.into()));
                     } else {
@@ -225,7 +225,7 @@ impl CalculationJob {
                 2.. => {
                     let res: Float =
                         math::fractional_multifactorial(num.as_float().clone(), level as u32)
-                            * if negative % 2 != 0 { -1 } else { 1 };
+                            * if !negative.is_multiple_of(2) { -1 } else { 1 };
                     if res.is_finite() {
                         return Some(CalculationResult::Float(res.into()));
                     } else {
@@ -287,7 +287,7 @@ impl CalculationJob {
             } else if calc_num > consts.upper_approximation_limit {
                 let factorial =
                     math::approximate_multifactorial_digits(calc_num.clone(), level as u32, prec);
-                CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
+                CalculationResult::ApproximateDigits(!negative.is_multiple_of(2), factorial)
             // Check if the number is within a reasonable range to compute
             } else if calc_num > consts.upper_calculation_limit {
                 let factorial = if level == 0 {
@@ -296,7 +296,8 @@ impl CalculationJob {
                     math::approximate_multifactorial(calc_num.clone(), level as u32, prec)
                 };
                 CalculationResult::Approximate(
-                    ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                    ((factorial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
+                        .into(),
                     factorial.1,
                 )
             } else {
@@ -304,7 +305,7 @@ impl CalculationJob {
                     .to_u64()
                     .unwrap_or_else(|| panic!("Failed to convert BigInt to u64: {calc_num}"));
                 let factorial = math::factorial(calc_num, level as u32)
-                    * if negative % 2 != 0 { -1 } else { 1 };
+                    * if !negative.is_multiple_of(2) { -1 } else { 1 };
                 CalculationResult::Exact(factorial)
             })
         } else if level == 0 {
@@ -312,11 +313,12 @@ impl CalculationJob {
                 CalculationResult::ComplexInfinity
             } else if calc_num > consts.upper_approximation_limit {
                 let factorial = math::approximate_multifactorial_digits(calc_num.clone(), 1, prec);
-                CalculationResult::ApproximateDigits(negative % 2 != 0, factorial)
+                CalculationResult::ApproximateDigits(!negative.is_multiple_of(2), factorial)
             } else if calc_num > consts.upper_subfactorial_limit {
                 let factorial = math::approximate_subfactorial(calc_num.clone(), prec);
                 CalculationResult::Approximate(
-                    ((factorial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                    ((factorial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
+                        .into(),
                     factorial.1,
                 )
             } else {
@@ -324,18 +326,19 @@ impl CalculationJob {
                     .to_u64()
                     .unwrap_or_else(|| panic!("Failed to convert BigInt to u64: {calc_num}"));
                 let factorial =
-                    math::subfactorial(calc_num) * if negative % 2 != 0 { -1 } else { 1 };
+                    math::subfactorial(calc_num) * if !negative.is_multiple_of(2) { -1 } else { 1 };
                 CalculationResult::Exact(factorial)
             })
         } else if level < 0 {
             Some(
                 if calc_num.significant_bits() > consts.upper_termial_approximation_limit {
                     let termial = math::approximate_termial_digits(calc_num, -level as u32, prec);
-                    CalculationResult::ApproximateDigits(negative % 2 != 0, termial)
+                    CalculationResult::ApproximateDigits(!negative.is_multiple_of(2), termial)
                 } else if calc_num > consts.upper_termial_limit {
                     let termial = math::approximate_termial(calc_num, -level as u32, prec);
                     CalculationResult::Approximate(
-                        ((termial.0 * if negative % 2 != 0 { -1 } else { 1 }) as Float).into(),
+                        ((termial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
+                            .into(),
                         termial.1,
                     )
                 } else {
@@ -344,7 +347,7 @@ impl CalculationJob {
                     } else {
                         math::termial(calc_num)
                     };
-                    let termial = termial * if negative % 2 != 0 { -1 } else { 1 };
+                    let termial = termial * if !negative.is_multiple_of(2) { -1 } else { 1 };
                     CalculationResult::Exact(termial)
                 },
             )

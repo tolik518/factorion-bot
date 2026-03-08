@@ -146,7 +146,7 @@ impl<'a> Handler<'a> {
         let extract_end = SystemTime::now();
 
         factorion_lib::influxdb::discord::log_time_consumed(
-            &self.influx_client,
+            self.influx_client,
             extract_start,
             extract_end,
             "extract_factorials",
@@ -163,7 +163,7 @@ impl<'a> Handler<'a> {
         let calc_end = SystemTime::now();
 
         factorion_lib::influxdb::discord::log_time_consumed(
-            &self.influx_client,
+            self.influx_client,
             calc_start,
             calc_end,
             "calculate_factorials",
@@ -208,7 +208,7 @@ impl<'a> Handler<'a> {
 
             // Log the reply to InfluxDB
             factorion_lib::influxdb::discord::log_message_reply(
-                &self.influx_client,
+                self.influx_client,
                 &msg.id.to_string(),
                 &msg.author.name,
                 &msg.channel_id.to_string(),
@@ -220,7 +220,7 @@ impl<'a> Handler<'a> {
 
         let end = SystemTime::now();
         factorion_lib::influxdb::discord::log_time_consumed(
-            &self.influx_client,
+            self.influx_client,
             start,
             end,
             "process_message",
