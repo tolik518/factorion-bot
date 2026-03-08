@@ -296,7 +296,8 @@ impl CalculationJob {
                     math::approximate_multifactorial(calc_num.clone(), level as u32, prec)
                 };
                 CalculationResult::Approximate(
-                    ((factorial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float).into(),
+                    ((factorial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
+                        .into(),
                     factorial.1,
                 )
             } else {
@@ -316,7 +317,8 @@ impl CalculationJob {
             } else if calc_num > consts.upper_subfactorial_limit {
                 let factorial = math::approximate_subfactorial(calc_num.clone(), prec);
                 CalculationResult::Approximate(
-                    ((factorial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float).into(),
+                    ((factorial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
+                        .into(),
                     factorial.1,
                 )
             } else {
@@ -335,7 +337,8 @@ impl CalculationJob {
                 } else if calc_num > consts.upper_termial_limit {
                     let termial = math::approximate_termial(calc_num, -level as u32, prec);
                     CalculationResult::Approximate(
-                        ((termial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float).into(),
+                        ((termial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
+                            .into(),
                         termial.1,
                     )
                 } else {

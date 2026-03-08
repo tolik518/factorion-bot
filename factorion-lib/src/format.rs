@@ -366,11 +366,10 @@ pub fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::f
     decimal_part.remove(0);
     decimal_part.remove(0);
     decimal_part.truncate(consts.number_decimals_scientific + 1);
-    if decimal_part.len() > consts.number_decimals_scientific
-        && round(&mut decimal_part) {
-            decimal_part.clear();
-            whole_number += 1;
-        }
+    if decimal_part.len() > consts.number_decimals_scientific && round(&mut decimal_part) {
+        decimal_part.clear();
+        whole_number += 1;
+    }
     if let Some(mut digit) = decimal_part.pop() {
         while digit == '0' {
             digit = match decimal_part.pop() {

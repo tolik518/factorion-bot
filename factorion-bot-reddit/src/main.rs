@@ -46,8 +46,7 @@ fn en_str() -> &'static str {
     "en"
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 enum SubredditMode {
     All,
     PostOnly,
