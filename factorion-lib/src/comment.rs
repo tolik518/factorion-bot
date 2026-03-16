@@ -221,23 +221,31 @@ impl Commands {
             termial: Self::contains_command_format(text, "termial")
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
+                || Self::contains_command_format(text, "no\\_note")
                 || Self::contains_command_format(text, "no_note"),
             write_out: Self::contains_command_format(text, "write_out")
-                || Self::contains_command_format(text, "write_num"),
+                || Self::contains_command_format(text, "write\\_out")
+                || Self::contains_command_format(text, "write_num")
+                || Self::contains_command_format(text, "write\\_num"),
         }
     }
     pub fn overrides_from_comment_text(text: &str) -> Self {
         Self {
             shorten: !Self::contains_command_format(text, "long"),
             steps: !(Self::contains_command_format(text, "no steps")
-                || Self::contains_command_format(text, "no_steps")),
+                || Self::contains_command_format(text, "no_steps")
+                || Self::contains_command_format(text, "no\\_steps")),
             nested: !(Self::contains_command_format(text, "no_nest")
+                || Self::contains_command_format(text, "no\\_nest")
                 || Self::contains_command_format(text, "multi")),
             termial: !(Self::contains_command_format(text, "no termial")
-                || Self::contains_command_format(text, "no_termial")),
+                || Self::contains_command_format(text, "no_termial")
+                || Self::contains_command_format(text, "no\\_termial")),
             no_note: !Self::contains_command_format(text, "note"),
             write_out: !(Self::contains_command_format(text, "dont_write_out")
-                || Self::contains_command_format(text, "normal_num")),
+                || Self::contains_command_format(text, "dont\\_write\\_out")
+                || Self::contains_command_format(text, "normal\\_num")
+                || Self::contains_command_format(text, "normal\\_num")),
         }
     }
 }
