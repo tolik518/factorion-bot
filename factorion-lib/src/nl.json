@@ -27,7 +27,7 @@
     "factorial": "faculteit",
     "uple": "upel{factorial}",
     "sub": "sub{factorial}",
-    "negative": "negative {factorial}",
+    "negative": "negatieve {factorial}",
     "num_overrides": {
       "2": "dubbel{factorial}"
     },
