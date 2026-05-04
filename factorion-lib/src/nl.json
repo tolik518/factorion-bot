@@ -1,0 +1,44 @@
+{
+  "bot_disclaimer": "Deze actie is door een bot uitgevoerd | [Source code](http://f.r0.fyi)",
+  "notes": {
+    "tower": "Dat is zo groot, dat ik niet eens de hoeveelheid cijfers ervan kan geven, dus moet ik een macht van tien toren maken.",
+    "tower_mult": "Sommige van deze zijn zo groot, dat ik niet eens de hoeveelheid cijfers ervan kan geven, dus moet ik een macht van tien toren maken.",
+    "digits": "Dat getal is zo groot, dat ik het niet eens goed kan benaderen, dus kan ik je enkel een benadering van de hoeveelheid cijfers geven.",
+    "digits_mult": "Sommige van deze zijn zo groot, dat ik ze niet eens goed kan benaderen, dus kan ik je enkel een benadering van de hoeveelheid cijfers geven.",
+    "approx": "Dat is zo groot, dat ik het niet kan uitrekenen, dus zal ik moeten benaderen.",
+    "approx_mult": "Sommige van deze zijn zo groot, dat ik ze niet kan uitrekenen, dus zal ik moeten benaderen.",
+    "round": "Ik kan zo'n grote faculteit van decimalen niet uitrekenen. Dus heb ik op een gegeven moment moeten afronden.",
+    "round_mult": "Ik kan zulke grote faculteiten van decimalen niet uitrekenen. Dus heb ik op een gegeven moment moeten afronden.",
+    "too_big": "Als ik het volledige getal had geplaatst, zou de reactie te lang worden. Dus moest ik het in wetenschappelijke notatie moest omzetten.",
+    "too_big_mult": "Als ik de volledige getallen had geplaatst, zou de reactie te lang worden. Dus moest ik ze in wetenschappelijke notatie moest omzetten.",
+    "remove": "Als ik alle getallen het geplaatst, zou de reactie te lang worden. Dus moest ik sommige ervan weghalen.",
+    "tetration": "Dat is zo groot, dat ik het niet eens in een reactie met een macht van 10 toren kan passen, dus zal ik tetratie moeten gebruiken!",
+    "no_post": "Sorry, maar de reactoe text voor al die getallen zou héél lang zijn, dus ga ik het liever überhaupt niet proberen te plaatsen lmao",
+    "limit_hit": "Ik heb mezelf vaak genoeg herhaals, ik ga die berekening niet nog een keer uitvoeren.",
+    "write_out_unsupported": "Ik kan getallen alleen maar in het Engels uitschrijven, dus zal ik dat doen.",
+    "mention": "Hoi {mention}!"
+  },
+  "format": {
+    "number_format": {
+      "decimal": ","
+    },
+    "capitalize_calc": false,
+    "termial": "driehoeksgetal",
+    "factorial": "faculteit",
+    "uple": "dubbel{factorial}",
+    "sub": "sub{factorial}",
+    "negative": "negative {factorial}",
+    "num_overrides": {
+      "2": "dubbel{factorial}"
+    },
+    "force_num": false,
+    "nest": "{factorial} van {next}",
+    "exact": "{factorial} van {number} is {result}",
+    "rough": "{factorial} van {number} is ongeveer {result}",
+    "approx": "{factorial} van {number} is benaderd {result}",
+    "digits": "{factorial} van {number} heeft benaderd {result} cijfers",
+    "order": "{factorial} van {number} heeft in de orde van grootte van {result} cijfers",
+    "all_that": "Dat allemaal van {number} heeft in de orde van grootte van {result} cijfers",
+    "rough_number": "ongeveer {number}"
+  }
+}
