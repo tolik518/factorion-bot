@@ -25,7 +25,7 @@
     "capitalize_calc": false,
     "termial": "driehoeksgetal",
     "factorial": "faculteit",
-    "uple": "dubbel{factorial}",
+    "uple": "upel{factorial}",
     "sub": "sub{factorial}",
     "negative": "negative {factorial}",
     "num_overrides": {
