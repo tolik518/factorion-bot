@@ -36,7 +36,7 @@ pub fn get_all() -> impl Iterator<Item = (&'static str, Locale<'static>)> {
         ("de", get_de()),
         ("ru", get_ru()),
         ("it", get_it()),
-        ("nl", get_nl())
+        ("nl", get_nl()),
     ]
     .into_iter()
 }
