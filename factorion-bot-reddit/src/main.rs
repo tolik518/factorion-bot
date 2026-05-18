@@ -54,7 +54,7 @@ enum SubredditMode {
     None,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = std::env::args().collect::<Vec<_>>();
     if args.len() > 1 && (args[1] == "--version" || args[1] == "-v") {

@@ -1,5 +1,7 @@
 //! Parses text and extracts calculations
 
+use std::ops::ControlFlow;
+
 use crate::locale::NumFormat;
 use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
@@ -90,49 +92,6 @@ pub fn parse(
     consts: &Consts,
     locale: &NumFormat,
 ) -> Vec<CalculationJob> {
-    // Parsing rules:
-    // - prefix has precedence before suffix (unimplemented)
-    // - anything within a spoiler should be ignored
-    // - operations may be nested through parentheses
-    // - operations can be negated through -
-    // - parens may contain:
-    //   - numbers
-    //   - operations
-    //   - parens
-    //   - whitespace
-    // - operations are:
-    //   - subfactorials !n
-    //   - (multi-)factorials n!+
-    //   - termials n?
-    // - numbers are in order:
-    //   - a string of digits
-    //   - a decimal separator and further digits
-    //   - a base 10 exponent, which is:
-    //     - an e or E followed by
-    //     - optionally a + or -
-    //     - a string of digits
-    // - numbers need to at least have the first or second criteria
-
-    // Parsing:
-    // 1. skip to interesting
-    // 2. If spoiler, skip
-    // 3. If negation, save
-    // 4. If paren start, push (with negation)
-    // 5. If paren end, pop
-    //   1. If had prefix, use base, set base
-    //   2. If has postfix, use base, set base
-    // 6. If prefix
-    //   1. If on number, set base
-    //     1. If has postfix, use base, set base
-    //   2. If on paren, push (with negation and level)
-    // 7. If number, parse
-    //   1. If has postfix, set base
-    //   2. If in parens, set as base
-    // 8. If on toplevel, add base to jobs
-    //
-    // when setting base:
-    // 1. If base is set, add previous to jobs
-    // 2. override base
     let mut jobs = Vec::new();
     let mut base: Option<CalculationBase> = None;
     let mut paren_steps: Vec<(u32, Option<i32>, bool)> = Vec::new();
@@ -150,7 +109,6 @@ pub fn parse(
             current_negative = 0;
             had_text_before = false;
         }
-        // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
         };
@@ -168,306 +126,71 @@ pub fn parse(
         // so we can just ignore everything before
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
-            // Escapes
             text = &text[ESCAPE.len_utf8()..];
-            let end = if text.starts_with(SPOILER_START) {
-                1
-            } else if text.starts_with(SPOILER_HTML_START) {
-                4
-            } else if text.starts_with(URI_START) {
-                3
-            } else {
-                0
-            };
-            text = &text[end..];
+            parse_escape(&mut text);
             continue;
         } else if text.starts_with(URI_START) {
-            // URI
-            let end = text.find(char::is_whitespace).unwrap_or(text.len());
-            text = &text[end..];
+            parse_uri(&mut text);
             continue;
         } else if text.starts_with(SPOILER_START) {
-            // Spoiler (2.)
-            let mut end = 0;
-            loop {
-                // look for next end tag
-                if let Some(e) = text[end..].find(SPOILER_END) {
-                    if e == 0 {
-                        panic!("Parser loop Spoiler! Text \"{text}\"");
-                    }
-                    end += e;
-                    // is escaped -> look further
-                    let potential_escape = end.saturating_sub(ESCAPE.len_utf8());
-                    if text.is_char_boundary(potential_escape)
-                        && text[end.saturating_sub(ESCAPE.len_utf8())..].starts_with(ESCAPE)
-                    {
-                        end += 1;
-                        continue;
-                    }
-                    break;
-                } else {
-                    // if we find none, we skip only the start (without the !)
-                    end = 0;
-                    break;
-                }
-            }
-            current_negative = 0;
-            text = &text[end + 1..];
+            parse_spoiler(&mut text, SPOILER_END, &mut current_negative);
             continue;
         } else if text.starts_with(SPOILER_HTML_START) {
-            // Spoiler (html) (2.)
-            let mut end = 0;
-            loop {
-                // look for next end tag
-                if let Some(e) = text[end..].find(SPOILER_HTML_END) {
-                    if e == 0 {
-                        panic!("Parser loop Spoiler! Text \"{text}\"");
-                    }
-                    end += e;
-                    // is escaped -> look further
-                    let potential_escape = end.saturating_sub(ESCAPE.len_utf8());
-                    if text.is_char_boundary(potential_escape)
-                        && text[end.saturating_sub(ESCAPE.len_utf8())..].starts_with(ESCAPE)
-                    {
-                        end += 1;
-                        continue;
-                    }
-                    break;
-                } else {
-                    // if we find none, we skip only the start (without the !)
-                    end = 0;
-                    break;
-                }
-            }
-            current_negative = 0;
-            text = &text[end + 4..];
+            parse_spoiler(&mut text, SPOILER_HTML_END, &mut current_negative);
             continue;
         } else if text.starts_with(NEGATION) {
-            // Negation (3.)
-            let end = text.find(|c| c != NEGATION).unwrap_or(text.len());
-            current_negative = end as u32;
-            text = &text[end..];
+            parse_negation(&mut text, &mut current_negative);
             continue;
         } else if text.starts_with(PAREN_START) {
-            // Paren Start (without prefix op) (4.)
-            paren_steps.push((current_negative, None, false));
-            // Submit current base (we won't use it anymore)
-            if let Some(CalculationBase::Calc(job)) = base.take() {
-                jobs.push(*job);
-            }
-            current_negative = 0;
-            text = &text[PAREN_START.len_utf8()..];
+            text = &text[1..];
+            parse_paren_start(
+                &mut jobs,
+                &mut base,
+                &mut paren_steps,
+                &mut current_negative,
+            );
             continue;
         } else if text.starts_with(PAREN_END) {
-            // Paren End (5.)
-            text = &text[PAREN_END.len_utf8()..];
-            current_negative = 0;
-            // Paren mismatch?
-            let Some(step) = paren_steps.pop() else {
-                continue;
-            };
-            // poisoned paren
-            if step.2 {
-                if let Some(CalculationBase::Calc(job)) = base.take() {
-                    jobs.push(*job);
-                }
-                // no number (maybe var) => poison outer paren
-                if let Some(step) = paren_steps.last_mut() {
-                    step.2 = true;
-                }
+            text = &text[1..];
+            if let ControlFlow::Break(_) = parse_paren_end(
+                &mut text,
+                do_termial,
+                &mut jobs,
+                &mut base,
+                &mut paren_steps,
+                &mut current_negative,
+            ) {
                 continue;
             }
-            let mut had_op = false;
-            // Prefix? (5.2.)
-            if let Some(level) = step.1 {
-                // base available?
-                let Some(inner) = base.take() else {
-                    // no number (maybe var) => poison outer paren
-                    if let Some(step) = paren_steps.last_mut() {
-                        step.2 = true;
-                    }
-                    continue;
-                };
-                if let (CalculationBase::Num(Number::Float(_)), true) =
-                    (&inner, INTEGER_ONLY_OPS.contains(&level))
-                {
-                    continue;
-                }
-                base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                    base: inner,
-                    level,
-                    negative: 0,
-                })));
-                had_op = true;
-            }
-            // Postfix? (5.1.)
-            let Some(levels) = parse_ops(&mut text, false, do_termial) else {
-                base.take();
-                // no number (maybe var) => poison outer paren
-                if let Some(step) = paren_steps.last_mut() {
-                    step.2 = true;
-                }
-                continue;
-            };
-            if !levels.is_empty() {
-                // Set as base (5.1.2.)
-                for level in levels {
-                    // base available?
-                    let Some(inner) = base.take() else {
-                        continue;
-                    };
-                    base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                        base: inner,
-                        level,
-                        negative: 0,
-                    })));
-                    had_op = true;
-                }
-            }
-            if !had_op {
-                match &mut base {
-                    Some(CalculationBase::Calc(job)) => job.negative += step.0,
-                    Some(CalculationBase::Num(n)) => {
-                        if step.0 % 2 != 0 {
-                            n.negate();
-                        }
-                    }
-                    None => {}
-                }
-            } else {
-                match &mut base {
-                    Some(CalculationBase::Num(n)) => {
-                        if step.0 % 2 == 1 {
-                            n.negate();
-                        }
-                    }
-                    Some(CalculationBase::Calc(job)) => job.negative += step.0,
-                    None => {
-                        // no number (maybe var) => poison outer paren
-                        if let Some(step) = paren_steps.last_mut() {
-                            step.2 = true;
-                        }
-                    }
-                }
-                continue;
-            };
         } else if text.starts_with(PREFIX_OPS) {
-            // Prefix OP (6.)
-            let Ok(level) = parse_op(&mut text, true, do_termial) else {
-                // also skip number to prevent stuff like "!!!1!" getting through
-                parse_num(&mut text, false, true, consts, locale);
+            if let ControlFlow::Break(_) = parse_prefix_ops(
+                &mut text,
+                do_termial,
+                consts,
+                locale,
+                &mut jobs,
+                &mut base,
+                &mut paren_steps,
+                &mut current_negative,
+            ) {
                 continue;
-            };
-            // On number (6.1.)
-            if let Some(num) = parse_num(&mut text, false, true, consts, locale) {
-                // set base (6.1.2.)
-                if let Some(CalculationBase::Calc(job)) = base.take() {
-                    // multiple number, likely expression => poision paren
-                    if let Some(step) = paren_steps.last_mut() {
-                        step.2 = true;
-                    }
-                    jobs.push(*job);
-                }
-                if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
-                    continue;
-                }
-                base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                    base: CalculationBase::Num(num),
-                    level,
-                    negative: current_negative,
-                })));
-                current_negative = 0;
-                let Some(levels) = parse_ops(&mut text, false, do_termial) else {
-                    continue;
-                };
-                for level in levels {
-                    // base available?
-                    let Some(inner) = base.take() else {
-                        continue;
-                    };
-                    base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                        base: inner,
-                        level,
-                        negative: 0,
-                    })));
-                }
-            } else {
-                // on paren? (6.2.)
-                if text.starts_with(PAREN_START) {
-                    paren_steps.push((current_negative, Some(level), false));
-                    current_negative = 0;
-                    text = &text[PAREN_START.len_utf8()..];
-                }
-                continue;
-            };
+            }
         } else {
-            // Number (7.)
-            if text.starts_with('.') && !text[1..].starts_with(char::is_numeric) {
-                // Is a period
-                text = &text[1..];
+            if let ControlFlow::Break(_) = parse_other(
+                &mut text,
+                do_termial,
+                consts,
+                locale,
+                &mut jobs,
+                &mut base,
+                &mut paren_steps,
+                &mut current_negative,
+                had_text,
+                &mut had_text_before,
+            ) {
                 continue;
             }
-            let Some(num) = parse_num(&mut text, had_text, false, consts, locale) else {
-                had_text_before = true;
-                // advance one char to avoid loop
-                let mut end = 1;
-                while !text.is_char_boundary(end) && end < text.len() {
-                    end += 1;
-                }
-                text = &text[end.min(text.len())..];
-                continue;
-            };
-            // postfix? (7.1.)
-            let Some(levels) = parse_ops(&mut text, false, do_termial) else {
-                continue;
-            };
-            if !levels.is_empty() {
-                let levels = levels.into_iter();
-                if let Some(CalculationBase::Calc(job)) = base.take() {
-                    // multiple number, likely expression => poision paren
-                    if let Some(step) = paren_steps.last_mut() {
-                        step.2 = true;
-                    }
-                    jobs.push(*job);
-                }
-                base = Some(CalculationBase::Num(num));
-                for level in levels {
-                    let previous = base.take().unwrap();
-                    if let (CalculationBase::Num(Number::Float(_)), true) =
-                        (&previous, INTEGER_ONLY_OPS.contains(&level))
-                    {
-                        continue;
-                    }
-                    base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                        base: previous,
-                        level,
-                        negative: 0,
-                    })))
-                }
-                if let Some(CalculationBase::Calc(job)) = &mut base {
-                    job.negative = current_negative;
-                }
-            } else {
-                // in parens? (7.2.)
-                if !paren_steps.is_empty() {
-                    let mut num = num;
-                    if current_negative % 2 == 1 {
-                        num.negate();
-                    }
-
-                    if base.is_none() {
-                        base = Some(CalculationBase::Num(num))
-                    } else {
-                        // multiple number, likely expression => poision paren
-                        if let Some(step) = paren_steps.last_mut() {
-                            step.2 = true;
-                        }
-                    }
-                }
-            }
-            current_negative = 0;
         };
-        // toplevel? (8.)
         if paren_steps.is_empty()
             && let Some(CalculationBase::Calc(job)) = base.take()
         {
@@ -480,6 +203,302 @@ pub fn parse(
     jobs.sort();
     jobs.dedup();
     jobs
+}
+
+fn parse_other(
+    text: &mut &str,
+    do_termial: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat,
+    jobs: &mut Vec<CalculationJob>,
+    base: &mut Option<CalculationBase>,
+    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
+    current_negative: &mut u32,
+    had_text: bool,
+    had_text_before: &mut bool,
+) -> ControlFlow<()> {
+    if text.starts_with('.') && !text[1..].starts_with(char::is_numeric) {
+        // Is a period
+        *text = &text[1..];
+        return ControlFlow::Break(());
+    }
+    let Some(num) = parse_num(text, had_text, false, consts, locale) else {
+        *had_text_before = true;
+        // advance one char to avoid loop
+        let mut end = 1;
+        while !text.is_char_boundary(end) && end < text.len() {
+            end += 1;
+        }
+        *text = &text[end.min(text.len())..];
+        return ControlFlow::Break(());
+    };
+    let Some(levels) = parse_ops(text, false, do_termial) else {
+        return ControlFlow::Break(());
+    };
+    if !levels.is_empty() {
+        let levels = levels.into_iter();
+        if let Some(CalculationBase::Calc(job)) = base.take() {
+            // multiple number, likely expression => poision paren
+            if let Some(step) = paren_steps.last_mut() {
+                step.2 = true;
+            }
+            jobs.push(*job);
+        }
+        *base = Some(CalculationBase::Num(num));
+        for level in levels {
+            let previous = base.take().unwrap();
+            if let (CalculationBase::Num(Number::Float(_)), true) =
+                (&previous, INTEGER_ONLY_OPS.contains(&level))
+            {
+                continue;
+            }
+            *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+                base: previous,
+                level,
+                negative: 0,
+            })))
+        }
+        if let Some(CalculationBase::Calc(job)) = base {
+            job.negative = *current_negative;
+        }
+    } else {
+        if !paren_steps.is_empty() {
+            let mut num = num;
+            if *current_negative % 2 == 1 {
+                num.negate();
+            }
+
+            if base.is_none() {
+                *base = Some(CalculationBase::Num(num))
+            } else {
+                // multiple number, likely expression => poision paren
+                if let Some(step) = paren_steps.last_mut() {
+                    step.2 = true;
+                }
+            }
+        }
+    }
+    *current_negative = 0;
+    // postfix? (7.1.)
+    ControlFlow::Continue(())
+}
+
+fn parse_prefix_ops(
+    text: &mut &str,
+    do_termial: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat,
+    jobs: &mut Vec<CalculationJob>,
+    base: &mut Option<CalculationBase>,
+    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
+    current_negative: &mut u32,
+) -> ControlFlow<()> {
+    let Ok(level) = parse_op(text, true, do_termial) else {
+        // also skip number to prevent stuff like "!!!1!" getting through
+        parse_num(text, false, true, consts, locale);
+        return ControlFlow::Break(());
+    };
+    if let Some(num) = parse_num(text, false, true, consts, locale) {
+        if let Some(CalculationBase::Calc(job)) = base.take() {
+            // multiple number, likely expression => poision paren
+            if let Some(step) = paren_steps.last_mut() {
+                step.2 = true;
+            }
+            jobs.push(*job);
+        }
+        if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
+            return ControlFlow::Break(());
+        }
+        *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            base: CalculationBase::Num(num),
+            level,
+            negative: *current_negative,
+        })));
+        *current_negative = 0;
+        let Some(levels) = parse_ops(text, false, do_termial) else {
+            return ControlFlow::Break(());
+        };
+        for level in levels {
+            // base available?
+            let Some(inner) = base.take() else {
+                continue;
+            };
+            *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+                base: inner,
+                level,
+                negative: 0,
+            })));
+        }
+    } else {
+        if text.starts_with(PAREN_START) {
+            paren_steps.push((*current_negative, Some(level), false));
+            *current_negative = 0;
+            *text = &text[1..];
+        }
+        return ControlFlow::Break(());
+    };
+    ControlFlow::Continue(())
+}
+
+fn parse_paren_end(
+    text: &mut &str,
+    do_termial: bool,
+    jobs: &mut Vec<CalculationJob>,
+    base: &mut Option<CalculationBase>,
+    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
+    current_negative: &mut u32,
+) -> ControlFlow<()> {
+    *current_negative = 0;
+    // Paren mismatch?
+    let Some(step) = paren_steps.pop() else {
+        return ControlFlow::Break(());
+    };
+    // poisoned paren
+    if step.2 {
+        if let Some(CalculationBase::Calc(job)) = base.take() {
+            jobs.push(*job);
+        }
+        // no number (maybe var) => poison outer paren
+        if let Some(step) = paren_steps.last_mut() {
+            step.2 = true;
+        }
+        return ControlFlow::Break(());
+    }
+    let mut had_op = false;
+    if let Some(level) = step.1 {
+        // base available?
+        let Some(inner) = base.take() else {
+            // no number (maybe var) => poison outer paren
+            if let Some(step) = paren_steps.last_mut() {
+                step.2 = true;
+            }
+            return ControlFlow::Break(());
+        };
+        if let (CalculationBase::Num(Number::Float(_)), true) =
+            (&inner, INTEGER_ONLY_OPS.contains(&level))
+        {
+            return ControlFlow::Break(());
+        }
+        *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            base: inner,
+            level,
+            negative: 0,
+        })));
+        had_op = true;
+    }
+    let Some(levels) = parse_ops(text, false, do_termial) else {
+        base.take();
+        // no number (maybe var) => poison outer paren
+        if let Some(step) = paren_steps.last_mut() {
+            step.2 = true;
+        }
+        return ControlFlow::Break(());
+    };
+    if !levels.is_empty() {
+        for level in levels {
+            // base available?
+            let Some(inner) = base.take() else {
+                continue;
+            };
+            *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+                base: inner,
+                level,
+                negative: 0,
+            })));
+            had_op = true;
+        }
+    }
+    if !had_op {
+        match base {
+            Some(CalculationBase::Calc(job)) => job.negative += step.0,
+            Some(CalculationBase::Num(n)) => {
+                if step.0 % 2 != 0 {
+                    n.negate();
+                }
+            }
+            None => {}
+        }
+    } else {
+        match base {
+            Some(CalculationBase::Num(n)) => {
+                if step.0 % 2 == 1 {
+                    n.negate();
+                }
+            }
+            Some(CalculationBase::Calc(job)) => job.negative += step.0,
+            None => {
+                // no number (maybe var) => poison outer paren
+                if let Some(step) = paren_steps.last_mut() {
+                    step.2 = true;
+                }
+            }
+        }
+        return ControlFlow::Break(());
+    };
+    ControlFlow::Continue(())
+}
+
+fn parse_paren_start(
+    jobs: &mut Vec<CalculationJob>,
+    base: &mut Option<CalculationBase>,
+    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
+    current_negative: &mut u32,
+) {
+    paren_steps.push((*current_negative, None, false));
+    // Submit current base (we won't use it anymore)
+    if let Some(CalculationBase::Calc(job)) = base.take() {
+        jobs.push(*job);
+    }
+    *current_negative = 0;
+}
+
+fn parse_negation(text: &mut &str, current_negative: &mut u32) {
+    let end = text.find(|c| c != NEGATION).unwrap_or(text.len());
+    *current_negative = end as u32;
+    *text = &text[end..];
+}
+
+fn parse_spoiler(text: &mut &str, spoiler_end: &str, current_negative: &mut u32) {
+    let mut end = 0;
+    loop {
+        // look for next end tag
+        if let Some(e) = text[end..].find(spoiler_end) {
+            if e == 0 {
+                panic!("Parser loop Spoiler! Text \"{text}\"");
+            }
+            end += e;
+            // is escaped -> look further
+            if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
+                end += 1;
+                continue;
+            }
+            break;
+        } else {
+            // if we find none, we skip only the start (without the !)
+            end = 0;
+            break;
+        }
+    }
+    *current_negative = 0;
+    *text = &text[end + spoiler_end.len() - 1..];
+}
+
+fn parse_uri(text: &mut &str) {
+    let end = text.find(char::is_whitespace).unwrap_or(text.len());
+    *text = &text[end..];
+}
+
+fn parse_escape(text: &mut &str) {
+    let end = if text.starts_with(SPOILER_START) {
+        1
+    } else if text.starts_with(SPOILER_HTML_START) {
+        4
+    } else if text.starts_with(URI_START) {
+        3
+    } else {
+        0
+    };
+    *text = &text[end..];
 }
 
 enum ParseOpErr {
@@ -538,166 +557,184 @@ fn parse_num(
 ) -> Option<Number> {
     let prec = consts.float_precision;
     if text.starts_with(CONSTANT_STARTS) {
-        let (n, x) = if text.starts_with("pi") {
-            ("pi".len(), PI(prec))
-        } else if text.starts_with("π") {
-            ("π".len(), PI(prec))
-        } else if text.starts_with("phi") {
-            ("phi".len(), PHI(prec))
-        } else if text.starts_with("ɸ") {
-            ("ɸ".len(), PHI(prec))
-        } else if text.starts_with("tau") {
-            ("tau".len(), TAU(prec))
-        } else if text.starts_with("τ") {
-            ("τ".len(), TAU(prec))
-        } else if text.starts_with("e") {
-            ("e".len(), E(prec))
-        } else if text.starts_with("infinity") {
-            ("infinity".len(), Number::ComplexInfinity)
-        } else if text.starts_with("inf") {
-            ("inf".len(), Number::ComplexInfinity)
-        } else if text.starts_with("∞\u{303}") {
-            ("∞\u{303}".len(), Number::ComplexInfinity)
-        } else if text.starts_with("∞") {
-            ("∞".len(), Number::ComplexInfinity)
-        } else {
-            return None;
-        };
-        if had_text || text[n..].starts_with(char::is_alphabetic) {
-            return None;
-        }
-        *text = &text[n..];
-        return Some(x);
+        return parse_const(text, had_text, prec);
     }
 
     if text.starts_with("^(") {
-        let orig_text = &text[..];
-        *text = &text[2..];
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        if text.starts_with(")10")
-            && !text[3..].starts_with(POSTFIX_OPS)
-            && !text[3..].starts_with(char::is_numeric)
-            // Intentionally not allowing decimal
-            && !(text[3..].starts_with(SEPARATORS) && text[4..].starts_with(char::is_numeric))
-        {
-            *text = &text[3..];
-            let part = part.replace(SEPARATORS, "");
-            let n = part.parse::<Integer>().ok()?;
-            match n.to_usize() {
-                Some(0) => return Some(1.into()),
-                Some(1) => return Some(10.into()),
-                Some(2) => return Some(Number::Exact(10_000_000_000u64.into())),
-                _ => {
-                    return Some(Number::ApproximateDigitsTower(
-                        false,
-                        false,
-                        n - 1,
-                        1.into(),
-                    ));
-                }
-            }
-        } else {
-            // Skip ^ only (because ret None)
-            *text = orig_text;
-            return None;
-        }
+        return parse_tet(text, locale);
     }
 
     if text.starts_with("10^") || text.starts_with("10\\^") {
-        let orig_text = &text[..];
-        if had_op {
-            if &text[2..3] == "^" {
-                *text = &text[3..];
-            } else {
-                *text = &text[4..];
-            }
-            // Don't skip power if op won't be in exponent, so it will be skipped by tetration parsing
-            if text.starts_with("(") || text.starts_with("\\(") {
-                *text = &orig_text[2..];
-            }
-            return Some(Number::Exact(10.into()));
-        }
-        let mut cur_parens = 0;
-        let mut depth = 0;
-
-        let mut max_no_paren_level = 0;
-        let mut no_paren_inner = &text[0..];
-
-        while text.starts_with("10^") || text.starts_with("10\\^") {
-            let base_text;
-            if &text[2..3] == "^" {
-                base_text = &text[2..];
-                *text = &text[3..];
-            } else {
-                base_text = &text[3..];
-                *text = &text[4..];
-            }
-            if text.starts_with("\\(") {
-                *text = &text[2..];
-                cur_parens += 1;
-            } else if text.starts_with("(") {
-                *text = &text[1..];
-                cur_parens += 1;
-            }
-            // we're at base and pushed a paren
-            if depth == max_no_paren_level && cur_parens == 0 {
-                max_no_paren_level += 1;
-                no_paren_inner = base_text;
-            }
-            depth += 1;
-        }
-
-        let top = match parse_num_simple(text, had_op, consts, locale, prec) {
-            Some(Number::Exact(n)) => n,
-            Some(Number::Approximate(_, n)) => {
-                depth += 1;
-                n
-            }
-            _ => {
-                *text = &orig_text[3..];
-                return None;
-            }
-        };
-
-        for _ in 0..cur_parens {
-            if text.starts_with("\\)") {
-                *text = &text[2..];
-            } else if text.starts_with(")") {
-                *text = &text[1..];
-            } else {
-                *text = &orig_text[2..];
-                return None;
-            }
-        }
-
-        // If postfix op in exponent, ingore that it's in exponent
-        if max_no_paren_level != 0 && text.starts_with(POSTFIX_OPS) {
-            *text = no_paren_inner;
-            return None;
-        }
-
-        if depth == 1 {
-            if top < consts.integer_construction_limit {
-                return Some(Number::Exact(
-                    Integer::u64_pow_u64(10, top.to_u64().unwrap()).complete(),
-                ));
-            }
-            return Some(Number::ApproximateDigits(false, top));
-        } else {
-            return Some(Number::ApproximateDigitsTower(
-                false,
-                false,
-                (depth - 1).into(),
-                top,
-            ));
-        }
+        return parse_tower(text, had_op, consts, locale, prec);
     }
 
     parse_num_simple(text, had_op, consts, locale, prec)
+}
+
+fn parse_const(
+    text: &mut &str,
+    had_text: bool,
+    prec: u32,
+) -> Option<crate::calculation_results::CalculationResult> {
+    let (n, x) = if text.starts_with("pi") {
+        ("pi".len(), PI(prec))
+    } else if text.starts_with("π") {
+        ("π".len(), PI(prec))
+    } else if text.starts_with("phi") {
+        ("phi".len(), PHI(prec))
+    } else if text.starts_with("ɸ") {
+        ("ɸ".len(), PHI(prec))
+    } else if text.starts_with("tau") {
+        ("tau".len(), TAU(prec))
+    } else if text.starts_with("τ") {
+        ("τ".len(), TAU(prec))
+    } else if text.starts_with("e") {
+        ("e".len(), E(prec))
+    } else if text.starts_with("infinity") {
+        ("infinity".len(), Number::ComplexInfinity)
+    } else if text.starts_with("inf") {
+        ("inf".len(), Number::ComplexInfinity)
+    } else if text.starts_with("∞\u{303}") {
+        ("∞\u{303}".len(), Number::ComplexInfinity)
+    } else if text.starts_with("∞") {
+        ("∞".len(), Number::ComplexInfinity)
+    } else {
+        return None;
+    };
+    if had_text || text[n..].starts_with(char::is_alphabetic) {
+        return None;
+    }
+    *text = &text[n..];
+    return Some(x);
+}
+
+fn parse_tower(
+    text: &mut &str,
+    had_op: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat,
+    prec: u32,
+) -> Option<crate::calculation_results::CalculationResult> {
+    let orig_text = &text[..];
+    if had_op {
+        if &text[2..3] == "^" {
+            *text = &text[3..];
+        } else {
+            *text = &text[4..];
+        }
+        // Don't skip power if op won't be in exponent, so it will be skipped by tetration parsing
+        if text.starts_with("(") || text.starts_with("\\(") {
+            *text = &orig_text[2..];
+        }
+        return Some(Number::Exact(10.into()));
+    }
+    let mut cur_parens = 0;
+    let mut depth = 0;
+    let mut max_no_paren_level = 0;
+    let mut no_paren_inner = &text[0..];
+    while text.starts_with("10^") || text.starts_with("10\\^") {
+        let base_text;
+        if &text[2..3] == "^" {
+            base_text = &text[2..];
+            *text = &text[3..];
+        } else {
+            base_text = &text[3..];
+            *text = &text[4..];
+        }
+        if text.starts_with("\\(") {
+            *text = &text[2..];
+            cur_parens += 1;
+        } else if text.starts_with("(") {
+            *text = &text[1..];
+            cur_parens += 1;
+        }
+        // we're at base and pushed a paren
+        if depth == max_no_paren_level && cur_parens == 0 {
+            max_no_paren_level += 1;
+            no_paren_inner = base_text;
+        }
+        depth += 1;
+    }
+    let top = match parse_num_simple(text, had_op, consts, locale, prec) {
+        Some(Number::Exact(n)) => n,
+        Some(Number::Approximate(_, n)) => {
+            depth += 1;
+            n
+        }
+        _ => {
+            *text = &orig_text[3..];
+            return None;
+        }
+    };
+    for _ in 0..cur_parens {
+        if text.starts_with("\\)") {
+            *text = &text[2..];
+        } else if text.starts_with(")") {
+            *text = &text[1..];
+        } else {
+            *text = &orig_text[2..];
+            return None;
+        }
+    }
+    if max_no_paren_level != 0 && text.starts_with(POSTFIX_OPS) {
+        *text = no_paren_inner;
+        return None;
+    }
+
+    // If postfix op in exponent, ingore that it's in exponent
+
+    if depth == 1 {
+        if top < consts.integer_construction_limit {
+            return Some(Number::Exact(
+                Integer::u64_pow_u64(10, top.to_u64().unwrap()).complete(),
+            ));
+        }
+        return Some(Number::ApproximateDigits(false, top));
+    } else {
+        return Some(Number::ApproximateDigitsTower(
+            false,
+            false,
+            (depth - 1).into(),
+            top,
+        ));
+    }
+}
+
+fn parse_tet(text: &mut &str, locale: &NumFormat) -> Option<Number> {
+    let orig_text = &text[..];
+    *text = &text[2..];
+    let end = text
+        .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
+        .unwrap_or(text.len());
+    let part = &text[..end];
+    *text = &text[end..];
+    if text.starts_with(")10")
+        && !text[3..].starts_with(POSTFIX_OPS)
+        && !text[3..].starts_with(char::is_numeric)
+        // Intentionally not allowing decimal
+        && !(text[3..].starts_with(SEPARATORS) && text[4..].starts_with(char::is_numeric))
+    {
+        *text = &text[3..];
+        let part = part.replace(SEPARATORS, "");
+        let n = part.parse::<Integer>().ok()?;
+        match n.to_usize() {
+            Some(0) => return Some(1.into()),
+            Some(1) => return Some(10.into()),
+            Some(2) => return Some(Number::Exact(10_000_000_000u64.into())),
+            _ => {
+                return Some(Number::ApproximateDigitsTower(
+                    false,
+                    false,
+                    n - 1,
+                    1.into(),
+                ));
+            }
+        }
+    } else {
+        // Skip ^ only (because ret None)
+        *text = orig_text;
+        return None;
+    }
 }
 
 fn parse_num_simple(
@@ -707,42 +744,16 @@ fn parse_num_simple(
     locale: &NumFormat,
     prec: u32,
 ) -> Option<crate::calculation_results::CalculationResult> {
-    let integer_part = {
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        part
-    };
+    let integer_part = get_integer_str(text, locale);
     let decimal_part = if text.starts_with(locale.decimal) {
-        *text = &text[locale.decimal.len_utf8()..];
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        part
+        *text = &text[1..];
+        get_integer_str(text, locale)
     } else {
         &text[..0]
     };
     let exponent_part = if text.starts_with(['e', 'E']) {
         *text = &text[1..];
-        let negative = if text.starts_with('+') {
-            *text = &text[1..];
-            false
-        } else if text.starts_with('-') {
-            *text = &text[1..];
-            true
-        } else {
-            false
-        };
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        (part, negative)
+        get_exponent_str(text, locale)
     } else if !had_op
         && (text.trim_start().starts_with("\\*10^")
             || text.trim_start().starts_with("\\* 10^")
@@ -761,68 +772,27 @@ fn parse_num_simple(
         let start = text.find("^").unwrap();
         let orig_text = &text[start..];
         *text = &text[start + 1..];
-        let paren = if text.starts_with('(') {
-            *text = &text[1..];
-            true
-        } else {
-            false
-        };
-        let negative = if text.starts_with('+') {
-            *text = &text[1..];
-            false
-        } else if text.starts_with('-') {
-            *text = &text[1..];
-            true
-        } else {
-            false
-        };
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        if paren {
-            if text.starts_with(')') {
-                *text = &text[1..];
-            } else {
-                *text = orig_text;
-                return None;
-            }
+        match get_tower_str(text, pre_orig_text, orig_text) {
+            Ok(value) => value,
+            Err(value) => return value,
         }
-        if text.starts_with(POSTFIX_OPS) {
-            //  10^(50)! => (10^50)!, 10^50! => 50!
-            // if !paren text ohne 10^ else text mit 10^
-            if paren {
-                *text = pre_orig_text;
-            } else {
-                *text = orig_text;
-            }
-            return None;
-        }
-        (part, negative)
     } else {
         (&text[..0], false)
     };
     let fraction_part = if !had_op && text.starts_with(['/']) {
         *text = &text[1..];
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        part
+        get_integer_str(text, locale)
     } else {
         &text[..0]
     };
     if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
-        let fraction_part = fraction_part.replace(SEPARATORS, "");
-        let n = fraction_part.parse::<Integer>().ok()?;
-        return Some(Number::Exact(n));
+        return Some(Number::Exact(parse_integer(fraction_part)?));
     }
     if integer_part.is_empty() && decimal_part.is_empty() {
         return None;
     }
     let exponent = if !exponent_part.0.is_empty() {
-        let exponent_part = (exponent_part.0.replace(SEPARATORS, ""), exponent_part.1);
-        let mut e = exponent_part.0.parse::<Integer>().ok()?;
+        let mut e = parse_integer(exponent_part.0)?;
         if exponent_part.1 {
             e *= -1;
         }
@@ -831,8 +801,7 @@ fn parse_num_simple(
         0.into()
     };
     let divisor = if !fraction_part.is_empty() {
-        let fraction_part = fraction_part.replace(SEPARATORS, "");
-        fraction_part.parse::<Integer>().ok()?
+        parse_integer(fraction_part)?
     } else {
         Integer::ONE.clone()
     };
@@ -846,14 +815,14 @@ fn parse_num_simple(
         && (divisor == 1 || exponent >= consts.integer_construction_limit.clone() / 10)
     {
         let exponent = exponent - decimal_part.len();
-        let n = format!("{integer_part}{decimal_part}")
-            .parse::<Integer>()
-            .ok()?;
+        let n = parse_integer(&format!("{integer_part}{decimal_part}"))?;
         let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
         Some(Number::Exact(num))
     } else if exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64 {
         let x = Float::parse(format!(
-            "{integer_part}.{decimal_part}{}{}{}",
+            "{}.{}{}{}{}",
+            integer_part.replace(SEPARATORS, ""),
+            decimal_part.replace(SEPARATORS, ""),
             if !exponent_part.0.is_empty() { "e" } else { "" },
             if exponent_part.1 { "-" } else { "" },
             exponent_part.0
@@ -869,7 +838,12 @@ fn parse_num_simple(
             Some(Number::ComplexInfinity)
         }
     } else {
-        let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
+        let x = Float::parse(format!(
+            "{}.{}",
+            integer_part.replace(SEPARATORS, ""),
+            decimal_part.replace(SEPARATORS, "")
+        ))
+        .ok()?;
         let x = Float::with_val(prec, x) / divisor;
         if x.is_finite() {
             let (b, e) = crate::math::adjust_approximate((x, exponent));
@@ -878,6 +852,78 @@ fn parse_num_simple(
             Some(Number::ComplexInfinity)
         }
     }
+}
+
+fn parse_integer(part: &str) -> Option<Integer> {
+    let part = part.replace(SEPARATORS, "");
+    Some(part.parse::<Integer>().ok()?)
+}
+
+fn get_tower_str<'a>(
+    text: &mut &'a str,
+    pre_orig_text: &'a str,
+    orig_text: &'a str,
+) -> Result<(&'a str, bool), Option<crate::calculation_results::CalculationResult>> {
+    let paren = if text.starts_with('(') {
+        *text = &text[1..];
+        true
+    } else {
+        false
+    };
+    let negative = if text.starts_with('+') {
+        *text = &text[1..];
+        false
+    } else if text.starts_with('-') {
+        *text = &text[1..];
+        true
+    } else {
+        false
+    };
+    let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+    let part = &text[..end];
+    *text = &text[end..];
+    if paren {
+        if text.starts_with(')') {
+            *text = &text[1..];
+        } else {
+            *text = orig_text;
+            return Err(None);
+        }
+    }
+    if text.starts_with(POSTFIX_OPS) {
+        //  10^(50)! => (10^50)!, 10^50! => 50!
+        // if !paren text ohne 10^ else text mit 10^
+        if paren {
+            *text = pre_orig_text;
+        } else {
+            *text = orig_text;
+        }
+        return Err(None);
+    }
+    Ok((part, negative))
+}
+
+fn get_exponent_str<'a>(text: &mut &'a str, locale: &NumFormat) -> (&'a str, bool) {
+    let negative = if text.starts_with('+') {
+        *text = &text[1..];
+        false
+    } else if text.starts_with('-') {
+        *text = &text[1..];
+        true
+    } else {
+        false
+    };
+    let part = get_integer_str(text, locale);
+    (part, negative)
+}
+
+fn get_integer_str<'a>(text: &mut &'a str, locale: &NumFormat) -> &'a str {
+    let end = text
+        .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
+        .unwrap_or(text.len());
+    let part = &text[..end];
+    *text = &text[end..];
+    part
 }
 
 #[cfg(test)]
