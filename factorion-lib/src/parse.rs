@@ -15,6 +15,8 @@ pub mod recommended {
     pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 200_000_000u128.into();
 }
 
+// NOTE: Most of these rely on being ascii (byte indxed)
+
 const POI_STARTS: &[char] = &[
     NEGATION,
     '!', // PREFIX_OPS
@@ -167,7 +169,7 @@ pub fn parse(
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
             // Escapes
-            text = &text[1..];
+            text = &text[ESCAPE.len_utf8()..];
             let end = if text.starts_with(SPOILER_START) {
                 1
             } else if text.starts_with(SPOILER_HTML_START) {
@@ -195,7 +197,10 @@ pub fn parse(
                     }
                     end += e;
                     // is escaped -> look further
-                    if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
+                    let potential_escape = end.saturating_sub(ESCAPE.len_utf8());
+                    if text.is_char_boundary(potential_escape)
+                        && text[end.saturating_sub(ESCAPE.len_utf8())..].starts_with(ESCAPE)
+                    {
                         end += 1;
                         continue;
                     }
@@ -220,7 +225,10 @@ pub fn parse(
                     }
                     end += e;
                     // is escaped -> look further
-                    if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
+                    let potential_escape = end.saturating_sub(ESCAPE.len_utf8());
+                    if text.is_char_boundary(potential_escape)
+                        && text[end.saturating_sub(ESCAPE.len_utf8())..].starts_with(ESCAPE)
+                    {
                         end += 1;
                         continue;
                     }
@@ -248,11 +256,11 @@ pub fn parse(
                 jobs.push(*job);
             }
             current_negative = 0;
-            text = &text[1..];
+            text = &text[PAREN_START.len_utf8()..];
             continue;
         } else if text.starts_with(PAREN_END) {
             // Paren End (5.)
-            text = &text[1..];
+            text = &text[PAREN_END.len_utf8()..];
             current_negative = 0;
             // Paren mismatch?
             let Some(step) = paren_steps.pop() else {
@@ -388,7 +396,7 @@ pub fn parse(
                 if text.starts_with(PAREN_START) {
                     paren_steps.push((current_negative, Some(level), false));
                     current_negative = 0;
-                    text = &text[1..];
+                    text = &text[PAREN_START.len_utf8()..];
                 }
                 continue;
             };
@@ -708,7 +716,7 @@ fn parse_num_simple(
         part
     };
     let decimal_part = if text.starts_with(locale.decimal) {
-        *text = &text[1..];
+        *text = &text[locale.decimal.len_utf8()..];
         let end = text
             .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
             .unwrap_or(text.len());
@@ -828,6 +836,9 @@ fn parse_num_simple(
     } else {
         Integer::ONE.clone()
     };
+    if divisor == 0 {
+        return Some(Number::ComplexInfinity);
+    }
     let integer_part = integer_part.replace(SEPARATORS, "");
     let decimal_part = decimal_part.replace(SEPARATORS, "");
     if exponent >= decimal_part.len() as i64
@@ -855,7 +866,7 @@ fn parse_num_simple(
         } else if x.is_finite() {
             Some(Number::Float(x.into()))
         } else {
-            None
+            Some(Number::ComplexInfinity)
         }
     } else {
         let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
@@ -864,7 +875,7 @@ fn parse_num_simple(
             let (b, e) = crate::math::adjust_approximate((x, exponent));
             Some(Number::Approximate(b.into(), e))
         } else {
-            None
+            Some(Number::ComplexInfinity)
         }
     }
 }

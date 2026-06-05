@@ -131,6 +131,12 @@ impl CalculationJob {
     ) -> Option<CalculationResult> {
         let prec = consts.float_precision;
         let calc_num = match num {
+            CalculationResult::ComplexInfinity => return Some(CalculationResult::ComplexInfinity),
+            Number::Float(num) | CalculationResult::Approximate(num, _)
+                if !num.as_float().is_finite() =>
+            {
+                return Some(CalculationResult::ComplexInfinity);
+            }
             CalculationResult::Approximate(base, exponent) => {
                 if exponent <= consts.integer_construction_limit {
                     let x: Float = base.as_float() * Float::with_val(prec, 10).pow(&exponent);
@@ -194,7 +200,6 @@ impl CalculationJob {
                     CalculationResult::ApproximateDigitsTower(false, false, depth + 1, exponent)
                 });
             }
-            CalculationResult::ComplexInfinity => return Some(CalculationResult::ComplexInfinity),
             Number::Float(num) => match level {
                 ..-1 => {
                     // We don't support multitermials of decimals
@@ -233,6 +238,20 @@ impl CalculationJob {
                     }
                 }
             },
+            Number::Exact(num) if num.significant_bits() >= math::rug::float::exp_max() as u32 => {
+                let sig_bits = num.significant_bits();
+                return Self::calculate_appropriate_factorial(
+                    CalculationResult::Approximate(
+                        (Float::with_val(consts.float_precision, num / consts.float_precision)
+                            / (sig_bits - consts.float_precision))
+                            .into(),
+                        sig_bits.into(),
+                    ),
+                    level,
+                    negative,
+                    consts,
+                );
+            }
             Number::Exact(num) => num,
         };
         if level > 0 {
@@ -332,10 +351,11 @@ impl CalculationJob {
         } else if level < 0 {
             Some(
                 if calc_num.significant_bits() > consts.upper_termial_approximation_limit {
-                    let termial = math::approximate_termial_digits(calc_num, -level as u32, prec);
+                    let termial =
+                        math::approximate_termial_digits(calc_num, level.unsigned_abs(), prec);
                     CalculationResult::ApproximateDigits(!negative.is_multiple_of(2), termial)
-                } else if calc_num > consts.upper_termial_limit {
-                    let termial = math::approximate_termial(calc_num, -level as u32, prec);
+                } else if *calc_num.as_abs() > consts.upper_termial_limit {
+                    let termial = math::approximate_termial(calc_num, level.unsigned_abs(), prec);
                     CalculationResult::Approximate(
                         ((termial.0 * if !negative.is_multiple_of(2) { -1 } else { 1 }) as Float)
                             .into(),
@@ -343,7 +363,7 @@ impl CalculationJob {
                     )
                 } else {
                     let termial = if level < -1 {
-                        math::multitermial(calc_num, -level as u32)
+                        math::multitermial(calc_num, level.unsigned_abs())
                     } else {
                         math::termial(calc_num)
                     };

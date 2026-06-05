@@ -1,6 +1,6 @@
 [package]
 name = "factorion-math"
-version = "1.0.5"
+version = "1.0.6"
 edition = "2024"
 description = "The math (factorials and related functions) used by factorion"
 license = "MIT"
