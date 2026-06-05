@@ -142,7 +142,7 @@ pub fn parse(
             parse_negation(&mut text, &mut current_negative);
             continue;
         } else if text.starts_with(PAREN_START) {
-            text = &text[1..];
+            text = &text[PAREN_START.len_utf8()..];
             parse_paren_start(
                 &mut jobs,
                 &mut base,
@@ -151,7 +151,7 @@ pub fn parse(
             );
             continue;
         } else if text.starts_with(PAREN_END) {
-            text = &text[1..];
+            text = &text[PAREN_END.len_utf8()..];
             if let ControlFlow::Break(_) = parse_paren_end(
                 &mut text,
                 do_termial,
@@ -333,7 +333,7 @@ fn parse_prefix_ops(
         if text.starts_with(PAREN_START) {
             paren_steps.push((*current_negative, Some(level), false));
             *current_negative = 0;
-            *text = &text[1..];
+            *text = &text[PAREN_START.len_utf8()..];
         }
         return ControlFlow::Break(());
     };
@@ -468,7 +468,10 @@ fn parse_spoiler(text: &mut &str, spoiler_end: &str, current_negative: &mut u32)
             }
             end += e;
             // is escaped -> look further
-            if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
+            let potential_escape = end.saturating_sub(ESCAPE.len_utf8());
+            if text.is_char_boundary(potential_escape)
+                && text[potential_escape..].starts_with(ESCAPE)
+            {
                 end += 1;
                 continue;
             }
@@ -746,7 +749,7 @@ fn parse_num_simple(
 ) -> Option<crate::calculation_results::CalculationResult> {
     let integer_part = get_integer_str(text, locale);
     let decimal_part = if text.starts_with(locale.decimal) {
-        *text = &text[1..];
+        *text = &text[locale.decimal.len_utf8()..];
         get_integer_str(text, locale)
     } else {
         &text[..0]
