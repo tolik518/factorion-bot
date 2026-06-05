@@ -1,6 +1,10 @@
 //! This module holds the underlying formatting functions used in [`calculation_result`]
-use crate::{Consts, locale};
-use factorion_math::rug::{Complete, Float, Integer, integer::IntegerExt64, ops::Pow};
+use crate::{Consts, calculation_results::FormatOptions, locale};
+use core::fmt;
+use factorion_math::{
+    length,
+    rug::{Complete, Float, Integer, float::OrdFloat, integer::IntegerExt64, ops::Pow},
+};
 use std::{borrow::Cow, fmt::Write};
 
 const SINGLES: [&str; 10] = [
@@ -404,6 +408,133 @@ pub fn replace(s: &mut String, search_start: usize, from: &str, to: &str) -> usi
         s.len()
     }
 }
+
+pub(crate) fn format_complex_infinity(
+    acc: &mut String,
+    opts: FormatOptions,
+) -> Result<(), fmt::Error> {
+    Ok(if opts.write_out {
+        acc.write_str("complex infinity")?;
+    } else {
+        acc.write_str("∞\u{0303}")?;
+    })
+}
+
+pub(crate) fn format_approximate_digits_tower(
+    acc: &mut String,
+    opts: &FormatOptions,
+    is_value: bool,
+    consts: &Consts<'_>,
+    negative: &bool,
+    depth: &Integer,
+    exponent: &Integer,
+) -> Result<(), fmt::Error> {
+    let depth = if is_value {
+        depth.clone() + 1
+    } else {
+        depth.clone()
+    };
+    acc.write_str(if *negative { "-" } else { "" })?;
+    Ok(
+        if !opts.agressive_shorten && depth <= usize::MAX && (depth <= 1 || exponent != &1) {
+            if depth > 0 {
+                acc.write_str("10^(")?;
+            }
+            if depth > 1 {
+                // PANIC: We just checked, that it is <= usize::MAX and > 1 (implies >= 0), so it fits in usize
+                acc.write_str(&"10\\^".repeat(depth.to_usize().unwrap() - 1))?;
+                acc.write_str("(")?;
+            }
+            if opts.force_shorten {
+                acc.write_str(&truncate(exponent, consts).0)?;
+            } else {
+                write!(acc, "{exponent}")?;
+            }
+            if depth > 1 {
+                acc.write_str("\\)")?;
+            }
+            if depth > 0 {
+                acc.write_str(")")?;
+            }
+        } else {
+            let mut extra = 0;
+            let mut exponent = Float::with_val(consts.float_precision, exponent);
+            while exponent >= 10 {
+                extra += 1;
+                exponent = exponent.log10();
+            }
+            acc.write_str("^(")?;
+            write!(acc, "{}", depth + extra)?;
+            acc.write_str(")10")?;
+        },
+    )
+}
+
+pub(crate) fn format_approximate_digits(
+    acc: &mut String,
+    opts: &FormatOptions,
+    is_value: bool,
+    consts: &Consts<'_>,
+    digits: &Integer,
+) -> Result<(), fmt::Error> {
+    Ok(
+        if opts.write_out && !is_value && length(digits, consts.float_precision) < 3000000 {
+            write_out_number(acc, digits, consts)?;
+        } else {
+            if is_value {
+                acc.write_str("10^(")?;
+            }
+            if opts.force_shorten {
+                acc.write_str(&truncate(digits, consts).0)?;
+            } else {
+                write!(acc, "{digits}")?;
+            }
+            if is_value {
+                acc.write_str(")")?;
+            }
+        },
+    )
+}
+
+pub(crate) fn format_approximate(
+    acc: &mut String,
+    opts: &FormatOptions,
+    consts: &Consts<'_>,
+    base: &OrdFloat,
+    exponent: &Integer,
+) -> Result<(), fmt::Error> {
+    let base = base.as_float();
+    format_float(acc, base, consts)?;
+    acc.write_str(" × 10^")?;
+    Ok(if opts.force_shorten {
+        acc.write_str("(")?;
+        acc.write_str(&truncate(exponent, consts).0)?;
+        acc.write_str(")")?;
+    } else {
+        write!(acc, "{exponent}")?;
+    })
+}
+
+pub(crate) fn format_exact(
+    acc: &mut String,
+    rough: &mut bool,
+    opts: &FormatOptions,
+    consts: &Consts<'_>,
+    factorial: &Integer,
+) -> Result<(), fmt::Error> {
+    Ok(
+        if opts.write_out && length(factorial, consts.float_precision) < 3000000 {
+            write_out_number(acc, factorial, consts)?;
+        } else if opts.force_shorten {
+            let (s, r) = truncate(factorial, consts);
+            *rough = r;
+            acc.write_str(&s)?;
+        } else {
+            write!(acc, "{factorial}")?;
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
