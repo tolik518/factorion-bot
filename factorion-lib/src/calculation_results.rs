@@ -121,7 +121,7 @@ impl From<Float> for Number {
     }
 }
 #[non_exhaustive]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Copy)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct FormatOptions {
     pub force_shorten: bool,
