@@ -574,11 +574,7 @@ fn parse_num(
     parse_num_simple(text, had_op, consts, locale, prec)
 }
 
-fn parse_const(
-    text: &mut &str,
-    had_text: bool,
-    prec: u32,
-) -> Option<crate::calculation_results::CalculationResult> {
+fn parse_const(text: &mut &str, had_text: bool, prec: u32) -> Option<Number> {
     let (n, x) = if text.starts_with("pi") {
         ("pi".len(), PI(prec))
     } else if text.starts_with("π") {
@@ -617,7 +613,7 @@ fn parse_tower(
     consts: &Consts<'_>,
     locale: &NumFormat,
     prec: u32,
-) -> Option<crate::calculation_results::CalculationResult> {
+) -> Option<Number> {
     let orig_text = &text[..];
     if had_op {
         if &text[2..3] == "^" {
@@ -746,7 +742,98 @@ fn parse_num_simple(
     consts: &Consts<'_>,
     locale: &NumFormat,
     prec: u32,
-) -> Option<crate::calculation_results::CalculationResult> {
+) -> Option<Number> {
+    let (integer_part, decimal_part, exponent_part, fraction_part) =
+        get_parts(text, had_op, locale)?;
+    if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
+        return Some(Number::Exact(parse_integer(fraction_part)?));
+    }
+    if integer_part.is_empty() && decimal_part.is_empty() {
+        return None;
+    }
+    let exponent = if !exponent_part.0.is_empty() {
+        let mut e = parse_integer(exponent_part.0)?;
+        if exponent_part.1 {
+            e *= -1;
+        }
+        e
+    } else {
+        0.into()
+    };
+    let divisor = if !fraction_part.is_empty() {
+        parse_integer(fraction_part)?
+    } else {
+        Integer::ONE.clone()
+    };
+    if divisor == 0 {
+        return Some(Number::ComplexInfinity);
+    }
+    let integer_part = integer_part.replace(SEPARATORS, "");
+    let decimal_part = decimal_part.replace(SEPARATORS, "");
+    parse_final_number(
+        consts,
+        prec,
+        exponent_part,
+        exponent,
+        divisor,
+        integer_part,
+        decimal_part,
+    )
+}
+
+fn parse_final_number(
+    consts: &Consts<'_>,
+    prec: u32,
+    exponent_part: (&str, bool),
+    exponent: Integer,
+    divisor: Integer,
+    integer_part: String,
+    decimal_part: String,
+) -> Option<Number> {
+    if exponent >= decimal_part.len() as i64
+        && exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64
+        && (divisor == 1 || exponent >= consts.integer_construction_limit.clone() / 10)
+    {
+        let exponent = exponent - decimal_part.len();
+        let n = parse_integer(&format!("{integer_part}{decimal_part}"))?;
+        let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
+        Some(Number::Exact(num))
+    } else if exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64 {
+        let x = Float::parse(format!(
+            "{}.{}{}{}{}",
+            integer_part,
+            decimal_part,
+            if !exponent_part.0.is_empty() { "e" } else { "" },
+            if exponent_part.1 { "-" } else { "" },
+            exponent_part.0
+        ))
+        .ok()?;
+        let x = Float::with_val(prec, x) / divisor;
+        if x.is_integer() {
+            let n = x.to_integer().unwrap();
+            Some(Number::Exact(n))
+        } else if x.is_finite() {
+            Some(Number::Float(x.into()))
+        } else {
+            Some(Number::ComplexInfinity)
+        }
+    } else {
+        let x = Float::parse(format!("{}.{}", integer_part, decimal_part)).ok()?;
+        let x = Float::with_val(prec, x) / divisor;
+        if x.is_finite() {
+            let (b, e) = crate::math::adjust_approximate((x, exponent));
+            Some(Number::Approximate(b.into(), e))
+        } else {
+            Some(Number::ComplexInfinity)
+        }
+    }
+}
+
+fn get_parts<'a>(
+    text: &mut &'a str,
+    had_op: bool,
+    locale: &NumFormat,
+) -> Option<(&'a str, &'a str, (&'a str, bool), &'a str)> {
     let integer_part = get_integer_str(text, locale);
     let decimal_part = if text.starts_with(locale.decimal) {
         *text = &text[locale.decimal.len_utf8()..];
@@ -775,10 +862,8 @@ fn parse_num_simple(
         let start = text.find("^").unwrap();
         let orig_text = &text[start..];
         *text = &text[start + 1..];
-        match get_tower_str(text, pre_orig_text, orig_text) {
-            Ok(value) => value,
-            Err(value) => return value,
-        }
+        let exponent_part = get_tower_str(text, pre_orig_text, orig_text)?;
+        exponent_part
     } else {
         (&text[..0], false)
     };
@@ -788,73 +873,7 @@ fn parse_num_simple(
     } else {
         &text[..0]
     };
-    if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
-        return Some(Number::Exact(parse_integer(fraction_part)?));
-    }
-    if integer_part.is_empty() && decimal_part.is_empty() {
-        return None;
-    }
-    let exponent = if !exponent_part.0.is_empty() {
-        let mut e = parse_integer(exponent_part.0)?;
-        if exponent_part.1 {
-            e *= -1;
-        }
-        e
-    } else {
-        0.into()
-    };
-    let divisor = if !fraction_part.is_empty() {
-        parse_integer(fraction_part)?
-    } else {
-        Integer::ONE.clone()
-    };
-    if divisor == 0 {
-        return Some(Number::ComplexInfinity);
-    }
-    let integer_part = integer_part.replace(SEPARATORS, "");
-    let decimal_part = decimal_part.replace(SEPARATORS, "");
-    if exponent >= decimal_part.len() as i64
-        && exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64
-        && (divisor == 1 || exponent >= consts.integer_construction_limit.clone() / 10)
-    {
-        let exponent = exponent - decimal_part.len();
-        let n = parse_integer(&format!("{integer_part}{decimal_part}"))?;
-        let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
-        Some(Number::Exact(num))
-    } else if exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64 {
-        let x = Float::parse(format!(
-            "{}.{}{}{}{}",
-            integer_part.replace(SEPARATORS, ""),
-            decimal_part.replace(SEPARATORS, ""),
-            if !exponent_part.0.is_empty() { "e" } else { "" },
-            if exponent_part.1 { "-" } else { "" },
-            exponent_part.0
-        ))
-        .ok()?;
-        let x = Float::with_val(prec, x) / divisor;
-        if x.is_integer() {
-            let n = x.to_integer().unwrap();
-            Some(Number::Exact(n))
-        } else if x.is_finite() {
-            Some(Number::Float(x.into()))
-        } else {
-            Some(Number::ComplexInfinity)
-        }
-    } else {
-        let x = Float::parse(format!(
-            "{}.{}",
-            integer_part.replace(SEPARATORS, ""),
-            decimal_part.replace(SEPARATORS, "")
-        ))
-        .ok()?;
-        let x = Float::with_val(prec, x) / divisor;
-        if x.is_finite() {
-            let (b, e) = crate::math::adjust_approximate((x, exponent));
-            Some(Number::Approximate(b.into(), e))
-        } else {
-            Some(Number::ComplexInfinity)
-        }
-    }
+    Some((integer_part, decimal_part, exponent_part, fraction_part))
 }
 
 fn parse_integer(part: &str) -> Option<Integer> {
@@ -866,7 +885,7 @@ fn get_tower_str<'a>(
     text: &mut &'a str,
     pre_orig_text: &'a str,
     orig_text: &'a str,
-) -> Result<(&'a str, bool), Option<crate::calculation_results::CalculationResult>> {
+) -> Option<(&'a str, bool)> {
     let paren = if text.starts_with('(') {
         *text = &text[1..];
         true
@@ -890,7 +909,7 @@ fn get_tower_str<'a>(
             *text = &text[1..];
         } else {
             *text = orig_text;
-            return Err(None);
+            return None;
         }
     }
     if text.starts_with(POSTFIX_OPS) {
@@ -901,9 +920,9 @@ fn get_tower_str<'a>(
         } else {
             *text = orig_text;
         }
-        return Err(None);
+        return None;
     }
-    Ok((part, negative))
+    Some((part, negative))
 }
 
 fn get_exponent_str<'a>(text: &mut &'a str, locale: &NumFormat) -> (&'a str, bool) {
