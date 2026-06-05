@@ -15,7 +15,7 @@ pub fn factorial(n: u64, k: u32) -> Integer {
 /// The k-factorial of -n is the factorial of n-k times this factor (inf if None)
 pub fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
     let n = -n;
-    let rem = n.rem(2 * k);
+    let rem = n.rem(2 * (k as i64));
     if rem == 0 {
         None
     } else if rem < k {
@@ -271,6 +271,7 @@ pub fn approximate_termial_float(k: u32, n: Float) -> (Float, Integer) {
     let prec = n.prec();
     let len: Integer = n
         .clone()
+        .abs()
         .log10()
         .to_integer_round(rug::float::Round::Down)
         .unwrap()
@@ -278,7 +279,7 @@ pub fn approximate_termial_float(k: u32, n: Float) -> (Float, Integer) {
     let len_10 = Float::with_val(prec, 10).pow(len.clone());
     let a = n.clone() / len_10.clone();
     let b = (n + k) / len_10;
-    adjust_approximate(((a * b) / (2 * k), 2 * len))
+    adjust_approximate(((a * b) / (2 * Float::with_val(prec, k)), 2 * len))
 }
 
 /// The k-termial of x * 10^e as a * 10^b
