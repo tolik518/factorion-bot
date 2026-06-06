@@ -143,22 +143,24 @@ pub fn parse(
             continue;
         } else if text.starts_with(PAREN_START) {
             text = &text[PAREN_START.len_utf8()..];
-            parse_paren_start(
-                &mut jobs,
-                &mut base,
-                &mut paren_steps,
-                &mut current_negative,
-            );
+            parse_paren_start(ParseContext {
+                jobs: &mut jobs,
+                base: &mut base,
+                paren_steps: &mut paren_steps,
+                current_negative: &mut current_negative,
+            });
             continue;
         } else if text.starts_with(PAREN_END) {
             text = &text[PAREN_END.len_utf8()..];
             if let ControlFlow::Break(_) = parse_paren_end(
                 &mut text,
                 do_termial,
-                &mut jobs,
-                &mut base,
-                &mut paren_steps,
-                &mut current_negative,
+                ParseContext {
+                    jobs: &mut jobs,
+                    base: &mut base,
+                    paren_steps: &mut paren_steps,
+                    current_negative: &mut current_negative,
+                },
             ) {
                 continue;
             }
@@ -168,28 +170,30 @@ pub fn parse(
                 do_termial,
                 consts,
                 locale,
-                &mut jobs,
-                &mut base,
-                &mut paren_steps,
-                &mut current_negative,
+                ParseContext {
+                    jobs: &mut jobs,
+                    base: &mut base,
+                    paren_steps: &mut paren_steps,
+                    current_negative: &mut current_negative,
+                },
             ) {
                 continue;
             }
-        } else {
-            if let ControlFlow::Break(_) = parse_other(
-                &mut text,
-                do_termial,
-                consts,
-                locale,
-                &mut jobs,
-                &mut base,
-                &mut paren_steps,
-                &mut current_negative,
-                had_text,
-                &mut had_text_before,
-            ) {
-                continue;
-            }
+        } else if let ControlFlow::Break(_) = parse_other(
+            &mut text,
+            do_termial,
+            consts,
+            locale,
+            ParseContext {
+                jobs: &mut jobs,
+                base: &mut base,
+                paren_steps: &mut paren_steps,
+                current_negative: &mut current_negative,
+            },
+            had_text,
+            &mut had_text_before,
+        ) {
+            continue;
         };
         if paren_steps.is_empty()
             && let Some(CalculationBase::Calc(job)) = base.take()
@@ -205,15 +209,19 @@ pub fn parse(
     jobs
 }
 
+struct ParseContext<'a> {
+    jobs: &'a mut Vec<CalculationJob>,
+    base: &'a mut Option<CalculationBase>,
+    paren_steps: &'a mut Vec<(u32, Option<i32>, bool)>,
+    current_negative: &'a mut u32,
+}
+
 fn parse_other(
     text: &mut &str,
     do_termial: bool,
     consts: &Consts<'_>,
     locale: &NumFormat,
-    jobs: &mut Vec<CalculationJob>,
-    base: &mut Option<CalculationBase>,
-    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
-    current_negative: &mut u32,
+    parse_context: ParseContext<'_>,
     had_text: bool,
     had_text_before: &mut bool,
 ) -> ControlFlow<()> {
@@ -237,48 +245,47 @@ fn parse_other(
     };
     if !levels.is_empty() {
         let levels = levels.into_iter();
-        if let Some(CalculationBase::Calc(job)) = base.take() {
+        if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
             // multiple number, likely expression => poision paren
-            if let Some(step) = paren_steps.last_mut() {
+            if let Some(step) = parse_context.paren_steps.last_mut() {
                 step.2 = true;
             }
-            jobs.push(*job);
+            parse_context.jobs.push(*job);
         }
-        *base = Some(CalculationBase::Num(num));
+        *parse_context.base = Some(CalculationBase::Num(num));
         for level in levels {
-            let previous = base.take().unwrap();
+            let previous = parse_context.base.take().unwrap();
             if let (CalculationBase::Num(Number::Float(_)), true) =
                 (&previous, INTEGER_ONLY_OPS.contains(&level))
             {
                 continue;
             }
-            *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
                 base: previous,
                 level,
                 negative: 0,
             })))
         }
-        if let Some(CalculationBase::Calc(job)) = base {
-            job.negative = *current_negative;
+        if let Some(CalculationBase::Calc(job)) = parse_context.base {
+            job.negative = *parse_context.current_negative;
         }
-    } else {
-        if !paren_steps.is_empty() {
-            let mut num = num;
-            if *current_negative % 2 == 1 {
-                num.negate();
-            }
+    } else if !parse_context.paren_steps.is_empty() {
+        let mut num = num;
+        if *parse_context.current_negative % 2 == 1 {
+            num.negate();
+        }
 
-            if base.is_none() {
-                *base = Some(CalculationBase::Num(num))
-            } else {
-                // multiple number, likely expression => poision paren
-                if let Some(step) = paren_steps.last_mut() {
-                    step.2 = true;
-                }
+        if parse_context.base.is_none() {
+            *parse_context.base = Some(CalculationBase::Num(num))
+        } else {
+            // multiple number, likely expression => poision paren
+            if let Some(step) = parse_context.paren_steps.last_mut() {
+                step.2 = true;
             }
         }
     }
-    *current_negative = 0;
+
+    *parse_context.current_negative = 0;
     // postfix? (7.1.)
     ControlFlow::Continue(())
 }
@@ -288,10 +295,7 @@ fn parse_prefix_ops(
     do_termial: bool,
     consts: &Consts<'_>,
     locale: &NumFormat,
-    jobs: &mut Vec<CalculationJob>,
-    base: &mut Option<CalculationBase>,
-    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
-    current_negative: &mut u32,
+    parse_context: ParseContext<'_>,
 ) -> ControlFlow<()> {
     let Ok(level) = parse_op(text, true, do_termial) else {
         // also skip number to prevent stuff like "!!!1!" getting through
@@ -299,31 +303,31 @@ fn parse_prefix_ops(
         return ControlFlow::Break(());
     };
     if let Some(num) = parse_num(text, false, true, consts, locale) {
-        if let Some(CalculationBase::Calc(job)) = base.take() {
+        if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
             // multiple number, likely expression => poision paren
-            if let Some(step) = paren_steps.last_mut() {
+            if let Some(step) = parse_context.paren_steps.last_mut() {
                 step.2 = true;
             }
-            jobs.push(*job);
+            parse_context.jobs.push(*job);
         }
         if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
             return ControlFlow::Break(());
         }
-        *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+        *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
             base: CalculationBase::Num(num),
             level,
-            negative: *current_negative,
+            negative: *parse_context.current_negative,
         })));
-        *current_negative = 0;
+        *parse_context.current_negative = 0;
         let Some(levels) = parse_ops(text, false, do_termial) else {
             return ControlFlow::Break(());
         };
         for level in levels {
             // base available?
-            let Some(inner) = base.take() else {
+            let Some(inner) = parse_context.base.take() else {
                 continue;
             };
-            *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
                 base: inner,
                 level,
                 negative: 0,
@@ -331,8 +335,10 @@ fn parse_prefix_ops(
         }
     } else {
         if text.starts_with(PAREN_START) {
-            paren_steps.push((*current_negative, Some(level), false));
-            *current_negative = 0;
+            parse_context
+                .paren_steps
+                .push((*parse_context.current_negative, Some(level), false));
+            *parse_context.current_negative = 0;
             *text = &text[PAREN_START.len_utf8()..];
         }
         return ControlFlow::Break(());
@@ -343,23 +349,20 @@ fn parse_prefix_ops(
 fn parse_paren_end(
     text: &mut &str,
     do_termial: bool,
-    jobs: &mut Vec<CalculationJob>,
-    base: &mut Option<CalculationBase>,
-    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
-    current_negative: &mut u32,
+    parse_context: ParseContext<'_>,
 ) -> ControlFlow<()> {
-    *current_negative = 0;
+    *parse_context.current_negative = 0;
     // Paren mismatch?
-    let Some(step) = paren_steps.pop() else {
+    let Some(step) = parse_context.paren_steps.pop() else {
         return ControlFlow::Break(());
     };
     // poisoned paren
     if step.2 {
-        if let Some(CalculationBase::Calc(job)) = base.take() {
-            jobs.push(*job);
+        if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
+            parse_context.jobs.push(*job);
         }
         // no number (maybe var) => poison outer paren
-        if let Some(step) = paren_steps.last_mut() {
+        if let Some(step) = parse_context.paren_steps.last_mut() {
             step.2 = true;
         }
         return ControlFlow::Break(());
@@ -367,9 +370,9 @@ fn parse_paren_end(
     let mut had_op = false;
     if let Some(level) = step.1 {
         // base available?
-        let Some(inner) = base.take() else {
+        let Some(inner) = parse_context.base.take() else {
             // no number (maybe var) => poison outer paren
-            if let Some(step) = paren_steps.last_mut() {
+            if let Some(step) = parse_context.paren_steps.last_mut() {
                 step.2 = true;
             }
             return ControlFlow::Break(());
@@ -379,7 +382,7 @@ fn parse_paren_end(
         {
             return ControlFlow::Break(());
         }
-        *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+        *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
             base: inner,
             level,
             negative: 0,
@@ -387,9 +390,9 @@ fn parse_paren_end(
         had_op = true;
     }
     let Some(levels) = parse_ops(text, false, do_termial) else {
-        base.take();
+        parse_context.base.take();
         // no number (maybe var) => poison outer paren
-        if let Some(step) = paren_steps.last_mut() {
+        if let Some(step) = parse_context.paren_steps.last_mut() {
             step.2 = true;
         }
         return ControlFlow::Break(());
@@ -397,10 +400,10 @@ fn parse_paren_end(
     if !levels.is_empty() {
         for level in levels {
             // base available?
-            let Some(inner) = base.take() else {
+            let Some(inner) = parse_context.base.take() else {
                 continue;
             };
-            *base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
                 base: inner,
                 level,
                 negative: 0,
@@ -409,7 +412,7 @@ fn parse_paren_end(
         }
     }
     if !had_op {
-        match base {
+        match parse_context.base {
             Some(CalculationBase::Calc(job)) => job.negative += step.0,
             Some(CalculationBase::Num(n)) => {
                 if step.0 % 2 != 0 {
@@ -419,7 +422,7 @@ fn parse_paren_end(
             None => {}
         }
     } else {
-        match base {
+        match parse_context.base {
             Some(CalculationBase::Num(n)) => {
                 if step.0 % 2 == 1 {
                     n.negate();
@@ -428,7 +431,7 @@ fn parse_paren_end(
             Some(CalculationBase::Calc(job)) => job.negative += step.0,
             None => {
                 // no number (maybe var) => poison outer paren
-                if let Some(step) = paren_steps.last_mut() {
+                if let Some(step) = parse_context.paren_steps.last_mut() {
                     step.2 = true;
                 }
             }
@@ -438,18 +441,15 @@ fn parse_paren_end(
     ControlFlow::Continue(())
 }
 
-fn parse_paren_start(
-    jobs: &mut Vec<CalculationJob>,
-    base: &mut Option<CalculationBase>,
-    paren_steps: &mut Vec<(u32, Option<i32>, bool)>,
-    current_negative: &mut u32,
-) {
-    paren_steps.push((*current_negative, None, false));
+fn parse_paren_start(parse_context: ParseContext<'_>) {
+    parse_context
+        .paren_steps
+        .push((*parse_context.current_negative, None, false));
     // Submit current base (we won't use it anymore)
-    if let Some(CalculationBase::Calc(job)) = base.take() {
-        jobs.push(*job);
+    if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
+        parse_context.jobs.push(*job);
     }
-    *current_negative = 0;
+    *parse_context.current_negative = 0;
 }
 
 fn parse_negation(text: &mut &str, current_negative: &mut u32) {
@@ -604,7 +604,7 @@ fn parse_const(text: &mut &str, had_text: bool, prec: u32) -> Option<Number> {
         return None;
     }
     *text = &text[n..];
-    return Some(x);
+    Some(x)
 }
 
 fn parse_tower(
@@ -682,21 +682,16 @@ fn parse_tower(
 
     // If postfix op in exponent, ingore that it's in exponent
 
-    if depth == 1 {
+    Some(if depth == 1 {
         if top < consts.integer_construction_limit {
             return Some(Number::Exact(
                 Integer::u64_pow_u64(10, top.to_u64().unwrap()).complete(),
             ));
         }
-        return Some(Number::ApproximateDigits(false, top));
+        Number::ApproximateDigits(false, top)
     } else {
-        return Some(Number::ApproximateDigitsTower(
-            false,
-            false,
-            (depth - 1).into(),
-            top,
-        ));
-    }
+        Number::ApproximateDigitsTower(false, false, (depth - 1).into(), top)
+    })
 }
 
 fn parse_tet(text: &mut &str, locale: &NumFormat) -> Option<Number> {
@@ -716,23 +711,16 @@ fn parse_tet(text: &mut &str, locale: &NumFormat) -> Option<Number> {
         *text = &text[3..];
         let part = part.replace(SEPARATORS, "");
         let n = part.parse::<Integer>().ok()?;
-        match n.to_usize() {
-            Some(0) => return Some(1.into()),
-            Some(1) => return Some(10.into()),
-            Some(2) => return Some(Number::Exact(10_000_000_000u64.into())),
-            _ => {
-                return Some(Number::ApproximateDigitsTower(
-                    false,
-                    false,
-                    n - 1,
-                    1.into(),
-                ));
-            }
-        }
+        Some(match n.to_usize() {
+            Some(0) => 1.into(),
+            Some(1) => 10.into(),
+            Some(2) => Number::Exact(10_000_000_000u64.into()),
+            _ => Number::ApproximateDigitsTower(false, false, n - 1, 1.into()),
+        })
     } else {
         // Skip ^ only (because ret None)
         *text = orig_text;
-        return None;
+        None
     }
 }
 
@@ -862,8 +850,7 @@ fn get_parts<'a>(
         let start = text.find("^").unwrap();
         let orig_text = &text[start..];
         *text = &text[start + 1..];
-        let exponent_part = get_tower_str(text, pre_orig_text, orig_text)?;
-        exponent_part
+        get_tower_str(text, pre_orig_text, orig_text)?
     } else {
         (&text[..0], false)
     };
@@ -878,7 +865,7 @@ fn get_parts<'a>(
 
 fn parse_integer(part: &str) -> Option<Integer> {
     let part = part.replace(SEPARATORS, "");
-    Some(part.parse::<Integer>().ok()?)
+    part.parse::<Integer>().ok()
 }
 
 fn get_tower_str<'a>(

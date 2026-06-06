@@ -1115,6 +1115,38 @@ mod tests {
         handler.process_message(&ctx, &msg).await.unwrap();
 
         assert_eq!(handler.reply.lock().await.take(), None);
+
+        msg.content = "!factorion config termial on".to_owned();
+        msg.id = MessageId::new(4);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+        msg.content = "!factorion config no_note on".to_owned();
+        msg.id = MessageId::new(5);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+        msg.content = "!factorion config steps on".to_owned();
+        msg.id = MessageId::new(6);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+        msg.content = "!factorion config shorten on".to_owned();
+        msg.id = MessageId::new(7);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+        msg.content = "!factorion config nested on".to_owned();
+        msg.id = MessageId::new(8);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+        msg.content = "!factorion config write_out on".to_owned();
+        msg.id = MessageId::new(9);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+        assert_eq!(
+            *handler.channel_configs.lock().await.get(&1).unwrap(),
+            Config {
+                commands: !Commands::NONE,
+                locale: "ru".to_owned()
+            }
+        );
     }
 
     #[test]

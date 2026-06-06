@@ -669,13 +669,13 @@ impl<Meta> CommentCalculated<Meta> {
         &self,
         consts: &Consts<'_>,
         locale: &crate::locale::Locale<'_>,
-        note: &String,
+        note: &str,
         too_big_number: &Integer,
         format_options: FormatOptions,
     ) -> String {
         self.calculation_list
             .iter()
-            .fold(note.clone(), |mut acc, factorial| {
+            .fold(note.to_owned(), |mut acc, factorial| {
                 let _ = factorial.format(
                     &mut acc,
                     format_options,

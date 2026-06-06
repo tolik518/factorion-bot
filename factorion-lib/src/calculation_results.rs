@@ -260,6 +260,14 @@ impl Calculation {
     }
 }
 
+#[derive(Debug, Clone, Default, Copy)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+struct FormatNumberOptions {
+    format_opts: FormatOptions,
+    frame_start: usize,
+    is_value: bool,
+}
+
 impl Calculation {
     /// Formats a Calcucation. \
     /// Force shorten shortens all integers, if that makes them smaller. \
@@ -299,23 +307,27 @@ impl Calculation {
         self.format_number(
             &self.value,
             acc,
-            &options,
+            &FormatNumberOptions {
+                format_opts: options,
+                frame_start,
+                is_value: true,
+            },
             too_big_number,
             consts,
             locale,
-            frame_start,
-            true,
         )?;
         replace(acc, frame_start, "{result}", "{number}");
         self.format_number(
             &self.result,
             acc,
-            &options,
+            &FormatNumberOptions {
+                format_opts: options,
+                frame_start,
+                is_value: false,
+            },
             too_big_number,
             consts,
             locale,
-            frame_start,
-            false,
         )?;
 
         self.format_operations(acc, locale, frame_start);
@@ -377,12 +389,10 @@ impl Calculation {
         &self,
         num: &Number,
         acc: &mut String,
-        options: &FormatOptions,
+        options: &FormatNumberOptions,
         too_big_number: &Integer,
         consts: &Consts<'_>,
         locale: &locale::Format<'_>,
-        frame_start: usize,
-        is_value: bool,
     ) -> Result<(), fmt::Error> {
         let mut number = String::new();
         let mut rough = false;
@@ -390,19 +400,19 @@ impl Calculation {
             &mut number,
             &mut rough,
             FormatOptions {
-                force_shorten: options.force_shorten
+                force_shorten: options.format_opts.force_shorten
                     || self.result.is_too_long(too_big_number)
-                    || options.agressive_shorten,
-                ..*options
+                    || options.format_opts.agressive_shorten,
+                ..options.format_opts
             },
-            is_value,
+            options.is_value,
             consts,
             &locale.number_format,
         )?;
         if rough {
-            replace(acc, frame_start, "{number}", &locale.rough_number);
+            replace(acc, options.frame_start, "{number}", &locale.rough_number);
         }
-        replace(acc, frame_start, "{number}", &number);
+        replace(acc, options.frame_start, "{number}", &number);
         Ok(())
     }
 }
@@ -1023,20 +1033,22 @@ mod test {
         let mut consts = Consts::default();
         consts.number_decimals_scientific = 10;
         let mut acc = String::new();
-        CalculationResult::Exact(Integer::u_pow_u(10, 1000).complete() * 498149837492347328u64)
-            .format(
-                &mut acc,
-                &mut false,
-                FormatOptions::FORCE_SHORTEN,
-                false,
-                &consts,
-                &locale::NumFormat { decimal: '.' },
-            )
-            .unwrap();
+        CalculationResult::Exact(
+            Integer::u_pow_u(10, 1000).complete() * 498_149_837_492_347_328u64,
+        )
+        .format(
+            &mut acc,
+            &mut false,
+            FormatOptions::FORCE_SHORTEN,
+            false,
+            &consts,
+            &locale::NumFormat { decimal: '.' },
+        )
+        .unwrap();
         assert_eq!(acc, "4.9814983749 × 10^1017");
         let mut acc = String::new();
         CalculationResult::Approximate(
-            Float::with_val(FLOAT_PRECISION, 4.98149837492347328f64).into(),
+            Float::with_val(FLOAT_PRECISION, 4.981_498_374_923_473f64).into(),
             1017.into(),
         )
         .format(

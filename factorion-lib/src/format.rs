@@ -413,11 +413,12 @@ pub(crate) fn format_complex_infinity(
     acc: &mut String,
     opts: FormatOptions,
 ) -> Result<(), fmt::Error> {
-    Ok(if opts.write_out {
+    if opts.write_out {
         acc.write_str("complex infinity")?;
     } else {
         acc.write_str("∞\u{0303}")?;
-    })
+    }
+    Ok(())
 }
 
 pub(crate) fn format_approximate_digits_tower(
@@ -435,39 +436,38 @@ pub(crate) fn format_approximate_digits_tower(
         depth.clone()
     };
     acc.write_str(if *negative { "-" } else { "" })?;
-    Ok(
-        if !opts.agressive_shorten && depth <= usize::MAX && (depth <= 1 || exponent != &1) {
-            if depth > 0 {
-                acc.write_str("10^(")?;
-            }
-            if depth > 1 {
-                // PANIC: We just checked, that it is <= usize::MAX and > 1 (implies >= 0), so it fits in usize
-                acc.write_str(&"10\\^".repeat(depth.to_usize().unwrap() - 1))?;
-                acc.write_str("(")?;
-            }
-            if opts.force_shorten {
-                acc.write_str(&truncate(exponent, consts).0)?;
-            } else {
-                write!(acc, "{exponent}")?;
-            }
-            if depth > 1 {
-                acc.write_str("\\)")?;
-            }
-            if depth > 0 {
-                acc.write_str(")")?;
-            }
+    if !opts.agressive_shorten && depth <= usize::MAX && (depth <= 1 || exponent != &1) {
+        if depth > 0 {
+            acc.write_str("10^(")?;
+        }
+        if depth > 1 {
+            // PANIC: We just checked, that it is <= usize::MAX and > 1 (implies >= 0), so it fits in usize
+            acc.write_str(&"10\\^".repeat(depth.to_usize().unwrap() - 1))?;
+            acc.write_str("(")?;
+        }
+        if opts.force_shorten {
+            acc.write_str(&truncate(exponent, consts).0)?;
         } else {
-            let mut extra = 0;
-            let mut exponent = Float::with_val(consts.float_precision, exponent);
-            while exponent >= 10 {
-                extra += 1;
-                exponent = exponent.log10();
-            }
-            acc.write_str("^(")?;
-            write!(acc, "{}", depth + extra)?;
-            acc.write_str(")10")?;
-        },
-    )
+            write!(acc, "{exponent}")?;
+        }
+        if depth > 1 {
+            acc.write_str("\\)")?;
+        }
+        if depth > 0 {
+            acc.write_str(")")?;
+        }
+    } else {
+        let mut extra = 0;
+        let mut exponent = Float::with_val(consts.float_precision, exponent);
+        while exponent >= 10 {
+            extra += 1;
+            exponent = exponent.log10();
+        }
+        acc.write_str("^(")?;
+        write!(acc, "{}", depth + extra)?;
+        acc.write_str(")10")?;
+    }
+    Ok(())
 }
 
 pub(crate) fn format_approximate_digits(
@@ -477,23 +477,22 @@ pub(crate) fn format_approximate_digits(
     consts: &Consts<'_>,
     digits: &Integer,
 ) -> Result<(), fmt::Error> {
-    Ok(
-        if opts.write_out && !is_value && length(digits, consts.float_precision) < 3000000 {
-            write_out_number(acc, digits, consts)?;
+    if opts.write_out && !is_value && length(digits, consts.float_precision) < 3000000 {
+        write_out_number(acc, digits, consts)?;
+    } else {
+        if is_value {
+            acc.write_str("10^(")?;
+        }
+        if opts.force_shorten {
+            acc.write_str(&truncate(digits, consts).0)?;
         } else {
-            if is_value {
-                acc.write_str("10^(")?;
-            }
-            if opts.force_shorten {
-                acc.write_str(&truncate(digits, consts).0)?;
-            } else {
-                write!(acc, "{digits}")?;
-            }
-            if is_value {
-                acc.write_str(")")?;
-            }
-        },
-    )
+            write!(acc, "{digits}")?;
+        }
+        if is_value {
+            acc.write_str(")")?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn format_approximate(
@@ -506,13 +505,14 @@ pub(crate) fn format_approximate(
     let base = base.as_float();
     format_float(acc, base, consts)?;
     acc.write_str(" × 10^")?;
-    Ok(if opts.force_shorten {
+    if opts.force_shorten {
         acc.write_str("(")?;
         acc.write_str(&truncate(exponent, consts).0)?;
         acc.write_str(")")?;
     } else {
         write!(acc, "{exponent}")?;
-    })
+    }
+    Ok(())
 }
 
 pub(crate) fn format_exact(
@@ -522,17 +522,16 @@ pub(crate) fn format_exact(
     consts: &Consts<'_>,
     factorial: &Integer,
 ) -> Result<(), fmt::Error> {
-    Ok(
-        if opts.write_out && length(factorial, consts.float_precision) < 3000000 {
-            write_out_number(acc, factorial, consts)?;
-        } else if opts.force_shorten {
-            let (s, r) = truncate(factorial, consts);
-            *rough = r;
-            acc.write_str(&s)?;
-        } else {
-            write!(acc, "{factorial}")?;
-        },
-    )
+    if opts.write_out && length(factorial, consts.float_precision) < 3000000 {
+        write_out_number(acc, factorial, consts)?;
+    } else if opts.force_shorten {
+        let (s, r) = truncate(factorial, consts);
+        *rough = r;
+        acc.write_str(&s)?;
+    } else {
+        write!(acc, "{factorial}")?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -670,13 +669,12 @@ mod tests {
             .0,
             "10^300"
         );
-        assert_eq!(
-            truncate(
+        assert!(
+            !truncate(
                 &Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
                 &consts
             )
-            .1,
-            false
+            .1
         );
         assert_eq!(
             truncate(

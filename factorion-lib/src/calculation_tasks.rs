@@ -311,7 +311,7 @@ fn calculate_exact_as_approximate(
     num: Integer,
 ) -> Option<CalculationResult> {
     let sig_bits = num.significant_bits();
-    return calculate_appropriate_factorial(
+    calculate_appropriate_factorial(
         CalculationResult::Approximate(
             (Float::with_val(consts.float_precision, num / consts.float_precision)
                 / (sig_bits - consts.float_precision))
@@ -321,7 +321,7 @@ fn calculate_exact_as_approximate(
         level,
         negative,
         consts,
-    );
+    )
 }
 
 fn calculate_or_extract_float(
