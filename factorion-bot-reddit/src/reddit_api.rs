@@ -28,9 +28,9 @@ struct TokenResponse {
     access_token: String,
 }
 
-struct Token {
-    access_token: String,
-    expiration_time: DateTime<Utc>,
+pub struct Token {
+    pub access_token: String,
+    pub expiration_time: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,9 +63,9 @@ const REDDIT_COMMENT_URL: &str = "http://127.0.0.1:9384";
 
 const MAX_COMMENT_LEN: usize = 10_000;
 
-pub(crate) struct RedditClient {
-    client: Client,
-    token: Token,
+pub struct RedditClient {
+    pub client: Client,
+    pub token: Token,
 }
 #[derive(Debug, Clone)]
 pub(crate) struct RateLimitErr;
@@ -859,7 +859,7 @@ impl RedditClient {
                 error!("Failed to construct comment {comment_id}!");
                 return None;
             };
-            comment.meta.used_commands = (comment.commands != pre_commands);
+            comment.meta.used_commands = comment.commands != pre_commands;
             if let Some((mention, commands, mention_author)) = mention_map.get(comment_id) {
                 comment.meta.id = mention.clone();
                 comment.commands = *commands;
@@ -956,7 +956,7 @@ pub mod id {
 
 #[allow(clippy::await_holding_lock)]
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::time::Duration;
 
     use tokio::{
@@ -972,7 +972,7 @@ mod tests {
 
     use super::*;
 
-    async fn dummy_server(reqeuest_response_pairs: &[(&str, &str)]) -> std::io::Result<()> {
+    pub async fn dummy_server(reqeuest_response_pairs: &[(&str, &str)]) -> std::io::Result<()> {
         let listen = TcpListener::bind("127.0.0.1:9384").await?;
         for (expected_request, response) in reqeuest_response_pairs {
             let mut sock = timeout(Duration::from_secs(5), listen.accept()).await??.0;
@@ -993,7 +993,7 @@ mod tests {
         Ok(())
     }
     pub static SEQUENTIAL_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    fn sequential<'a>() -> std::sync::MutexGuard<'a, ()> {
+    pub fn sequential<'a>() -> std::sync::MutexGuard<'a, ()> {
         loop {
             SEQUENTIAL_LOCK.clear_poison();
             if let Ok(lock) = SEQUENTIAL_LOCK.lock() {

@@ -37,7 +37,7 @@ pub struct Handler<'a> {
     channel_configs: Arc<Mutex<HashMap<u64, Config>>>,
     config_path: PathBuf,
     consts: Consts<'a>,
-    influx_client: &'a Option<InfluxDbClient>,
+    influx_client: Option<&'a InfluxDbClient>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +47,7 @@ pub struct Config {
 }
 
 impl<'a> Handler<'a> {
-    pub fn new(consts: Consts<'a>, influx_client: &'a Option<InfluxDbClient>) -> Handler<'a> {
+    pub fn new(consts: Consts<'a>, influx_client: Option<&'a InfluxDbClient>) -> Handler<'a> {
         let config_path = PathBuf::from(CONFIG_FILE);
         let channel_configs = Self::load_configs(&config_path);
 
@@ -661,7 +661,7 @@ impl EventHandler for Handler<'_> {
 pub async fn start_bot(
     token: String,
     consts: Consts<'static>,
-    influx_client: &'static Option<InfluxDbClient>,
+    influx_client: Option<&'static InfluxDbClient>,
 ) -> Result<(), Error> {
     // Configure gateway intents
     // MESSAGE_CONTENT is a privileged intent that must be enabled in Discord Developer Portal:
@@ -824,7 +824,7 @@ mod tests {
     #[test]
     fn test_handler_new() {
         let consts = Consts::default();
-        let _handler = Handler::new(consts, &*INFLUX_CLIENT);
+        let _handler = Handler::new(consts, INFLUX_CLIENT.as_ref());
 
         // Handler should be created successfully
         // We can't directly test the internal state, but we can verify it doesn't panic

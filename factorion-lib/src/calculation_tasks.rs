@@ -38,7 +38,7 @@ pub mod recommended {
 }
 
 /// Representation of the calculation to be done
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct CalculationJob {
     pub base: CalculationBase,
@@ -48,7 +48,7 @@ pub struct CalculationJob {
     pub negative: u32,
 }
 /// The basis of a calculation, whether [Number] or [CalculationJob].
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub enum CalculationBase {
     Num(Number),
