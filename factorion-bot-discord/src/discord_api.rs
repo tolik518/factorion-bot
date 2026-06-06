@@ -38,18 +38,23 @@ pub struct Handler<'a> {
     config_path: PathBuf,
     consts: Consts<'a>,
     influx_client: Option<&'a InfluxDbClient>,
+    #[cfg(test)]
+    reply: Mutex<Option<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
-    commands: Commands,
-    locale: String,
+    pub commands: Commands,
+    pub locale: String,
 }
 
 impl<'a> Handler<'a> {
     pub fn new(consts: Consts<'a>, influx_client: Option<&'a InfluxDbClient>) -> Handler<'a> {
         let config_path = PathBuf::from(CONFIG_FILE);
+        #[cfg(not(test))]
         let channel_configs = Self::load_configs(&config_path);
+        #[cfg(test)]
+        let channel_configs = HashMap::new();
 
         Self {
             processed_messages: Arc::new(Mutex::new(HashSet::new())),
@@ -57,6 +62,8 @@ impl<'a> Handler<'a> {
             config_path,
             consts,
             influx_client,
+            #[cfg(test)]
+            reply: Mutex::new(None),
         }
     }
 
@@ -95,7 +102,12 @@ impl<'a> Handler<'a> {
         let mut configs = self.channel_configs.lock().await;
         configs.insert(channel_id.get(), config);
         drop(configs);
-        self.save_configs().await
+        #[cfg(not(test))]
+        {
+            self.save_configs().await
+        }
+        #[cfg(test)]
+        Ok(())
     }
 
     async fn process_message(&self, ctx: &Context, msg: &Message) -> Result<(), Error> {
@@ -233,6 +245,7 @@ impl<'a> Handler<'a> {
 
     async fn handle_config_command(&self, ctx: &Context, msg: &Message) -> Result<(), Error> {
         // Check if user has manage channel permissions
+        #[cfg(not(test))]
         if let Some(guild_id) = msg.guild_id {
             match guild_id.member(&ctx.http, msg.author.id).await {
                 Ok(member) => {
@@ -269,16 +282,23 @@ impl<'a> Handler<'a> {
         if parts.len() < 4 {
             let config = self.get_channel_config(msg.channel_id).await;
             let status = format!(
-                "**Channel Configuration**\n```\nShorten: {}\nSteps: {}\nTermial: {}\nNo Note: {}\nLocale: {}\n```\n\
+                "**Channel Configuration**\n```\nShorten: {}\nSteps: {}\nTermial: {}\nNo Note: {}\n Nested: {}\n Write Out: {}\nLocale: {}\n```\n\
                 Usage:\n\
                 `!factorion config <setting> <on/off>`\n\
-                Available settings: shorten, steps, termial, no_note",
+                Available settings: shorten, steps, termial, no_note, nested, write_out",
                 config.commands.shorten,
                 config.commands.steps,
                 config.commands.termial,
                 config.commands.no_note,
+                config.commands.nested,
+                config.commands.write_out,
                 config.locale
             );
+            #[cfg(test)]
+            {
+                *self.reply.lock().await = Some(status.clone());
+            }
+            #[cfg(not(test))]
             msg.channel_id.say(&ctx.http, status).await?;
             return Ok(());
         }
@@ -302,6 +322,13 @@ impl<'a> Handler<'a> {
         match setting {
             "shorten" | "short" => {
                 let Setting::Command(enabled) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0".to_owned(),
+                        );
+                    }
+                    #[cfg(not(test))]
                     msg.channel_id
                         .say(
                             &ctx.http,
@@ -312,6 +339,14 @@ impl<'a> Handler<'a> {
                 };
                 config.commands.shorten = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await = Some(format!(
+                        "Shorten has been turned **{}**",
+                        if enabled { "ON" } else { "OFF" }
+                    ));
+                }
+                #[cfg(not(test))]
                 msg.channel_id
                     .say(
                         &ctx.http,
@@ -324,6 +359,13 @@ impl<'a> Handler<'a> {
             }
             "steps" | "step" => {
                 let Setting::Command(enabled) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0".to_owned(),
+                        );
+                    }
+                    #[cfg(not(test))]
                     msg.channel_id
                         .say(
                             &ctx.http,
@@ -334,6 +376,14 @@ impl<'a> Handler<'a> {
                 };
                 config.commands.steps = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await = Some(format!(
+                        "Steps has been turned **{}**",
+                        if enabled { "ON" } else { "OFF" }
+                    ));
+                }
+                #[cfg(not(test))]
                 msg.channel_id
                     .say(
                         &ctx.http,
@@ -346,6 +396,13 @@ impl<'a> Handler<'a> {
             }
             "termial" => {
                 let Setting::Command(enabled) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0".to_owned(),
+                        );
+                    }
+                    #[cfg(not(test))]
                     msg.channel_id
                         .say(
                             &ctx.http,
@@ -356,6 +413,14 @@ impl<'a> Handler<'a> {
                 };
                 config.commands.termial = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await = Some(format!(
+                        "Termial has been turned **{}**",
+                        if enabled { "ON" } else { "OFF" }
+                    ));
+                }
+                #[cfg(not(test))]
                 msg.channel_id
                     .say(
                         &ctx.http,
@@ -368,6 +433,13 @@ impl<'a> Handler<'a> {
             }
             "no_note" | "nonote" | "no-note" => {
                 let Setting::Command(enabled) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0".to_owned(),
+                        );
+                    }
+                    #[cfg(not(test))]
                     msg.channel_id
                         .say(
                             &ctx.http,
@@ -378,6 +450,14 @@ impl<'a> Handler<'a> {
                 };
                 config.commands.no_note = enabled;
                 self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await = Some(format!(
+                        "No note has been turned **{}**",
+                        if enabled { "ON" } else { "OFF" }
+                    ));
+                }
+                #[cfg(not(test))]
                 msg.channel_id
                     .say(
                         &ctx.http,
@@ -388,8 +468,15 @@ impl<'a> Handler<'a> {
                     )
                     .await?;
             }
-            "locale" | "lang" | "language" => {
-                let Setting::Locale(locale) = val else {
+            "nested" | "nest" => {
+                let Setting::Command(enabled) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0".to_owned(),
+                        );
+                    }
+                    #[cfg(not(test))]
                     msg.channel_id
                         .say(
                             &ctx.http,
@@ -398,12 +485,96 @@ impl<'a> Handler<'a> {
                         .await?;
                     return Ok(());
                 };
+                config.commands.nested = enabled;
+                self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await = Some(format!(
+                        "Nested has been turned **{}**",
+                        if enabled { "ON" } else { "OFF" }
+                    ));
+                }
+                #[cfg(not(test))]
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!(
+                            "Nested has been turned **{}**",
+                            if enabled { "ON" } else { "OFF" }
+                        ),
+                    )
+                    .await?;
+            }
+            "write_out" | "writeout" | "write-out" => {
+                let Setting::Command(enabled) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0".to_owned(),
+                        );
+                    }
+                    #[cfg(not(test))]
+                    msg.channel_id
+                        .say(
+                            &ctx.http,
+                            "Invalid value. Use: on/off, true/false, yes/no, or 1/0",
+                        )
+                        .await?;
+                    return Ok(());
+                };
+                config.commands.write_out = enabled;
+                self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await = Some(format!(
+                        "Write out has been turned **{}**",
+                        if enabled { "ON" } else { "OFF" }
+                    ));
+                }
+                #[cfg(not(test))]
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!(
+                            "Write out has been turned **{}**",
+                            if enabled { "ON" } else { "OFF" }
+                        ),
+                    )
+                    .await?;
+            }
+            "locale" | "lang" | "language" => {
+                let Setting::Locale(locale) = val else {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some("Invalid value. Use: <locale>".to_owned());
+                    }
+                    #[cfg(not(test))]
+                    msg.channel_id
+                        .say(&ctx.http, "Invalid value. Use: <locale")
+                        .await?;
+                    return Ok(());
+                };
                 config.locale = locale.clone();
                 self.set_channel_config(msg.channel_id, config).await?;
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await =
+                        Some(format!("Locale has been set to **{}**", locale));
+                }
+                #[cfg(not(test))]
                 msg.channel_id
                     .say(&ctx.http, format!("Locale has been set to **{}**", locale))
                     .await?;
                 if !self.consts.locales.contains_key(&locale) {
+                    #[cfg(test)]
+                    {
+                        *self.reply.lock().await = Some(format!(
+                            "Warning: {} is not a currently supported locale, locales are {:?}",
+                            locale,
+                            self.consts.locales.keys().collect::<Vec<_>>()
+                        ));
+                    }
+                    #[cfg(not(test))]
                     msg.channel_id
                         .say(
                             &ctx.http,
@@ -417,6 +588,12 @@ impl<'a> Handler<'a> {
                 }
             }
             _ => {
+                #[cfg(test)]
+                {
+                    *self.reply.lock().await =
+                        Some("Invalid setting. Available settings: shorten, steps, termial, no_note, post_only, locale".to_owned());
+                }
+                #[cfg(not(test))]
                 msg.channel_id.say(&ctx.http, "Invalid setting. Available settings: shorten, steps, termial, no_note, post_only, locale").await?;
             }
         }
@@ -431,6 +608,10 @@ impl<'a> Handler<'a> {
         reply_text: &str,
         approx: bool,
     ) -> Result<(), Error> {
+        #[cfg(test)]
+        {
+            *self.reply.lock().await = Some(reply_text.to_owned());
+        }
         // Check if the reply is short enough for a simple message
         if Self::should_use_simple_reply(reply_text) {
             return Self::send_simple_reply(ctx, msg, reply_text).await;
@@ -687,6 +868,10 @@ pub async fn start_bot(
 mod tests {
     use super::*;
     use factorion_lib::influxdb::INFLUX_CLIENT;
+    use serenity::all::{
+        Cache, GuildId, Http, Shard, ShardId, ShardInfo, ShardManager, ShardMessenger, ShardRunner,
+        ShardRunnerOptions,
+    };
 
     #[test]
     fn test_should_use_simple_reply_short_text() {
@@ -828,6 +1013,108 @@ mod tests {
 
         // Handler should be created successfully
         // We can't directly test the internal state, but we can verify it doesn't panic
+    }
+
+    #[tokio::test]
+    async fn test_handler_process_message() {
+        let consts = Consts::default();
+        let handler = Handler::new(consts, INFLUX_CLIENT.as_ref());
+        let ctx = {
+            let data = Arc::new(RwLock::new(TypeMap::new()));
+            let cache = Arc::new(Cache::new());
+            let http = Arc::new(Http::new(""));
+            let ws_url = Arc::new(Mutex::new(http.get_gateway().await.unwrap().url));
+            let manager = ShardManager::new(serenity::all::ShardManagerOptions {
+                data: data.clone(),
+                event_handlers: vec![],
+                raw_event_handlers: vec![],
+                shard_index: 0,
+                shard_init: 0,
+                shard_total: 0,
+                ws_url: ws_url.clone(),
+                cache: cache.clone(),
+                http: http.clone(),
+                intents: GatewayIntents::privileged(),
+                presence: None,
+            })
+            .0;
+            Context {
+                data: data.clone(),
+                shard: ShardMessenger::new(&ShardRunner::new(ShardRunnerOptions {
+                    data: data.clone(),
+                    event_handlers: vec![],
+                    raw_event_handlers: vec![],
+                    manager,
+                    shard: Shard::new(
+                        ws_url,
+                        "AAA",
+                        ShardInfo {
+                            id: ShardId(0),
+                            total: 1,
+                        },
+                        GatewayIntents::empty(),
+                        None,
+                    )
+                    .await
+                    .unwrap(),
+                    cache: cache.clone(),
+                    http: http.clone(),
+                })),
+                shard_id: ShardId(0),
+                http,
+                cache,
+            }
+        };
+
+        let mut msg = Message::default();
+        msg.content = "Some comment with factorial 5!".to_owned();
+        msg.id = MessageId::new(1);
+        msg.channel_id = ChannelId::new(1);
+
+        handler.process_message(&ctx, &msg).await.unwrap();
+
+        assert_eq!(handler.reply.lock().await.take(), Some("Factorial of 5 is 120 \n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*".to_owned()));
+
+        msg.content = "!factorion config termial on".to_owned();
+        msg.id = MessageId::new(2);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+
+        assert_eq!(
+            handler.reply.lock().await.take(),
+            Some("Termial has been turned **ON**".to_owned())
+        );
+        assert_eq!(
+            *handler.channel_configs.lock().await.get(&1).unwrap(),
+            Config {
+                commands: Commands::TERMIAL,
+                locale: "en".to_owned()
+            }
+        );
+        msg.content = "!factorion config locale ru".to_owned();
+        msg.id = MessageId::new(3);
+        msg.guild_id = Some(GuildId::new(1));
+        handler.process_message(&ctx, &msg).await.unwrap();
+
+        assert_eq!(
+            handler.reply.lock().await.take(),
+            Some("Locale has been set to **ru**".to_owned())
+        );
+        assert_eq!(
+            *handler.channel_configs.lock().await.get(&1).unwrap(),
+            Config {
+                commands: Commands::TERMIAL,
+                locale: "ru".to_owned()
+            }
+        );
+        let mut msg = Message::default();
+        msg.content = "Some comment with factorial 5!".to_owned();
+        msg.id = MessageId::new(1);
+        msg.channel_id = ChannelId::new(1);
+
+        handler.process_message(&ctx, &msg).await.unwrap();
+
+        assert_eq!(handler.reply.lock().await.take(), None);
     }
 
     #[test]

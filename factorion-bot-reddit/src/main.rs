@@ -705,7 +705,7 @@ mod test {
             ],
         }];
         let thread_calcs_changed = remove_repeated_calcs(&mut comment, &mut thread_calcs);
-        assert_eq!(thread_calcs_changed, true);
+        assert!(thread_calcs_changed);
         assert_eq!(
             comment.calculation_list,
             [(CalculationJob {
@@ -742,7 +742,7 @@ mod test {
         let mut comment =
             Comment::new("Some 10!", meta, Commands::NONE, 10000, "en").extract(&consts);
         let thread_calcs_changed = remove_repeated_calcs(&mut comment, &mut thread_calcs);
-        assert_eq!(thread_calcs_changed, true);
+        assert!(thread_calcs_changed);
         assert_eq!(
             comment.calculation_list,
             [(CalculationJob {
