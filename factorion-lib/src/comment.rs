@@ -244,7 +244,7 @@ impl Commands {
             no_note: !Self::contains_command_format(text, "note"),
             write_out: !(Self::contains_command_format(text, "dont_write_out")
                 || Self::contains_command_format(text, "dont\\_write\\_out")
-                || Self::contains_command_format(text, "normal\\_num")
+                || Self::contains_command_format(text, "normal num")
                 || Self::contains_command_format(text, "normal\\_num")),
         }
     }
