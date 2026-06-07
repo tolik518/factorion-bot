@@ -678,7 +678,7 @@ impl<Meta> CommentCalculated<Meta> {
             .fold(note.to_owned(), |mut acc, factorial| {
                 let _ = factorial.format(
                     &mut acc,
-                    format_options,
+                    format_options.clone(),
                     too_big_number,
                     consts,
                     &locale.format,

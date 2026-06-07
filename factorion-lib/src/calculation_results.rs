@@ -121,7 +121,7 @@ impl From<Float> for Number {
     }
 }
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, Copy)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct FormatOptions {
     pub force_shorten: bool,
@@ -260,7 +260,7 @@ impl Calculation {
     }
 }
 
-#[derive(Debug, Clone, Default, Copy)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 struct FormatNumberOptions {
     format_opts: FormatOptions,
@@ -308,7 +308,7 @@ impl Calculation {
             &self.value,
             acc,
             &FormatNumberOptions {
-                format_opts: options,
+                format_opts: options.clone(),
                 frame_start,
                 is_value: true,
             },
