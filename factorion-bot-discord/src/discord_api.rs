@@ -50,7 +50,7 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq)]
 enum Reply {
     Simple(Cow<'static, str>),
-    Embed(CreateEmbed),
+    Embed(Box<CreateEmbed>),
 }
 
 impl<'a> Handler<'a> {
@@ -211,9 +211,7 @@ impl<'a> Handler<'a> {
         if content.starts_with("!factorion config") {
             drop(processed);
             check_change_config().await?;
-            let (reply, additional) = self
-                .handle_config_command(&content, meta.channel_id)
-                .await?;
+            let (reply, additional) = self.handle_config_command(content, meta.channel_id).await?;
             let reply = Reply::Simple(reply);
             let additional = additional.map(Reply::Simple);
             return Ok(Some(("en".to_owned(), reply, additional)));
@@ -455,7 +453,7 @@ impl<'a> Handler<'a> {
                 msg.channel_id.say(&ctx.http, text).await?;
             }
             Reply::Embed(embed) => {
-                let builder = CreateMessage::new().embed(embed).reference_message(msg);
+                let builder = CreateMessage::new().embed(*embed).reference_message(msg);
                 msg.channel_id.send_message(&ctx.http, builder).await?;
             }
         }
@@ -477,7 +475,7 @@ impl<'a> Handler<'a> {
 
         // For longer/complex replies, use an embed
         let embed = self.create_embed(reply_text, num_calcs, approx)?;
-        Ok(Reply::Embed(embed))
+        Ok(Reply::Embed(Box::new(embed)))
     }
 
     fn should_use_simple_reply(reply_text: &str) -> bool {
@@ -675,7 +673,7 @@ impl<'a> Handler<'a> {
 }
 
 async fn check_can_change_config(ctx: &Context, msg: &Message) -> Result<(), Error> {
-    Ok(if let Some(guild_id) = msg.guild_id {
+    if let Some(guild_id) = msg.guild_id {
         match guild_id.member(&ctx.http, msg.author.id).await {
             Ok(member) => {
                 let has_permission = if let Some(guild) = ctx.cache.guild(guild_id) {
@@ -694,22 +692,20 @@ async fn check_can_change_config(ctx: &Context, msg: &Message) -> Result<(), Err
                             "You need 'Manage Channels' permission to configure channel settings.",
                         )
                         .await?;
-                    return Ok(());
                 }
             }
             Err(_) => {
                 msg.channel_id
                     .say(&ctx.http, "Unable to verify member information.")
                     .await?;
-                return Ok(());
             }
         }
     } else {
         msg.channel_id
             .say(&ctx.http, "This command can only be used in servers.")
             .await?;
-        return Ok(());
-    })
+    }
+    Ok(())
 }
 
 #[async_trait]
@@ -944,7 +940,7 @@ mod tests {
             res,
             Some((
                 "en".to_owned(),
-                Reply::Embed(
+                Reply::Embed(Box::new(
                     CreateEmbed::new()
                         .title("🔢 Multiple Factorial Calculations")
                         .field("📐 Calculation 1", "```\nFactorial of 5 is 120\n```", false)
@@ -953,7 +949,7 @@ mod tests {
                             "```\nFactorial of 10 is 3628800\n```",
                             false
                         )
-                ),
+                )),
                 None
             ))
         );
