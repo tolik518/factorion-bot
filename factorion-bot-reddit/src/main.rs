@@ -2,8 +2,8 @@
 use dotenvy::dotenv;
 use factorion_lib::{
     Consts,
-    comment::{Commands, Comment, Status},
-    influxdb::INFLUX_CLIENT,
+    comment::{Commands, Comment, CommentCalculated, CommentExtracted, Status},
+    influxdb::{INFLUX_CLIENT, InfluxDbClient},
     locale::Locale,
     rug::{Complete, Integer, integer::IntegerExt64},
 };
@@ -20,7 +20,7 @@ use std::sync::OnceLock;
 use std::time::SystemTime;
 use tokio::time::{Duration, sleep};
 
-use crate::reddit_api::Thread;
+use crate::reddit_api::{Meta, Thread};
 
 mod reddit_api;
 
@@ -54,7 +54,7 @@ enum SubredditMode {
     None,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = std::env::args().collect::<Vec<_>>();
     if args.len() > 1 && (args[1] == "--version" || args[1] == "-v") {
@@ -64,59 +64,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     init();
 
-    let consts = Consts {
-        float_precision: std::env::var("FLOAT_PRECISION")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
-        upper_calculation_limit: std::env::var("UPPER_CALCULATION_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT()),
-        upper_approximation_limit: std::env::var("UPPER_APPROXIMATION_LIMIT")
-            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT()),
-        upper_subfactorial_limit: std::env::var("UPPER_SUBFACTORIAL_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT()),
-        upper_termial_limit: std::env::var("UPPER_TERMIAL_LIMIT")
-            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT()),
-        upper_termial_approximation_limit: std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT),
-        integer_construction_limit: std::env::var("INTEGER_CONSTRUCTION_LIMIT")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT()),
-        number_decimals_scientific: std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
-            .map(|s| s.parse().unwrap())
-            .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
-        locales: std::env::var("LOCALES_DIR")
-            .map(|dir| {
-                let files = std::fs::read_dir(dir).unwrap();
-                let mut map = HashMap::new();
-                for (key, value) in files
-                    .map(|file| {
-                        let file = file.unwrap();
-                        let locale: Locale<'static> = serde_json::de::from_str(
-                            std::fs::read_to_string(file.path()).unwrap().leak(),
-                        )
-                        .unwrap();
-                        (file.file_name().into_string().unwrap(), locale)
-                    })
-                    .collect::<Box<_>>()
-                {
-                    map.insert(key, value);
-                }
-                map
-            })
-            .unwrap_or_else(|_| {
-                factorion_lib::locale::get_all()
-                    .map(|(k, v)| (k.to_owned(), v))
-                    .collect()
-            }),
-        default_locale: "en".to_owned(),
-    };
-    let influx_client = &*INFLUX_CLIENT;
+    let consts = get_consts();
 
+    let influx_client = INFLUX_CLIENT.as_ref();
     if influx_client.is_none() {
         warn!("InfluxDB client not configured. No influxdb metrics will be logged.");
     } else {
@@ -125,59 +75,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut reddit_client = RedditClient::new().await?;
     COMMENT_COUNT.set(API_COMMENT_COUNT).unwrap();
+
     let mut requests_per_loop = 0.0;
+    let dont_reply = std::env::var("DONT_REPLY").unwrap_or_default() == "true";
 
-    let dont_reply = std::env::var("DONT_REPLY").unwrap_or_default();
-    let dont_reply = dont_reply == "true";
-
-    let sub_entries = if let Ok(path) = std::env::var("SUBREDDITS_FILE") {
-        if std::env::var("SUBREDDITS").is_ok() {
-            panic!("SUBREDDITS and SUBREDDITS_FILE can not be set simultaneusly!")
-        }
-        let text = std::fs::read_to_string(path).unwrap();
-        serde_json::de::from_str(text.leak()).expect("Subreddits File has invalid format")
-    } else {
-        let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
-        let subreddit_commands = subreddit_commands.leak();
-        subreddit_commands
-            .split('+')
-            .map(|s| s.split_once(':').expect("Locale is unset"))
-            .map(|(s, r)| (s, r.split_once(':').unwrap_or((r, ""))))
-            .map(|(s, (l, c))| (s, if l.is_empty() { "en" } else { l }, c))
-            .filter(|s| !(s.0.is_empty() && s.1.is_empty()))
-            .map(|(sub, locale, commands)| {
-                let mut mode = SubredditMode::All;
-                (
-                    sub,
-                    SubredditEntry {
-                        locale,
-                        commands: commands
-                            .split(',')
-                            .map(|command| match command.trim() {
-                                "shorten" => Commands::SHORTEN,
-                                "termial" => Commands::TERMIAL,
-                                "steps" => Commands::STEPS,
-                                "no_note" => Commands::NO_NOTE,
-                                "post_only" => {
-                                    if mode != SubredditMode::None {
-                                        mode = SubredditMode::PostOnly;
-                                    }
-                                    Commands::NONE
-                                }
-                                "dont_check" => {
-                                    mode = SubredditMode::None;
-                                    Commands::NONE
-                                }
-                                "" => Commands::NONE,
-                                s => panic!("Unknown command in subreddit {sub}: {s}"),
-                            })
-                            .fold(Commands::NONE, |a, e| a | e),
-                        mode,
-                    },
-                )
-            })
-            .collect::<HashMap<_, _>>()
-    };
+    let sub_entries = get_sub_entries();
     info!("Subreddit configuration: {sub_entries:?}");
     if sub_entries.values().any(|v| v.mode != SubredditMode::None) {
         requests_per_loop += 1.0;
@@ -187,18 +89,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     SUBREDDIT_COMMANDS.set(sub_entries).unwrap();
 
-    let check_mentions = std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set");
-    let check_mentions = check_mentions == "true";
+    let check_mentions =
+        std::env::var("CHECK_MENTIONS").expect("CHECK_MENTIONS must be set") == "true";
     if check_mentions {
         requests_per_loop += 1.0;
     }
-    let check_posts = std::env::var("CHECK_POSTS").expect("CHECK_POSTS must be set");
-    let check_posts = check_posts == "true";
+    let check_posts = std::env::var("CHECK_POSTS").expect("CHECK_POSTS must be set") == "true";
 
-    let posts_every = std::env::var("POSTS_EVERY").unwrap_or("1".to_owned());
-    let posts_every: u8 = posts_every.parse().expect("POSTS_EVERY is not a number");
-    let mentions_every = std::env::var("MENTIONS_EVERY").unwrap_or("1".to_owned());
-    let mentions_every: u8 = mentions_every
+    let posts_every: u8 = std::env::var("POSTS_EVERY")
+        .unwrap_or("1".to_owned())
+        .parse()
+        .expect("POSTS_EVERY is not a number");
+    let mentions_every: u8 = std::env::var("MENTIONS_EVERY")
+        .unwrap_or("1".to_owned())
         .parse()
         .expect("MENTIONS_EVERY is not a number");
 
@@ -251,7 +154,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match std::panic::catch_unwind(|| Comment::extract(c, &consts)) {
                     Ok(c) => Some(c),
                     Err(_) => {
-                        error!("Failed to calculate comment {id}!");
+                        error!("Failed to extract comment {id}!");
                         None
                     }
                 }
@@ -267,62 +170,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .await?;
 
-        // Remove repetitive calcs
         for comment in &mut comments {
-            if comment.meta.used_commands || comment.calculation_list.is_empty() {
-                continue;
-            }
-            let Ok(mut dense_id) = u64::from_str_radix(&comment.meta.thread, 36) else {
-                if comment.meta.thread.is_empty() {
-                    info!("Empty thread id on comment {}", comment.meta.id);
-                } else {
-                    warn!("Failed to make id dense {}", comment.meta.thread);
-                }
-                continue;
-            };
-            dense_id |= 3 << 61;
-            let dense_id = DenseId::from_raw(dense_id);
-            let thread = thread_calcs
-                .iter()
-                .enumerate()
-                .find_map(|(i, x)| (x.id == dense_id).then_some(i))
-                .unwrap_or_else(|| {
-                    thread_calcs.push(Thread {
-                        id: dense_id,
-                        calcs: vec![],
-                    });
-                    thread_calcs.len() - 1
-                });
-            let mut thread = thread_calcs.remove(thread);
-            comment.calculation_list.retain(|calc| {
-                thread
-                    .calcs
-                    .iter_mut()
-                    .find(|(c, _)| c == calc)
-                    .map(|(_, n)| {
-                        *n += 1;
-                        *n < MAX_REPETITIONS_PER_THREAD
-                    })
-                    .unwrap_or(true)
-            });
-            comment.status.limit_hit = comment.calculation_list.iter().any(|calc| {
-                thread
-                    .calcs
-                    .iter()
-                    .any(|(c, n)| c == calc && *n + 1 == MAX_REPETITIONS_PER_THREAD)
-            });
-
-            thread
-                .calcs
-                .extend(comment.calculation_list.iter().map(|x| (x.clone(), 0)));
-            thread.calcs.sort_unstable();
-            thread.calcs.reverse();
-            thread.calcs.dedup_by(|a, b| a.0 == b.0);
-
-            thread_calcs.push(thread);
-            thread_calcs_changed = true;
+            thread_calcs_changed |= remove_repeated_calcs(comment, &mut thread_calcs);
         }
-
         let start = SystemTime::now();
         let comments = comments
             .into_iter()
@@ -366,79 +216,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let start = SystemTime::now();
         for comment in comments {
-            let comment_id = &comment.meta.id;
-            let comment_author = &comment.meta.author;
-            let comment_subreddit = &comment.meta.subreddit;
-            let comment_locale = &comment.locale;
-
-            let status: Status = comment.status;
-            let should_answer = status.factorials_found && status.not_replied;
-
-            if status.no_factorial && !status.number_too_big_to_calculate {
-                continue;
-            }
-
-            if status.factorials_found {
-                info!("Comment -> {comment:?}");
-            }
-
-            if should_answer {
-                let Ok(reply): Result<String, _> =
-                    std::panic::catch_unwind(|| comment.get_reply(&consts))
-                else {
-                    error!("Failed to format comment!");
-                    continue;
-                };
-                // Sleep to not spam comments too quickly
-                let pause = if rate.1 < 1.0 {
-                    error!(
-                        "Rate limit hit! time remaining: {}, count remaining: {}",
-                        rate.0, rate.1
-                    );
-                    rate.0 + 5.0
-                } else if rate.1 < 4.0 {
-                    warn!(
-                        "Rate limit close! time remaining: {}, count remaining: {}",
-                        rate.0, rate.1
-                    );
-                    rate.0 / rate.1 + 2.0
-                } else {
-                    2.0
-                };
-                sleep(Duration::from_secs(pause as u64)).await;
-                if !dont_reply {
-                    'reply: loop {
-                        match reddit_client.reply_to_comment(&comment, &reply).await {
-                            Ok(t) => {
-                                if let Some(t) = t {
-                                    rate = t;
-                                } else {
-                                    info!("Missing ratelimit");
-                                }
-                                factorion_lib::influxdb::reddit::log_comment_reply(
-                                    influx_client,
-                                    comment_id,
-                                    comment_author,
-                                    comment_subreddit,
-                                    comment_locale,
-                                )
-                                .await?;
-                            }
-                            Err(e) => match e.downcast::<reddit_api::RateLimitErr>() {
-                                Ok(_) => {
-                                    error!("Hit the ratelimit!");
-                                    sleep(Duration::from_secs(rate.0.ceil() as u64)).await;
-                                    continue 'reply;
-                                }
-                                Err(e) => error!("Failed to reply to comment: {e:?}"),
-                            },
-                        }
-                        break 'reply;
-                    }
-                }
-                continue;
-            }
-            info!(" -> unknown");
+            reply(
+                comment,
+                &mut reddit_client,
+                influx_client,
+                &consts,
+                &mut rate,
+                dont_reply,
+            )
+            .await?;
         }
         let end = SystemTime::now();
 
@@ -465,6 +251,258 @@ async fn main() -> Result<(), Box<dyn Error>> {
         sleep(Duration::from_secs(sleep_between_requests.ceil() as u64)).await;
     }
     Ok(())
+}
+
+async fn reply(
+    comment: CommentCalculated<Meta>,
+    reddit_client: &mut RedditClient,
+    influx_client: Option<&InfluxDbClient>,
+    consts: &Consts<'_>,
+    rate: &mut (f64, f64),
+    dont_reply: bool,
+) -> Result<(), anyhow::Error> {
+    let comment_id = &comment.meta.id;
+    let comment_author = &comment.meta.author;
+    let comment_subreddit = &comment.meta.subreddit;
+    let comment_locale = &comment.locale;
+
+    let status: Status = comment.status;
+    let should_answer = status.factorials_found && status.not_replied;
+
+    if status.no_factorial && !status.number_too_big_to_calculate {
+        return Ok(());
+    }
+
+    if status.factorials_found {
+        info!("Comment -> {comment:?}");
+    }
+
+    if should_answer {
+        let Ok(reply): Result<String, _> = std::panic::catch_unwind(|| comment.get_reply(consts))
+        else {
+            error!("Failed to format comment!");
+            return Ok(());
+        };
+        // Sleep to not spam comments too quickly
+        let pause = if rate.1 < 1.0 {
+            error!(
+                "Rate limit hit! time remaining: {}, count remaining: {}",
+                rate.0, rate.1
+            );
+            rate.0 + 5.0
+        } else if rate.1 < 4.0 {
+            warn!(
+                "Rate limit close! time remaining: {}, count remaining: {}",
+                rate.0, rate.1
+            );
+            rate.0 / rate.1 + 2.0
+        } else {
+            2.0
+        };
+        sleep(Duration::from_secs(pause as u64)).await;
+        if !dont_reply {
+            'reply: loop {
+                match reddit_client.reply_to_comment(&comment, &reply).await {
+                    Ok(t) => {
+                        if let Some(t) = t {
+                            *rate = t;
+                        } else {
+                            info!("Missing ratelimit");
+                        }
+                        factorion_lib::influxdb::reddit::log_comment_reply(
+                            influx_client,
+                            comment_id,
+                            comment_author,
+                            comment_subreddit,
+                            comment_locale,
+                        )
+                        .await?;
+                    }
+                    Err(e) => match e.downcast::<reddit_api::RateLimitErr>() {
+                        Ok(_) => {
+                            error!("Hit the ratelimit!");
+                            sleep(Duration::from_secs(rate.0.ceil() as u64)).await;
+                            continue 'reply;
+                        }
+                        Err(e) => {
+                            error!("Failed to reply to comment: {e:?}");
+                            #[cfg(test)]
+                            return Err(e);
+                        }
+                    },
+                }
+                break 'reply;
+            }
+        }
+        return Ok(());
+    }
+    info!(" -> unknown");
+    Ok(())
+}
+
+fn remove_repeated_calcs(
+    comment: &mut CommentExtracted<Meta>,
+    thread_calcs: &mut Vec<Thread>,
+) -> bool {
+    if comment.meta.used_commands || comment.calculation_list.is_empty() {
+        return false;
+    }
+    let Ok(mut dense_id) = u64::from_str_radix(&comment.meta.thread, 36) else {
+        if comment.meta.thread.is_empty() {
+            info!("Empty thread id on comment {}", comment.meta.id);
+        } else {
+            warn!("Failed to make id dense {}", comment.meta.thread);
+        }
+        return false;
+    };
+    dense_id |= 3 << 61;
+    let dense_id = DenseId::from_raw(dense_id);
+    let thread = thread_calcs
+        .iter()
+        .enumerate()
+        .find_map(|(i, x)| (x.id == dense_id).then_some(i))
+        .unwrap_or_else(|| {
+            thread_calcs.push(Thread {
+                id: dense_id,
+                calcs: vec![],
+            });
+            thread_calcs.len() - 1
+        });
+    let mut thread = thread_calcs.remove(thread);
+    comment.calculation_list.retain(|calc| {
+        thread
+            .calcs
+            .iter_mut()
+            .find(|(c, _)| c == calc)
+            .map(|(_, n)| {
+                *n += 1;
+                *n < MAX_REPETITIONS_PER_THREAD
+            })
+            .unwrap_or(true)
+    });
+    comment.status.limit_hit = comment.calculation_list.iter().any(|calc| {
+        thread
+            .calcs
+            .iter()
+            .any(|(c, n)| c == calc && *n + 1 == MAX_REPETITIONS_PER_THREAD)
+    });
+
+    thread
+        .calcs
+        .extend(comment.calculation_list.iter().map(|x| (x.clone(), 0)));
+    thread.calcs.sort_unstable();
+    thread.calcs.reverse();
+    thread.calcs.dedup_by(|a, b| a.0 == b.0);
+
+    thread_calcs.push(thread);
+    true
+}
+
+fn get_sub_entries() -> HashMap<&'static str, SubredditEntry> {
+    if let Ok(path) = std::env::var("SUBREDDITS_FILE") {
+        if std::env::var("SUBREDDITS").is_ok() {
+            panic!("SUBREDDITS and SUBREDDITS_FILE can not be set simultaneusly!")
+        }
+        let text = std::fs::read_to_string(path).unwrap();
+        serde_json::de::from_str(text.leak()).expect("Subreddits File has invalid format")
+    } else {
+        let subreddit_commands = std::env::var("SUBREDDITS").unwrap_or_default();
+        let subreddit_commands = subreddit_commands.leak();
+        subreddit_commands
+            .split('+')
+            .map(|s| s.split_once(':').expect("Locale is unset"))
+            .map(|(s, r)| (s, r.split_once(':').unwrap_or((r, ""))))
+            .map(|(s, (l, c))| (s, if l.is_empty() { "en" } else { l }, c))
+            .filter(|s| !(s.0.is_empty() && s.1.is_empty()))
+            .map(|(sub, locale, commands)| {
+                let mut mode = SubredditMode::All;
+                (
+                    sub,
+                    SubredditEntry {
+                        locale,
+                        commands: commands
+                            .split(',')
+                            .map(|command| match command.trim() {
+                                "shorten" => Commands::SHORTEN,
+                                "termial" => Commands::TERMIAL,
+                                "steps" => Commands::STEPS,
+                                "no_note" => Commands::NO_NOTE,
+                                "nested" => Commands::NESTED,
+                                "write_out" => Commands::WRITE_OUT,
+                                "post_only" => {
+                                    if mode != SubredditMode::None {
+                                        mode = SubredditMode::PostOnly;
+                                    }
+                                    Commands::NONE
+                                }
+                                "dont_check" => {
+                                    mode = SubredditMode::None;
+                                    Commands::NONE
+                                }
+                                "" => Commands::NONE,
+                                s => panic!("Unknown command in subreddit {sub}: {s}"),
+                            })
+                            .fold(Commands::NONE, |a, e| a | e),
+                        mode,
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>()
+    }
+}
+
+fn get_consts() -> Consts<'static> {
+    Consts {
+        float_precision: std::env::var("FLOAT_PRECISION")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
+        upper_calculation_limit: std::env::var("UPPER_CALCULATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_CALCULATION_LIMIT()),
+        upper_approximation_limit: std::env::var("UPPER_APPROXIMATION_LIMIT")
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_APPROXIMATION_LIMIT()),
+        upper_subfactorial_limit: std::env::var("UPPER_SUBFACTORIAL_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_SUBFACTORIAL_LIMIT()),
+        upper_termial_limit: std::env::var("UPPER_TERMIAL_LIMIT")
+            .map(|s| Integer::u64_pow_u64(10, s.parse().unwrap()).complete())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_LIMIT()),
+        upper_termial_approximation_limit: std::env::var("UPPER_TERMIAL_APPROXIMATION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::UPPER_TERMIAL_APPROXIMATION_LIMIT),
+        integer_construction_limit: std::env::var("INTEGER_CONSTRUCTION_LIMIT")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::INTEGER_CONSTRUCTION_LIMIT()),
+        number_decimals_scientific: std::env::var("NUMBER_DECIMALS_SCIENTIFIC")
+            .map(|s| s.parse().unwrap())
+            .unwrap_or_else(|_| factorion_lib::recommended::NUMBER_DECIMALS_SCIENTIFIC),
+        locales: std::env::var("LOCALES_DIR")
+            .map(|dir| {
+                let files = std::fs::read_dir(dir).unwrap();
+                let mut map = HashMap::new();
+                for (key, value) in files
+                    .map(|file| {
+                        let file = file.unwrap();
+                        let locale: Locale<'static> = serde_json::de::from_str(
+                            std::fs::read_to_string(file.path()).unwrap().leak(),
+                        )
+                        .unwrap();
+                        (file.file_name().into_string().unwrap(), locale)
+                    })
+                    .collect::<Box<_>>()
+                {
+                    map.insert(key, value);
+                }
+                map
+            })
+            .unwrap_or_else(|_| {
+                factorion_lib::locale::get_all()
+                    .map(|(k, v)| (k.to_owned(), v))
+                    .collect()
+            }),
+        default_locale: "en".to_owned(),
+    }
 }
 
 fn init() {
@@ -541,4 +579,308 @@ fn read_thread_calcs() -> Vec<Thread> {
     }
     let file = std::fs::read(THREAD_CALCS_FILE_PATH).expect("Unable to read file");
     postcard::from_bytes(&file).expect("Malformed thread_calcs file")
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::{HashMap, HashSet};
+
+    use chrono::Utc;
+    use factorion_lib::{
+        CalculationJob, Commands, Comment, Consts, calculation_tasks::CalculationBase,
+        comment::Status,
+    };
+    use reqwest::Client;
+    use tokio::join;
+
+    use crate::{
+        MAX_REPETITIONS_PER_THREAD, SubredditEntry, SubredditMode, get_sub_entries,
+        reddit_api::{
+            Meta, RedditClient, Thread, Token,
+            id::id_to_dense,
+            tests::{dummy_server, sequential},
+        },
+        remove_repeated_calcs, reply,
+    };
+
+    #[test]
+    fn test_get_subreddit_entries_from_env_var() {
+        // SAFETY: only this test modifies/reads these variables
+        unsafe {
+            std::env::set_var(
+                "SUBREDDITS",
+                "somesub:en+othersub:ru+customsub:en:shorten+allsub:de:shorten,termial,no_note,steps,post_only,dont_check,nested,write_out+postsub:en:post_only",
+            );
+            std::env::remove_var("SUBREDDITS_FILE");
+        }
+        let sub_entries = get_sub_entries();
+        assert_eq!(
+            sub_entries,
+            HashMap::from([
+                (
+                    "somesub",
+                    SubredditEntry {
+                        locale: "en",
+                        commands: Commands::NONE,
+                        mode: SubredditMode::All
+                    }
+                ),
+                (
+                    "othersub",
+                    SubredditEntry {
+                        locale: "ru",
+                        commands: Commands::NONE,
+                        mode: SubredditMode::All
+                    }
+                ),
+                (
+                    "customsub",
+                    SubredditEntry {
+                        locale: "en",
+                        commands: Commands::SHORTEN,
+                        mode: SubredditMode::All
+                    }
+                ),
+                (
+                    "allsub",
+                    SubredditEntry {
+                        locale: "de",
+                        commands: !Commands::NONE,
+                        mode: SubredditMode::None
+                    }
+                ),
+                (
+                    "postsub",
+                    SubredditEntry {
+                        locale: "en",
+                        commands: Commands::NONE,
+                        mode: SubredditMode::PostOnly
+                    }
+                ),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_remove_repeated_calcs() {
+        let meta = Meta {
+            id: String::new(),
+            author: String::new(),
+            subreddit: String::new(),
+            thread: "a".to_owned(),
+            used_commands: false,
+        };
+        let consts = Consts::default();
+        let mut comment = Comment::new(
+            "Some comment 5! (----------0?)!",
+            meta.clone(),
+            Commands::TERMIAL,
+            10000,
+            "en",
+        )
+        .extract(&consts);
+        let mut thread_calcs = vec![Thread {
+            id: id_to_dense("t3_a").unwrap(),
+            calcs: vec![
+                (
+                    CalculationJob {
+                        base: CalculationBase::Num(5.into()),
+                        level: 1,
+                        negative: 0,
+                    },
+                    3,
+                ),
+                (
+                    CalculationJob {
+                        base: CalculationBase::Calc(Box::new(CalculationJob {
+                            base: CalculationBase::Num(0.into()),
+                            level: -1,
+                            negative: 10,
+                        })),
+                        level: 1,
+                        negative: 0,
+                    },
+                    MAX_REPETITIONS_PER_THREAD,
+                ),
+            ],
+        }];
+        let thread_calcs_changed = remove_repeated_calcs(&mut comment, &mut thread_calcs);
+        assert!(thread_calcs_changed);
+        assert_eq!(
+            comment.calculation_list,
+            [(CalculationJob {
+                base: CalculationBase::Num(5.into()),
+                level: 1,
+                negative: 0
+            })]
+        );
+        assert_eq!(
+            HashSet::from_iter(thread_calcs[0].calcs.clone()),
+            HashSet::from([
+                (
+                    CalculationJob {
+                        base: CalculationBase::Num(5.into()),
+                        level: 1,
+                        negative: 0,
+                    },
+                    4,
+                ),
+                (
+                    CalculationJob {
+                        base: CalculationBase::Calc(Box::new(CalculationJob {
+                            base: CalculationBase::Num(0.into()),
+                            level: -1,
+                            negative: 10,
+                        })),
+                        level: 1,
+                        negative: 0,
+                    },
+                    MAX_REPETITIONS_PER_THREAD + 1,
+                ),
+            ])
+        );
+        let mut comment =
+            Comment::new("Some 10!", meta, Commands::NONE, 10000, "en").extract(&consts);
+        let thread_calcs_changed = remove_repeated_calcs(&mut comment, &mut thread_calcs);
+        assert!(thread_calcs_changed);
+        assert_eq!(
+            comment.calculation_list,
+            [(CalculationJob {
+                base: CalculationBase::Num(10.into()),
+                level: 1,
+                negative: 0
+            })]
+        );
+        assert_eq!(
+            HashSet::from_iter(thread_calcs[0].calcs.clone()),
+            HashSet::from([
+                (
+                    CalculationJob {
+                        base: CalculationBase::Num(5.into()),
+                        level: 1,
+                        negative: 0,
+                    },
+                    4,
+                ),
+                (
+                    CalculationJob {
+                        base: CalculationBase::Calc(Box::new(CalculationJob {
+                            base: CalculationBase::Num(0.into()),
+                            level: -1,
+                            negative: 10,
+                        })),
+                        level: 1,
+                        negative: 0,
+                    },
+                    MAX_REPETITIONS_PER_THREAD + 1,
+                ),
+                (
+                    CalculationJob {
+                        base: CalculationBase::Num(10.into()),
+                        level: 1,
+                        negative: 0,
+                    },
+                    0,
+                ),
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_reply() {
+        let _lock = sequential();
+        // SAFETY: All envvar operations are tested Sequentially
+        unsafe {
+            std::env::set_var("APP_CLIENT_ID", "an id");
+            std::env::set_var("APP_SECRET", "a secret");
+            std::env::set_var("REDDIT_PASSWORD", "a password");
+            std::env::set_var("REDDIT_USERNAME", "a username");
+        }
+
+        let consts = Consts::default();
+        let meta = Meta {
+            id: "t3_ac".to_owned(),
+            author: "author".to_owned(),
+            subreddit: "sub".to_owned(),
+            thread: "c".to_owned(),
+            used_commands: false,
+        };
+        let mut comment = Comment::new(
+            "Some comment 10!",
+            meta.clone(),
+            Commands::NONE,
+            10000,
+            "en",
+        )
+        .extract(&consts)
+        .calc(&consts);
+        comment.notify = Some("u/other".to_owned());
+        comment.add_status(Status::NOT_REPLIED);
+        let mut reddit_client = RedditClient {
+            client: Client::new(),
+            token: Token {
+                access_token: "token".to_string(),
+                expiration_time: Utc::now(),
+            },
+        };
+        let mut rate = (10.0, 10.0);
+        join!(
+            async {
+                dummy_server(&[
+                    (
+                        "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 172\r\n\r\ntext=Hey+u%2Fother%21%0A%0AFactorial+of+10+is+3628800+%0A%0A%0A*%5E%28This+action+was+performed+by+a+bot+%7C+%5BSource+code%5D%28http%3A%2F%2Ff.r0.fyi%29%29*&thing_id=t3_ac",
+                        "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 2\n\n{\"success\": true}",
+                    ),
+                ])
+                .await
+                .unwrap()
+            },
+            async {
+                reply(comment, &mut reddit_client, None, &consts, &mut rate, false)
+                    .await
+                    .unwrap()
+            }
+        );
+        let mut comment = Comment::new("Some comment", meta.clone(), Commands::NONE, 10000, "en")
+            .extract(&consts)
+            .calc(&consts);
+        comment.add_status(Status::NOT_REPLIED);
+        join!(async { dummy_server(&[]).await.unwrap() }, async {
+            reply(comment, &mut reddit_client, None, &consts, &mut rate, false)
+                .await
+                .unwrap()
+        });
+        let mut comment = Comment::new(
+            "Some comment 10!",
+            meta.clone(),
+            Commands::NONE,
+            10000,
+            "en",
+        )
+        .extract(&consts)
+        .calc(&consts);
+        comment.notify = Some("u/other".to_owned());
+        comment.add_status(Status::NOT_REPLIED);
+        join!(
+            async {
+                dummy_server(&[
+                    (
+                        "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 172\r\n\r\ntext=Hey+u%2Fother%21%0A%0AFactorial+of+10+is+3628800+%0A%0A%0A*%5E%28This+action+was+performed+by+a+bot+%7C+%5BSource+code%5D%28http%3A%2F%2Ff.r0.fyi%29%29*&thing_id=t3_ac",
+                        "HTTP/1.1 429 RATELIMIT\r\nx-ratelimit-remaining: 0\r\nx-ratelimit-reset: 0\n\n",
+                    ),
+                    (
+                        "POST / HTTP/1.1\r\nauthorization: Bearer token\r\ncontent-type: application/x-www-form-urlencoded\r\naccept: */*\r\nhost: 127.0.0.1:9384\r\ncontent-length: 172\r\n\r\ntext=Hey+u%2Fother%21%0A%0AFactorial+of+10+is+3628800+%0A%0A%0A*%5E%28This+action+was+performed+by+a+bot+%7C+%5BSource+code%5D%28http%3A%2F%2Ff.r0.fyi%29%29*&thing_id=t3_ac",
+                        "HTTP/1.1 200 OK\r\nx-ratelimit-remaining: 10\r\nx-ratelimit-reset: 2\n\n{\"success\": true}",
+                    ),
+                ])
+                .await
+                .unwrap()
+            },
+            async {
+                reply(comment, &mut reddit_client, None, &consts, &mut rate, false)
+                    .await
+                    .unwrap()
+            }
+        );
+    }
 }

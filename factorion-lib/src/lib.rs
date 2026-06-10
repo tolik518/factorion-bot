@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(any(feature = "serde", test))]
+use serde::{Deserialize, Serialize};
+
 use std::collections::HashMap;
 
 use factorion_math as math;
@@ -35,6 +38,7 @@ pub mod recommended {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct Consts<'a> {
     pub float_precision: u32,
     pub upper_calculation_limit: Integer,

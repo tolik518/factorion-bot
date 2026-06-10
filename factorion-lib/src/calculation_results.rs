@@ -1,7 +1,8 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 
 use crate::format::{
-    format_float, get_factorial_level_string, replace, truncate, write_out_number,
+    format_approximate, format_approximate_digits, format_approximate_digits_tower,
+    format_complex_infinity, format_exact, format_float, get_factorial_level_string, replace,
 };
 use crate::impl_all_bitwise;
 use crate::impl_bitwise;
@@ -121,6 +122,7 @@ impl From<Float> for Number {
 }
 #[non_exhaustive]
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
 pub struct FormatOptions {
     pub force_shorten: bool,
     pub agressive_shorten: bool,
@@ -167,98 +169,21 @@ impl CalculationResult {
         let mut start = acc.len();
         match &self {
             CalculationResult::Exact(factorial) => {
-                if opts.write_out && length(factorial, consts.float_precision) < 3000000 {
-                    write_out_number(acc, factorial, consts)?;
-                } else if opts.force_shorten {
-                    let (s, r) = truncate(factorial, consts);
-                    *rough = r;
-                    acc.write_str(&s)?;
-                } else {
-                    write!(acc, "{factorial}")?;
-                }
+                format_exact(acc, rough, &opts, consts, factorial)?
             }
             CalculationResult::Approximate(base, exponent) => {
-                let base = base.as_float();
-                format_float(acc, base, consts)?;
-                acc.write_str(" × 10^")?;
-                if opts.force_shorten {
-                    acc.write_str("(")?;
-                    acc.write_str(&truncate(exponent, consts).0)?;
-                    acc.write_str(")")?;
-                } else {
-                    write!(acc, "{exponent}")?;
-                }
+                format_approximate(acc, &opts, consts, base, exponent)?
             }
             CalculationResult::ApproximateDigits(_, digits) => {
-                if opts.write_out && !is_value && length(digits, consts.float_precision) < 3000000 {
-                    write_out_number(acc, digits, consts)?;
-                } else {
-                    if is_value {
-                        acc.write_str("10^(")?;
-                    }
-                    if opts.force_shorten {
-                        acc.write_str(&truncate(digits, consts).0)?;
-                    } else {
-                        write!(acc, "{digits}")?;
-                    }
-                    if is_value {
-                        acc.write_str(")")?;
-                    }
-                }
+                format_approximate_digits(acc, &opts, is_value, consts, digits)?
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
-                let depth = if is_value {
-                    depth.clone() + 1
-                } else {
-                    depth.clone()
-                };
-                acc.write_str(if *negative { "-" } else { "" })?;
-                // If we have a one on top, we gain no information by printing the whole tower.
-                // If depth is one, it is nicer to write 10¹ than ¹10.
-                if !opts.agressive_shorten && depth <= usize::MAX && (depth <= 1 || exponent != &1)
-                {
-                    if depth > 0 {
-                        acc.write_str("10^(")?;
-                    }
-                    if depth > 1 {
-                        // PANIC: We just checked, that it is <= usize::MAX and > 1 (implies >= 0), so it fits in usize
-                        acc.write_str(&"10\\^".repeat(depth.to_usize().unwrap() - 1))?;
-                        acc.write_str("(")?;
-                    }
-                    if opts.force_shorten {
-                        acc.write_str(&truncate(exponent, consts).0)?;
-                    } else {
-                        write!(acc, "{exponent}")?;
-                    }
-                    if depth > 1 {
-                        acc.write_str("\\)")?;
-                    }
-                    if depth > 0 {
-                        acc.write_str(")")?;
-                    }
-                } else {
-                    let mut extra = 0;
-                    let mut exponent = Float::with_val(consts.float_precision, exponent);
-                    while exponent >= 10 {
-                        extra += 1;
-                        exponent = exponent.log10();
-                    }
-                    acc.write_str("^(")?;
-                    write!(acc, "{}", depth + extra)?;
-                    acc.write_str(")10")?;
-                }
+                format_approximate_digits_tower(
+                    acc, &opts, is_value, consts, negative, depth, exponent,
+                )?
             }
-            CalculationResult::Float(gamma) => {
-                let gamma = gamma.as_float();
-                format_float(acc, gamma, consts)?;
-            }
-            CalculationResult::ComplexInfinity => {
-                if opts.write_out {
-                    acc.write_str("complex infinity")?;
-                } else {
-                    acc.write_str("∞\u{0303}")?;
-                }
-            }
+            CalculationResult::Float(gamma) => format_float(acc, gamma.as_float(), consts)?,
+            CalculationResult::ComplexInfinity => format_complex_infinity(acc, opts)?,
         }
         if locale.decimal != '.' {
             let decimal = locale.decimal.to_string();
@@ -335,6 +260,14 @@ impl Calculation {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+struct FormatNumberOptions {
+    format_opts: FormatOptions,
+    frame_start: usize,
+    is_value: bool,
+}
+
 impl Calculation {
     /// Formats a Calcucation. \
     /// Force shorten shortens all integers, if that makes them smaller. \
@@ -371,46 +304,44 @@ impl Calculation {
         )?;
         acc.write_str(" \n\n")?;
 
-        let mut number = String::new();
-        let mut rough = false;
-        self.value.format(
-            &mut number,
-            &mut rough,
-            FormatOptions {
-                force_shorten: options.force_shorten
-                    || self.result.is_too_long(too_big_number)
-                    || options.agressive_shorten,
-                ..options
+        self.format_number(
+            &self.value,
+            acc,
+            &FormatNumberOptions {
+                format_opts: options.clone(),
+                frame_start,
+                is_value: true,
             },
-            true,
+            too_big_number,
             consts,
-            &locale.number_format,
+            locale,
         )?;
-        if rough {
-            replace(acc, frame_start, "{number}", &locale.rough_number);
-        }
-        replace(acc, frame_start, "{number}", &number);
         replace(acc, frame_start, "{result}", "{number}");
-        let mut number = String::new();
-        let mut rough = false;
-        self.result.format(
-            &mut number,
-            &mut rough,
-            FormatOptions {
-                force_shorten: options.force_shorten
-                    || self.result.is_too_long(too_big_number)
-                    || options.agressive_shorten,
-                ..options
+        self.format_number(
+            &self.result,
+            acc,
+            &FormatNumberOptions {
+                format_opts: options,
+                frame_start,
+                is_value: false,
             },
-            false,
+            too_big_number,
             consts,
-            &locale.number_format,
+            locale,
         )?;
-        if rough {
-            replace(acc, frame_start, "{number}", &locale.rough_number);
-        }
-        replace(acc, frame_start, "{number}", &number);
 
+        self.format_operations(acc, locale, frame_start);
+        let mut ind = acc[frame_start..].char_indices();
+        if let Some((start, _)) = ind.next()
+            && let Some((end, _)) = ind.next()
+        {
+            acc[frame_start..][start..end].make_ascii_uppercase();
+        }
+
+        Ok(())
+    }
+
+    fn format_operations(&self, acc: &mut String, locale: &locale::Format<'_>, frame_start: usize) {
         let len = self.steps.len();
         let mut start = frame_start;
         for (i, (level, neg)) in self.steps.iter().copied().rev().enumerate() {
@@ -452,13 +383,36 @@ impl Calculation {
                 start = replace(acc, start, "{next}", "{factorial}");
             }
         }
-        let mut ind = acc[frame_start..].char_indices();
-        if let Some((start, _)) = ind.next()
-            && let Some((end, _)) = ind.next()
-        {
-            acc[frame_start..][start..end].make_ascii_uppercase();
-        }
+    }
 
+    fn format_number(
+        &self,
+        num: &Number,
+        acc: &mut String,
+        options: &FormatNumberOptions,
+        too_big_number: &Integer,
+        consts: &Consts<'_>,
+        locale: &locale::Format<'_>,
+    ) -> Result<(), fmt::Error> {
+        let mut number = String::new();
+        let mut rough = false;
+        num.format(
+            &mut number,
+            &mut rough,
+            FormatOptions {
+                force_shorten: options.format_opts.force_shorten
+                    || self.result.is_too_long(too_big_number)
+                    || options.format_opts.agressive_shorten,
+                ..options.format_opts
+            },
+            options.is_value,
+            consts,
+            &locale.number_format,
+        )?;
+        if rough {
+            replace(acc, options.frame_start, "{number}", &locale.rough_number);
+        }
+        replace(acc, options.frame_start, "{number}", &number);
         Ok(())
     }
 }
@@ -1079,20 +1033,22 @@ mod test {
         let mut consts = Consts::default();
         consts.number_decimals_scientific = 10;
         let mut acc = String::new();
-        CalculationResult::Exact(Integer::u_pow_u(10, 1000).complete() * 498149837492347328u64)
-            .format(
-                &mut acc,
-                &mut false,
-                FormatOptions::FORCE_SHORTEN,
-                false,
-                &consts,
-                &locale::NumFormat { decimal: '.' },
-            )
-            .unwrap();
+        CalculationResult::Exact(
+            Integer::u_pow_u(10, 1000).complete() * 498_149_837_492_347_328u64,
+        )
+        .format(
+            &mut acc,
+            &mut false,
+            FormatOptions::FORCE_SHORTEN,
+            false,
+            &consts,
+            &locale::NumFormat { decimal: '.' },
+        )
+        .unwrap();
         assert_eq!(acc, "4.9814983749 × 10^1017");
         let mut acc = String::new();
         CalculationResult::Approximate(
-            Float::with_val(FLOAT_PRECISION, 4.98149837492347328f64).into(),
+            Float::with_val(FLOAT_PRECISION, 4.981_498_374_923_473f64).into(),
             1017.into(),
         )
         .format(

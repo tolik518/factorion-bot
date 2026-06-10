@@ -244,7 +244,7 @@ impl Commands {
             no_note: !Self::contains_command_format(text, "note"),
             write_out: !(Self::contains_command_format(text, "dont_write_out")
                 || Self::contains_command_format(text, "dont\\_write\\_out")
-                || Self::contains_command_format(text, "normal\\_num")
+                || Self::contains_command_format(text, "normal num")
                 || Self::contains_command_format(text, "normal\\_num")),
         }
     }
@@ -537,7 +537,163 @@ impl<Meta> CommentCalculated<Meta> {
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
         let too_big_number = &too_big_number;
 
-        // Add Note
+        let multiple = self.add_note(consts, locale, &mut note, too_big_number);
+
+        // Add Factorials
+        let mut reply = self.add_factorials(
+            consts,
+            locale,
+            &note,
+            too_big_number,
+            FormatOptions {
+                force_shorten: self.commands.shorten,
+                write_out: self.commands.write_out,
+                ..FormatOptions::NONE
+            },
+        );
+
+        // If the reply was too long try force shortening all factorials
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length
+            && !self.commands.shorten
+            && !self
+                .calculation_list
+                .iter()
+                .all(|fact| fact.is_too_long(too_big_number))
+        {
+            if note.is_empty() && !self.commands.no_note {
+                if multiple {
+                    let _ = note.write_str(&locale.notes.too_big_mult);
+                } else {
+                    let _ = note.write_str(&locale.notes.too_big);
+                }
+                let _ = note.write_str("\n\n");
+            };
+            reply = self.add_factorials(
+                consts,
+                locale,
+                &note,
+                too_big_number,
+                FormatOptions {
+                    write_out: self.commands.write_out,
+                    ..FormatOptions::FORCE_SHORTEN
+                },
+            );
+        }
+
+        let note = if !self.commands.no_note {
+            locale.notes.tetration.clone().into_owned() + "\n\n"
+        } else {
+            String::new()
+        };
+        // If the reply was too long try agressive shortening all factorials
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length && !self.commands.steps
+        {
+            reply = self.add_factorials(
+                consts,
+                locale,
+                &note,
+                too_big_number,
+                FormatOptions {
+                    write_out: self.commands.write_out,
+                    ..{ FormatOptions::FORCE_SHORTEN | FormatOptions::AGRESSIVE_SHORTEN }
+                },
+            );
+        }
+
+        let note = if !self.commands.no_note {
+            locale.notes.remove.clone().into_owned() + "\n\n"
+        } else {
+            String::new()
+        };
+        // Remove factorials until we can fit them in a comment
+        self.add_factorials_to_fit(consts, locale, too_big_number, &mut reply, note);
+        if !locale.bot_disclaimer.is_empty() {
+            reply.push_str("\n*^(");
+            reply.push_str(&locale.bot_disclaimer);
+            reply.push_str(")*");
+        }
+        reply
+    }
+
+    fn add_factorials_to_fit(
+        &self,
+        consts: &Consts<'_>,
+        locale: &crate::locale::Locale<'_>,
+        too_big_number: &Integer,
+        reply: &mut String,
+        note: String,
+    ) {
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length {
+            let mut factorial_list: Vec<String> = self
+                .calculation_list
+                .iter()
+                .map(|fact| {
+                    let mut res = String::new();
+                    let _ = fact.format(
+                        &mut res,
+                        FormatOptions {
+                            agressive_shorten: !self.commands.steps,
+                            write_out: self.commands.write_out,
+                            ..FormatOptions::FORCE_SHORTEN
+                        },
+                        too_big_number,
+                        consts,
+                        &locale.format,
+                    );
+                    res
+                })
+                .collect();
+            'drop_last: {
+                while note.len()
+                    + factorial_list.iter().map(|s| s.len()).sum::<usize>()
+                    + locale.bot_disclaimer.len()
+                    + 16
+                    > self.max_length
+                {
+                    // remove last factorial (probably the biggest)
+                    factorial_list.pop();
+                    if factorial_list.is_empty() {
+                        *reply = locale.notes.no_post.to_string();
+                        break 'drop_last;
+                    }
+                }
+                *reply = factorial_list.iter().fold(note, |mut acc, factorial| {
+                    let _ = acc.write_str(factorial);
+                    acc
+                });
+            }
+        }
+    }
+
+    fn add_factorials(
+        &self,
+        consts: &Consts<'_>,
+        locale: &crate::locale::Locale<'_>,
+        note: &str,
+        too_big_number: &Integer,
+        format_options: FormatOptions,
+    ) -> String {
+        self.calculation_list
+            .iter()
+            .fold(note.to_owned(), |mut acc, factorial| {
+                let _ = factorial.format(
+                    &mut acc,
+                    format_options.clone(),
+                    too_big_number,
+                    consts,
+                    &locale.format,
+                );
+                acc
+            })
+    }
+
+    fn add_note(
+        &self,
+        consts: &Consts<'_>,
+        locale: &crate::locale::Locale<'_>,
+        note: &mut String,
+        too_big_number: &Integer,
+    ) -> bool {
         let multiple = self.calculation_list.len() > 1;
         if !self.commands.no_note {
             if self.status.limit_hit {
@@ -619,138 +775,7 @@ impl<Meta> CommentCalculated<Meta> {
                 let _ = note.write_str("\n\n");
             }
         }
-
-        // Add Factorials
-        let mut reply = self
-            .calculation_list
-            .iter()
-            .fold(note.clone(), |mut acc, factorial| {
-                let _ = factorial.format(
-                    &mut acc,
-                    FormatOptions {
-                        force_shorten: self.commands.shorten,
-                        write_out: self.commands.write_out,
-                        ..FormatOptions::NONE
-                    },
-                    too_big_number,
-                    consts,
-                    &locale.format,
-                );
-                acc
-            });
-
-        // If the reply was too long try force shortening all factorials
-        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length
-            && !self.commands.shorten
-            && !self
-                .calculation_list
-                .iter()
-                .all(|fact| fact.is_too_long(too_big_number))
-        {
-            if note.is_empty() && !self.commands.no_note {
-                if multiple {
-                    let _ = note.write_str(&locale.notes.too_big_mult);
-                } else {
-                    let _ = note.write_str(&locale.notes.too_big);
-                }
-                let _ = note.write_str("\n\n");
-            };
-            reply = self
-                .calculation_list
-                .iter()
-                .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(
-                        &mut acc,
-                        FormatOptions {
-                            write_out: self.commands.write_out,
-                            ..FormatOptions::FORCE_SHORTEN
-                        },
-                        too_big_number,
-                        consts,
-                        &locale.format,
-                    );
-                    acc
-                });
-        }
-
-        let note = if !self.commands.no_note {
-            locale.notes.tetration.clone().into_owned() + "\n\n"
-        } else {
-            String::new()
-        };
-        // If the reply was too long try agressive shortening all factorials
-        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length && !self.commands.steps
-        {
-            reply = self
-                .calculation_list
-                .iter()
-                .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(
-                        &mut acc,
-                        FormatOptions {
-                            write_out: self.commands.write_out,
-                            ..{ FormatOptions::FORCE_SHORTEN | FormatOptions::AGRESSIVE_SHORTEN }
-                        },
-                        too_big_number,
-                        consts,
-                        &locale.format,
-                    );
-                    acc
-                });
-        }
-
-        let note = if !self.commands.no_note {
-            locale.notes.remove.clone().into_owned() + "\n\n"
-        } else {
-            String::new()
-        };
-        // Remove factorials until we can fit them in a comment
-        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length {
-            let mut factorial_list: Vec<String> = self
-                .calculation_list
-                .iter()
-                .map(|fact| {
-                    let mut res = String::new();
-                    let _ = fact.format(
-                        &mut res,
-                        FormatOptions {
-                            agressive_shorten: !self.commands.steps,
-                            write_out: self.commands.write_out,
-                            ..FormatOptions::FORCE_SHORTEN
-                        },
-                        too_big_number,
-                        consts,
-                        &locale.format,
-                    );
-                    res
-                })
-                .collect();
-            'drop_last: {
-                while note.len()
-                    + factorial_list.iter().map(|s| s.len()).sum::<usize>()
-                    + locale.bot_disclaimer.len()
-                    + 16
-                    > self.max_length
-                {
-                    // remove last factorial (probably the biggest)
-                    factorial_list.pop();
-                    if factorial_list.is_empty() {
-                        reply = locale.notes.no_post.to_string();
-                        break 'drop_last;
-                    }
-                }
-                reply = factorial_list.iter().fold(note, |mut acc, factorial| {
-                    let _ = acc.write_str(factorial);
-                    acc
-                });
-            }
-        }
-        if !locale.bot_disclaimer.is_empty() {
-            reply.push_str("\n*^(");
-            reply.push_str(&locale.bot_disclaimer);
-            reply.push_str(")*");
-        }
-        reply
+        multiple
     }
 }
 

@@ -34,7 +34,7 @@ pub struct ReplyMeasurement {
 
 /// Log a reply to a comment/message
 pub async fn log_reply(
-    influx_client: &Option<InfluxDbClient>,
+    influx_client: Option<&InfluxDbClient>,
     item_id: &str,
     author: &str,
     location: &str,
@@ -62,7 +62,7 @@ pub async fn log_reply(
 
 /// Log time consumed for a particular operation
 pub async fn log_time_consumed(
-    influx_client: &Option<InfluxDbClient>,
+    influx_client: Option<&InfluxDbClient>,
     start: SystemTime,
     end: SystemTime,
     source: &str,
@@ -91,7 +91,7 @@ pub mod reddit {
 
     /// Log a reply to a Reddit comment
     pub async fn log_comment_reply(
-        influx_client: &Option<InfluxDbClient>,
+        influx_client: Option<&InfluxDbClient>,
         comment_id: &str,
         author: &str,
         subreddit: &str,
@@ -111,7 +111,7 @@ pub mod reddit {
 
     /// Log time consumed for an operation
     pub async fn log_time_consumed(
-        influx_client: &Option<InfluxDbClient>,
+        influx_client: Option<&InfluxDbClient>,
         start: SystemTime,
         end: SystemTime,
         metric_name: &str,
@@ -128,7 +128,7 @@ pub mod discord {
 
     /// Log a reply to a Discord message
     pub async fn log_message_reply(
-        influx_client: &Option<InfluxDbClient>,
+        influx_client: Option<&InfluxDbClient>,
         message_id: &str,
         author: &str,
         channel: &str,
@@ -148,7 +148,7 @@ pub mod discord {
 
     /// Log time consumed for an operation
     pub async fn log_time_consumed(
-        influx_client: &Option<InfluxDbClient>,
+        influx_client: Option<&InfluxDbClient>,
         start: SystemTime,
         end: SystemTime,
         metric_name: &str,
