@@ -41,4 +41,7 @@ Such statistics may include:
 No data is ever sold.
 
 ## Deletion
-If you wish for your username (and associated statistics) to be redacted, contact us via:
+If you wish for your username (and associated statistics) to be redacted, contact us via 
+
+## Requesting Dta
+If you wish to have insight about the data we have associated with your username, contact us via discord at 
