@@ -1,6 +1,8 @@
 //! Parses text and extracts calculations
 
-use crate::locale::{self, NumFormat};
+use std::ops::ControlFlow;
+
+use crate::locale::NumFormat;
 use crate::rug::{Complete, Float, Integer, integer::IntegerExt64};
 
 use crate::Consts;
@@ -12,8 +14,10 @@ use crate::{
 pub mod recommended {
     use factorion_math::rug::Integer;
 
-    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 10_000_000u128.into();
+    pub static INTEGER_CONSTRUCTION_LIMIT: fn() -> Integer = || 200_000_000u128.into();
 }
+
+// NOTE: Most of these rely on being ascii (byte indxed)
 
 const POI_STARTS: &[char] = &[
     NEGATION,
@@ -88,49 +92,6 @@ pub fn parse(
     consts: &Consts,
     locale: &NumFormat,
 ) -> Vec<CalculationJob> {
-    // Parsing rules:
-    // - prefix has precedence before suffix (unimplemented)
-    // - anything within a spoiler should be ignored
-    // - operations may be nested through parentheses
-    // - operations can be negated through -
-    // - parens may contain:
-    //   - numbers
-    //   - operations
-    //   - parens
-    //   - whitespace
-    // - operations are:
-    //   - subfactorials !n
-    //   - (multi-)factorials n!+
-    //   - termials n?
-    // - numbers are in order:
-    //   - a string of digits
-    //   - a decimal separator and further digits
-    //   - a base 10 exponent, which is:
-    //     - an e or E followed by
-    //     - optionally a + or -
-    //     - a string of digits
-    // - numbers need to at least have the first or second criteria
-
-    // Parsing:
-    // 1. skip to interesting
-    // 2. If spoiler, skip
-    // 3. If negation, save
-    // 4. If paren start, push (with negation)
-    // 5. If paren end, pop
-    //   1. If had prefix, use base, set base
-    //   2. If has postfix, use base, set base
-    // 6. If prefix
-    //   1. If on number, set base
-    //     1. If has postfix, use base, set base
-    //   2. If on paren, push (with negation and level)
-    // 7. If number, parse
-    //   1. If has postfix, set base
-    //   2. If in parens, set as base
-    // 8. If on toplevel, add base to jobs
-    //
-    // when setting base:
-    // 1. If base is set, add previous to jobs
-    // 2. override base
     let mut jobs = Vec::new();
     let mut base: Option<CalculationBase> = None;
     let mut paren_steps: Vec<(u32, Option<i32>, bool)> = Vec::new();
@@ -148,7 +109,6 @@ pub fn parse(
             current_negative = 0;
             had_text_before = false;
         }
-        // Text (1.)
         let Some(position_of_interest) = text.find(POI_STARTS) else {
             break;
         };
@@ -166,300 +126,75 @@ pub fn parse(
         // so we can just ignore everything before
         text = &text[position_of_interest..];
         if text.starts_with(ESCAPE) {
-            // Escapes
-            text = &text[1..];
-            let end = if text.starts_with(SPOILER_START) {
-                1
-            } else if text.starts_with(SPOILER_HTML_START) {
-                4
-            } else if text.starts_with(URI_START) {
-                3
-            } else {
-                0
-            };
-            text = &text[end..];
+            text = &text[ESCAPE.len_utf8()..];
+            parse_escape(&mut text);
             continue;
         } else if text.starts_with(URI_START) {
-            // URI
-            let end = text.find(char::is_whitespace).unwrap_or(text.len());
-            text = &text[end..];
+            parse_uri(&mut text);
             continue;
         } else if text.starts_with(SPOILER_START) {
-            // Spoiler (2.)
-            let mut end = 0;
-            loop {
-                // look for next end tag
-                if let Some(e) = text[end..].find(SPOILER_END) {
-                    if e == 0 {
-                        panic!("Parser loop Spoiler! Text \"{text}\"");
-                    }
-                    end += e;
-                    // is escaped -> look further
-                    if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
-                        end += 1;
-                        continue;
-                    }
-                    break;
-                } else {
-                    // if we find none, we skip only the start (without the !)
-                    end = 0;
-                    break;
-                }
-            }
-            current_negative = 0;
-            text = &text[end + 1..];
+            parse_spoiler(&mut text, SPOILER_END, &mut current_negative);
             continue;
         } else if text.starts_with(SPOILER_HTML_START) {
-            // Spoiler (html) (2.)
-            let mut end = 0;
-            loop {
-                // look for next end tag
-                if let Some(e) = text[end..].find(SPOILER_HTML_END) {
-                    if e == 0 {
-                        panic!("Parser loop Spoiler! Text \"{text}\"");
-                    }
-                    end += e;
-                    // is escaped -> look further
-                    if text[end.saturating_sub(1)..].starts_with(ESCAPE) {
-                        end += 1;
-                        continue;
-                    }
-                    break;
-                } else {
-                    // if we find none, we skip only the start (without the !)
-                    end = 0;
-                    break;
-                }
-            }
-            current_negative = 0;
-            text = &text[end + 4..];
+            parse_spoiler(&mut text, SPOILER_HTML_END, &mut current_negative);
             continue;
         } else if text.starts_with(NEGATION) {
-            // Negation (3.)
-            let end = text.find(|c| c != NEGATION).unwrap_or(text.len());
-            current_negative = end as u32;
-            text = &text[end..];
+            parse_negation(&mut text, &mut current_negative);
             continue;
         } else if text.starts_with(PAREN_START) {
-            // Paren Start (without prefix op) (4.)
-            paren_steps.push((current_negative, None, false));
-            // Submit current base (we won't use it anymore)
-            if let Some(CalculationBase::Calc(job)) = base.take() {
-                jobs.push(*job);
-            }
-            current_negative = 0;
-            text = &text[1..];
+            text = &text[PAREN_START.len_utf8()..];
+            parse_paren_start(ParseContext {
+                jobs: &mut jobs,
+                base: &mut base,
+                paren_steps: &mut paren_steps,
+                current_negative: &mut current_negative,
+            });
             continue;
         } else if text.starts_with(PAREN_END) {
-            // Paren End (5.)
-            text = &text[1..];
-            current_negative = 0;
-            // Paren mismatch?
-            let Some(step) = paren_steps.pop() else {
-                continue;
-            };
-            // poisoned paren
-            if step.2 {
-                if let Some(CalculationBase::Calc(job)) = base.take() {
-                    jobs.push(*job);
-                }
-                // no number (maybe var) => poison outer paren
-                if let Some(step) = paren_steps.last_mut() {
-                    step.2 = true;
-                }
+            text = &text[PAREN_END.len_utf8()..];
+            if let ControlFlow::Break(_) = parse_paren_end(
+                &mut text,
+                do_termial,
+                ParseContext {
+                    jobs: &mut jobs,
+                    base: &mut base,
+                    paren_steps: &mut paren_steps,
+                    current_negative: &mut current_negative,
+                },
+            ) {
                 continue;
             }
-            let mut had_op = false;
-            // Prefix? (5.2.)
-            if let Some(level) = step.1 {
-                // base available?
-                let Some(inner) = base.take() else {
-                    // no number (maybe var) => poison outer paren
-                    if let Some(step) = paren_steps.last_mut() {
-                        step.2 = true;
-                    }
-                    continue;
-                };
-                if let (CalculationBase::Num(Number::Float(_)), true) =
-                    (&inner, INTEGER_ONLY_OPS.contains(&level))
-                {
-                    continue;
-                }
-                base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                    base: inner,
-                    level,
-                    negative: 0,
-                })));
-                had_op = true;
-            }
-            // Postfix? (5.1.)
-            let Some(levels) = parse_ops(&mut text, false, do_termial) else {
-                base.take();
-                // no number (maybe var) => poison outer paren
-                if let Some(step) = paren_steps.last_mut() {
-                    step.2 = true;
-                }
-                continue;
-            };
-            if !levels.is_empty() {
-                // Set as base (5.1.2.)
-                for level in levels {
-                    // base available?
-                    let Some(inner) = base.take() else {
-                        continue;
-                    };
-                    base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                        base: inner,
-                        level,
-                        negative: 0,
-                    })));
-                    had_op = true;
-                }
-            }
-            if !had_op {
-                match &mut base {
-                    Some(CalculationBase::Calc(job)) => job.negative += step.0,
-                    Some(CalculationBase::Num(n)) => {
-                        if step.0 % 2 != 0 {
-                            n.negate();
-                        }
-                    }
-                    None => {}
-                }
-            } else {
-                match &mut base {
-                    Some(CalculationBase::Num(n)) => {
-                        if step.0 % 2 == 1 {
-                            n.negate();
-                        }
-                    }
-                    Some(CalculationBase::Calc(job)) => job.negative += step.0,
-                    None => {
-                        // no number (maybe var) => poison outer paren
-                        if let Some(step) = paren_steps.last_mut() {
-                            step.2 = true;
-                        }
-                    }
-                }
-                continue;
-            };
         } else if text.starts_with(PREFIX_OPS) {
-            // Prefix OP (6.)
-            let Ok(level) = parse_op(&mut text, true, do_termial) else {
-                // also skip number to prevent stuff like "!!!1!" getting through
-                parse_num(&mut text, false, true, consts, locale);
-                continue;
-            };
-            // On number (6.1.)
-            if let Some(num) = parse_num(&mut text, false, true, consts, locale) {
-                // set base (6.1.2.)
-                if let Some(CalculationBase::Calc(job)) = base.take() {
-                    // multiple number, likely expression => poision paren
-                    if let Some(step) = paren_steps.last_mut() {
-                        step.2 = true;
-                    }
-                    jobs.push(*job);
-                }
-                if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
-                    continue;
-                }
-                base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                    base: CalculationBase::Num(num),
-                    level,
-                    negative: current_negative,
-                })));
-                current_negative = 0;
-                let Some(levels) = parse_ops(&mut text, false, do_termial) else {
-                    continue;
-                };
-                for level in levels {
-                    // base available?
-                    let Some(inner) = base.take() else {
-                        continue;
-                    };
-                    base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                        base: inner,
-                        level,
-                        negative: 0,
-                    })));
-                }
-            } else {
-                // on paren? (6.2.)
-                if text.starts_with(PAREN_START) {
-                    paren_steps.push((current_negative, Some(level), false));
-                    current_negative = 0;
-                    text = &text[1..];
-                }
-                continue;
-            };
-        } else {
-            // Number (7.)
-            if text.starts_with('.') && !text[1..].starts_with(char::is_numeric) {
-                // Is a period
-                text = &text[1..];
+            if let ControlFlow::Break(_) = parse_prefix_ops(
+                &mut text,
+                do_termial,
+                consts,
+                locale,
+                ParseContext {
+                    jobs: &mut jobs,
+                    base: &mut base,
+                    paren_steps: &mut paren_steps,
+                    current_negative: &mut current_negative,
+                },
+            ) {
                 continue;
             }
-            let Some(num) = parse_num(&mut text, had_text, false, consts, locale) else {
-                had_text_before = true;
-                // advance one char to avoid loop
-                let mut end = 1;
-                while !text.is_char_boundary(end) && end < text.len() {
-                    end += 1;
-                }
-                text = &text[end.min(text.len())..];
-                continue;
-            };
-            // postfix? (7.1.)
-            let Some(levels) = parse_ops(&mut text, false, do_termial) else {
-                continue;
-            };
-            if !levels.is_empty() {
-                let levels = levels.into_iter();
-                if let Some(CalculationBase::Calc(job)) = base.take() {
-                    // multiple number, likely expression => poision paren
-                    if let Some(step) = paren_steps.last_mut() {
-                        step.2 = true;
-                    }
-                    jobs.push(*job);
-                }
-                base = Some(CalculationBase::Num(num));
-                for level in levels {
-                    let previous = base.take().unwrap();
-                    if let (CalculationBase::Num(Number::Float(_)), true) =
-                        (&previous, INTEGER_ONLY_OPS.contains(&level))
-                    {
-                        continue;
-                    }
-                    base = Some(CalculationBase::Calc(Box::new(CalculationJob {
-                        base: previous,
-                        level,
-                        negative: 0,
-                    })))
-                }
-                if let Some(CalculationBase::Calc(job)) = &mut base {
-                    job.negative = current_negative;
-                }
-            } else {
-                // in parens? (7.2.)
-                if !paren_steps.is_empty() {
-                    let mut num = num;
-                    if current_negative % 2 == 1 {
-                        num.negate();
-                    }
-
-                    if base.is_none() {
-                        base = Some(CalculationBase::Num(num))
-                    } else {
-                        // multiple number, likely expression => poision paren
-                        if let Some(step) = paren_steps.last_mut() {
-                            step.2 = true;
-                        }
-                    }
-                }
-            }
-            current_negative = 0;
+        } else if let ControlFlow::Break(_) = parse_other(
+            &mut text,
+            do_termial,
+            consts,
+            locale,
+            ParseContext {
+                jobs: &mut jobs,
+                base: &mut base,
+                paren_steps: &mut paren_steps,
+                current_negative: &mut current_negative,
+            },
+            had_text,
+            &mut had_text_before,
+        ) {
+            continue;
         };
-        // toplevel? (8.)
         if paren_steps.is_empty()
             && let Some(CalculationBase::Calc(job)) = base.take()
         {
@@ -472,6 +207,301 @@ pub fn parse(
     jobs.sort();
     jobs.dedup();
     jobs
+}
+
+struct ParseContext<'a> {
+    jobs: &'a mut Vec<CalculationJob>,
+    base: &'a mut Option<CalculationBase>,
+    paren_steps: &'a mut Vec<(u32, Option<i32>, bool)>,
+    current_negative: &'a mut u32,
+}
+
+fn parse_other(
+    text: &mut &str,
+    do_termial: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat,
+    parse_context: ParseContext<'_>,
+    had_text: bool,
+    had_text_before: &mut bool,
+) -> ControlFlow<()> {
+    if text.starts_with('.') && !text[1..].starts_with(char::is_numeric) {
+        // Is a period
+        *text = &text[1..];
+        return ControlFlow::Break(());
+    }
+    let Some(num) = parse_num(text, had_text, false, consts, locale) else {
+        *had_text_before = true;
+        // advance one char to avoid loop
+        let mut end = 1;
+        while !text.is_char_boundary(end) && end < text.len() {
+            end += 1;
+        }
+        *text = &text[end.min(text.len())..];
+        return ControlFlow::Break(());
+    };
+    let Some(levels) = parse_ops(text, false, do_termial) else {
+        return ControlFlow::Break(());
+    };
+    if !levels.is_empty() {
+        let levels = levels.into_iter();
+        if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
+            // multiple number, likely expression => poision paren
+            if let Some(step) = parse_context.paren_steps.last_mut() {
+                step.2 = true;
+            }
+            parse_context.jobs.push(*job);
+        }
+        *parse_context.base = Some(CalculationBase::Num(num));
+        for level in levels {
+            let previous = parse_context.base.take().unwrap();
+            if let (CalculationBase::Num(Number::Float(_)), true) =
+                (&previous, INTEGER_ONLY_OPS.contains(&level))
+            {
+                continue;
+            }
+            *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+                base: previous,
+                level,
+                negative: 0,
+            })))
+        }
+        if let Some(CalculationBase::Calc(job)) = parse_context.base {
+            job.negative = *parse_context.current_negative;
+        }
+    } else if !parse_context.paren_steps.is_empty() {
+        let mut num = num;
+        if *parse_context.current_negative % 2 == 1 {
+            num.negate();
+        }
+
+        if parse_context.base.is_none() {
+            *parse_context.base = Some(CalculationBase::Num(num))
+        } else {
+            // multiple number, likely expression => poision paren
+            if let Some(step) = parse_context.paren_steps.last_mut() {
+                step.2 = true;
+            }
+        }
+    }
+
+    *parse_context.current_negative = 0;
+    // postfix? (7.1.)
+    ControlFlow::Continue(())
+}
+
+fn parse_prefix_ops(
+    text: &mut &str,
+    do_termial: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat,
+    parse_context: ParseContext<'_>,
+) -> ControlFlow<()> {
+    let Ok(level) = parse_op(text, true, do_termial) else {
+        // also skip number to prevent stuff like "!!!1!" getting through
+        parse_num(text, false, true, consts, locale);
+        return ControlFlow::Break(());
+    };
+    if let Some(num) = parse_num(text, false, true, consts, locale) {
+        if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
+            // multiple number, likely expression => poision paren
+            if let Some(step) = parse_context.paren_steps.last_mut() {
+                step.2 = true;
+            }
+            parse_context.jobs.push(*job);
+        }
+        if let (Number::Float(_), true) = (&num, INTEGER_ONLY_OPS.contains(&level)) {
+            return ControlFlow::Break(());
+        }
+        *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            base: CalculationBase::Num(num),
+            level,
+            negative: *parse_context.current_negative,
+        })));
+        *parse_context.current_negative = 0;
+        let Some(levels) = parse_ops(text, false, do_termial) else {
+            return ControlFlow::Break(());
+        };
+        for level in levels {
+            // base available?
+            let Some(inner) = parse_context.base.take() else {
+                continue;
+            };
+            *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+                base: inner,
+                level,
+                negative: 0,
+            })));
+        }
+    } else {
+        if text.starts_with(PAREN_START) {
+            parse_context
+                .paren_steps
+                .push((*parse_context.current_negative, Some(level), false));
+            *parse_context.current_negative = 0;
+            *text = &text[PAREN_START.len_utf8()..];
+        }
+        return ControlFlow::Break(());
+    };
+    ControlFlow::Continue(())
+}
+
+fn parse_paren_end(
+    text: &mut &str,
+    do_termial: bool,
+    parse_context: ParseContext<'_>,
+) -> ControlFlow<()> {
+    *parse_context.current_negative = 0;
+    // Paren mismatch?
+    let Some(step) = parse_context.paren_steps.pop() else {
+        return ControlFlow::Break(());
+    };
+    // poisoned paren
+    if step.2 {
+        if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
+            parse_context.jobs.push(*job);
+        }
+        // no number (maybe var) => poison outer paren
+        if let Some(step) = parse_context.paren_steps.last_mut() {
+            step.2 = true;
+        }
+        return ControlFlow::Break(());
+    }
+    let mut had_op = false;
+    if let Some(level) = step.1 {
+        // base available?
+        let Some(inner) = parse_context.base.take() else {
+            // no number (maybe var) => poison outer paren
+            if let Some(step) = parse_context.paren_steps.last_mut() {
+                step.2 = true;
+            }
+            return ControlFlow::Break(());
+        };
+        if let (CalculationBase::Num(Number::Float(_)), true) =
+            (&inner, INTEGER_ONLY_OPS.contains(&level))
+        {
+            return ControlFlow::Break(());
+        }
+        *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+            base: inner,
+            level,
+            negative: 0,
+        })));
+        had_op = true;
+    }
+    let Some(levels) = parse_ops(text, false, do_termial) else {
+        parse_context.base.take();
+        // no number (maybe var) => poison outer paren
+        if let Some(step) = parse_context.paren_steps.last_mut() {
+            step.2 = true;
+        }
+        return ControlFlow::Break(());
+    };
+    if !levels.is_empty() {
+        for level in levels {
+            // base available?
+            let Some(inner) = parse_context.base.take() else {
+                continue;
+            };
+            *parse_context.base = Some(CalculationBase::Calc(Box::new(CalculationJob {
+                base: inner,
+                level,
+                negative: 0,
+            })));
+            had_op = true;
+        }
+    }
+    if !had_op {
+        match parse_context.base {
+            Some(CalculationBase::Calc(job)) => job.negative += step.0,
+            Some(CalculationBase::Num(n)) => {
+                if step.0 % 2 != 0 {
+                    n.negate();
+                }
+            }
+            None => {}
+        }
+    } else {
+        match parse_context.base {
+            Some(CalculationBase::Num(n)) => {
+                if step.0 % 2 == 1 {
+                    n.negate();
+                }
+            }
+            Some(CalculationBase::Calc(job)) => job.negative += step.0,
+            None => {
+                // no number (maybe var) => poison outer paren
+                if let Some(step) = parse_context.paren_steps.last_mut() {
+                    step.2 = true;
+                }
+            }
+        }
+        return ControlFlow::Break(());
+    };
+    ControlFlow::Continue(())
+}
+
+fn parse_paren_start(parse_context: ParseContext<'_>) {
+    parse_context
+        .paren_steps
+        .push((*parse_context.current_negative, None, false));
+    // Submit current base (we won't use it anymore)
+    if let Some(CalculationBase::Calc(job)) = parse_context.base.take() {
+        parse_context.jobs.push(*job);
+    }
+    *parse_context.current_negative = 0;
+}
+
+fn parse_negation(text: &mut &str, current_negative: &mut u32) {
+    let end = text.find(|c| c != NEGATION).unwrap_or(text.len());
+    *current_negative = end as u32;
+    *text = &text[end..];
+}
+
+fn parse_spoiler(text: &mut &str, spoiler_end: &str, current_negative: &mut u32) {
+    let mut end = 0;
+    loop {
+        // look for next end tag
+        if let Some(e) = text[end..].find(spoiler_end) {
+            if e == 0 {
+                panic!("Parser loop Spoiler! Text \"{text}\"");
+            }
+            end += e;
+            // is escaped -> look further
+            let potential_escape = end.saturating_sub(ESCAPE.len_utf8());
+            if text.is_char_boundary(potential_escape)
+                && text[potential_escape..].starts_with(ESCAPE)
+            {
+                end += 1;
+                continue;
+            }
+            break;
+        } else {
+            // if we find none, we skip only the start (without the !)
+            end = 0;
+            break;
+        }
+    }
+    *current_negative = 0;
+    *text = &text[end + spoiler_end.len() - 1..];
+}
+
+fn parse_uri(text: &mut &str) {
+    let end = text.find(char::is_whitespace).unwrap_or(text.len());
+    *text = &text[end..];
+}
+
+fn parse_escape(text: &mut &str) {
+    let end = if text.starts_with(SPOILER_START) {
+        1
+    } else if text.starts_with(SPOILER_HTML_START) {
+        4
+    } else if text.starts_with(URI_START) {
+        3
+    } else {
+        0
+    };
+    *text = &text[end..];
 }
 
 enum ParseOpErr {
@@ -530,199 +560,278 @@ fn parse_num(
 ) -> Option<Number> {
     let prec = consts.float_precision;
     if text.starts_with(CONSTANT_STARTS) {
-        let (n, x) = if text.starts_with("pi") {
-            ("pi".len(), PI(prec))
-        } else if text.starts_with("π") {
-            ("π".len(), PI(prec))
-        } else if text.starts_with("phi") {
-            ("phi".len(), PHI(prec))
-        } else if text.starts_with("ɸ") {
-            ("ɸ".len(), PHI(prec))
-        } else if text.starts_with("tau") {
-            ("tau".len(), TAU(prec))
-        } else if text.starts_with("τ") {
-            ("τ".len(), TAU(prec))
-        } else if text.starts_with("e") {
-            ("e".len(), E(prec))
-        } else if text.starts_with("infinity") {
-            ("infinity".len(), Number::ComplexInfinity)
-        } else if text.starts_with("inf") {
-            ("inf".len(), Number::ComplexInfinity)
-        } else if text.starts_with("∞\u{303}") {
-            ("∞\u{303}".len(), Number::ComplexInfinity)
-        } else if text.starts_with("∞") {
-            ("∞".len(), Number::ComplexInfinity)
-        } else {
-            return None;
-        };
-        if had_text || text[n..].starts_with(char::is_alphabetic) {
-            return None;
-        }
-        *text = &text[n..];
-        return Some(x);
+        return parse_const(text, had_text, prec);
     }
 
     if text.starts_with("^(") {
-        let orig_text = &text[..];
-        *text = &text[2..];
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        if text.starts_with(")10")
-            && !text[3..].starts_with(POSTFIX_OPS)
-            && !text[3..].starts_with(char::is_numeric)
-            // Intentionally not allowing decimal
-            && !(text[3..].starts_with(SEPARATORS) && text[4..].starts_with(char::is_numeric))
-        {
-            *text = &text[3..];
-            let part = part.replace(SEPARATORS, "");
-            let n = part.parse::<Integer>().ok()?;
-            return Some(Number::ApproximateDigitsTower(
-                false,
-                false,
-                n - 1,
-                1.into(),
-            ));
-        } else {
-            // Skip ^ only (because ret None)
-            *text = orig_text;
-            return None;
-        }
+        return parse_tet(text, locale);
     }
 
     if text.starts_with("10^") || text.starts_with("10\\^") {
-        let orig_text = &text[..];
-        if had_op {
-            if &text[2..3] == "^" {
-                *text = &text[3..];
-            } else {
-                *text = &text[4..];
-            }
-            // Don't skip power if op won't be in exponent, so it will be skipped by tetration parsing
-            if text.starts_with("(") || text.starts_with("\\(") {
-                *text = &orig_text[2..];
-            }
-            return Some(Number::Exact(10.into()));
-        }
-        let mut cur_parens = 0;
-        let mut depth = 0;
-
-        let mut max_no_paren_level = 0;
-        let mut no_paren_inner = &text[0..];
-
-        while text.starts_with("10^") || text.starts_with("10\\^") {
-            let base_text;
-            if &text[2..3] == "^" {
-                base_text = &text[2..];
-                *text = &text[3..];
-            } else {
-                base_text = &text[3..];
-                *text = &text[4..];
-            }
-            if text.starts_with("\\(") {
-                *text = &text[2..];
-                cur_parens += 1;
-            } else if text.starts_with("(") {
-                *text = &text[1..];
-                cur_parens += 1;
-            }
-            // we're at base and pushed a paren
-            if depth == max_no_paren_level && cur_parens == 0 {
-                max_no_paren_level += 1;
-                no_paren_inner = base_text;
-            }
-            depth += 1;
-        }
-
-        let top = match parse_num_simple(text, had_op, consts, locale, prec) {
-            Some(Number::Exact(n)) => n,
-            Some(Number::Approximate(_, n)) => {
-                depth += 1;
-                n
-            }
-            _ => {
-                *text = &orig_text[3..];
-                return None;
-            }
-        };
-
-        for _ in 0..cur_parens {
-            if text.starts_with("\\)") {
-                *text = &text[2..];
-            } else if text.starts_with(")") {
-                *text = &text[1..];
-            } else {
-                *text = &orig_text[2..];
-                return None;
-            }
-        }
-
-        // If postfix op in exponent, ingore that it's in exponent
-        if max_no_paren_level != 0 && text.starts_with(POSTFIX_OPS) {
-            *text = no_paren_inner;
-            return None;
-        }
-
-        if depth == 1 {
-            return Some(Number::ApproximateDigits(false, top));
-        } else {
-            return Some(Number::ApproximateDigitsTower(
-                false,
-                false,
-                (depth - 1).into(),
-                top,
-            ));
-        }
+        return parse_tower(text, had_op, consts, locale, prec);
     }
 
     parse_num_simple(text, had_op, consts, locale, prec)
+}
+
+fn parse_const(text: &mut &str, had_text: bool, prec: u32) -> Option<Number> {
+    let (n, x) = if text.starts_with("pi") {
+        ("pi".len(), PI(prec))
+    } else if text.starts_with("π") {
+        ("π".len(), PI(prec))
+    } else if text.starts_with("phi") {
+        ("phi".len(), PHI(prec))
+    } else if text.starts_with("ɸ") {
+        ("ɸ".len(), PHI(prec))
+    } else if text.starts_with("tau") {
+        ("tau".len(), TAU(prec))
+    } else if text.starts_with("τ") {
+        ("τ".len(), TAU(prec))
+    } else if text.starts_with("e") {
+        ("e".len(), E(prec))
+    } else if text.starts_with("infinity") {
+        ("infinity".len(), Number::ComplexInfinity)
+    } else if text.starts_with("inf") {
+        ("inf".len(), Number::ComplexInfinity)
+    } else if text.starts_with("∞\u{303}") {
+        ("∞\u{303}".len(), Number::ComplexInfinity)
+    } else if text.starts_with("∞") {
+        ("∞".len(), Number::ComplexInfinity)
+    } else {
+        return None;
+    };
+    if had_text || text[n..].starts_with(char::is_alphabetic) {
+        return None;
+    }
+    *text = &text[n..];
+    Some(x)
+}
+
+fn parse_tower(
+    text: &mut &str,
+    had_op: bool,
+    consts: &Consts<'_>,
+    locale: &NumFormat,
+    prec: u32,
+) -> Option<Number> {
+    let orig_text = &text[..];
+    if had_op {
+        if &text[2..3] == "^" {
+            *text = &text[3..];
+        } else {
+            *text = &text[4..];
+        }
+        // Don't skip power if op won't be in exponent, so it will be skipped by tetration parsing
+        if text.starts_with("(") || text.starts_with("\\(") {
+            *text = &orig_text[2..];
+        }
+        return Some(Number::Exact(10.into()));
+    }
+    let mut cur_parens = 0;
+    let mut depth = 0;
+    let mut max_no_paren_level = 0;
+    let mut no_paren_inner = &text[0..];
+    while text.starts_with("10^") || text.starts_with("10\\^") {
+        let base_text;
+        if &text[2..3] == "^" {
+            base_text = &text[2..];
+            *text = &text[3..];
+        } else {
+            base_text = &text[3..];
+            *text = &text[4..];
+        }
+        if text.starts_with("\\(") {
+            *text = &text[2..];
+            cur_parens += 1;
+        } else if text.starts_with("(") {
+            *text = &text[1..];
+            cur_parens += 1;
+        }
+        // we're at base and pushed a paren
+        if depth == max_no_paren_level && cur_parens == 0 {
+            max_no_paren_level += 1;
+            no_paren_inner = base_text;
+        }
+        depth += 1;
+    }
+    let top = match parse_num_simple(text, had_op, consts, locale, prec) {
+        Some(Number::Exact(n)) => n,
+        Some(Number::Approximate(_, n)) => {
+            depth += 1;
+            n
+        }
+        _ => {
+            *text = &orig_text[3..];
+            return None;
+        }
+    };
+    for _ in 0..cur_parens {
+        if text.starts_with("\\)") {
+            *text = &text[2..];
+        } else if text.starts_with(")") {
+            *text = &text[1..];
+        } else {
+            *text = &orig_text[2..];
+            return None;
+        }
+    }
+    if max_no_paren_level != 0 && text.starts_with(POSTFIX_OPS) {
+        *text = no_paren_inner;
+        return None;
+    }
+
+    // If postfix op in exponent, ingore that it's in exponent
+
+    Some(if depth == 1 {
+        if top < consts.integer_construction_limit {
+            return Some(Number::Exact(
+                Integer::u64_pow_u64(10, top.to_u64().unwrap()).complete(),
+            ));
+        }
+        Number::ApproximateDigits(false, top)
+    } else {
+        Number::ApproximateDigitsTower(false, false, (depth - 1).into(), top)
+    })
+}
+
+fn parse_tet(text: &mut &str, locale: &NumFormat) -> Option<Number> {
+    let orig_text = &text[..];
+    *text = &text[2..];
+    let end = text
+        .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
+        .unwrap_or(text.len());
+    let part = &text[..end];
+    *text = &text[end..];
+    if text.starts_with(")10")
+        && !text[3..].starts_with(POSTFIX_OPS)
+        && !text[3..].starts_with(char::is_numeric)
+        // Intentionally not allowing decimal
+        && !(text[3..].starts_with(SEPARATORS) && text[4..].starts_with(char::is_numeric))
+    {
+        *text = &text[3..];
+        let part = part.replace(SEPARATORS, "");
+        let n = part.parse::<Integer>().ok()?;
+        Some(match n.to_usize() {
+            Some(0) => 1.into(),
+            Some(1) => 10.into(),
+            Some(2) => Number::Exact(10_000_000_000u64.into()),
+            _ => Number::ApproximateDigitsTower(false, false, n - 1, 1.into()),
+        })
+    } else {
+        // Skip ^ only (because ret None)
+        *text = orig_text;
+        None
+    }
 }
 
 fn parse_num_simple(
     text: &mut &str,
     had_op: bool,
     consts: &Consts<'_>,
-    locale: &NumFormat<'_>,
+    locale: &NumFormat,
     prec: u32,
-) -> Option<crate::calculation_results::CalculationResult> {
-    let integer_part = {
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        part
+) -> Option<Number> {
+    let (integer_part, decimal_part, exponent_part, fraction_part) =
+        get_parts(text, had_op, locale)?;
+    if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
+        return Some(Number::Exact(parse_integer(fraction_part)?));
+    }
+    if integer_part.is_empty() && decimal_part.is_empty() {
+        return None;
+    }
+    let exponent = if !exponent_part.0.is_empty() {
+        let mut e = parse_integer(exponent_part.0)?;
+        if exponent_part.1 {
+            e *= -1;
+        }
+        e
+    } else {
+        0.into()
     };
-    let decimal_part = if text.starts_with(*locale.decimal()) {
-        *text = &text[1..];
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        part
+    let divisor = if !fraction_part.is_empty() {
+        parse_integer(fraction_part)?
+    } else {
+        Integer::ONE.clone()
+    };
+    if divisor == 0 {
+        return Some(Number::ComplexInfinity);
+    }
+    let integer_part = integer_part.replace(SEPARATORS, "");
+    let decimal_part = decimal_part.replace(SEPARATORS, "");
+    parse_final_number(
+        consts,
+        prec,
+        exponent_part,
+        exponent,
+        divisor,
+        integer_part,
+        decimal_part,
+    )
+}
+
+fn parse_final_number(
+    consts: &Consts<'_>,
+    prec: u32,
+    exponent_part: (&str, bool),
+    exponent: Integer,
+    divisor: Integer,
+    integer_part: String,
+    decimal_part: String,
+) -> Option<Number> {
+    if exponent >= decimal_part.len() as i64
+        && exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64
+        && (divisor == 1 || exponent >= consts.integer_construction_limit.clone() / 10)
+    {
+        let exponent = exponent - decimal_part.len();
+        let n = parse_integer(&format!("{integer_part}{decimal_part}"))?;
+        let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
+        Some(Number::Exact(num))
+    } else if exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64 {
+        let x = Float::parse(format!(
+            "{}.{}{}{}{}",
+            integer_part,
+            decimal_part,
+            if !exponent_part.0.is_empty() { "e" } else { "" },
+            if exponent_part.1 { "-" } else { "" },
+            exponent_part.0
+        ))
+        .ok()?;
+        let x = Float::with_val(prec, x) / divisor;
+        if x.is_integer() {
+            let n = x.to_integer().unwrap();
+            Some(Number::Exact(n))
+        } else if x.is_finite() {
+            Some(Number::Float(x.into()))
+        } else {
+            Some(Number::ComplexInfinity)
+        }
+    } else {
+        let x = Float::parse(format!("{}.{}", integer_part, decimal_part)).ok()?;
+        let x = Float::with_val(prec, x) / divisor;
+        if x.is_finite() {
+            let (b, e) = crate::math::adjust_approximate((x, exponent));
+            Some(Number::Approximate(b.into(), e))
+        } else {
+            Some(Number::ComplexInfinity)
+        }
+    }
+}
+
+fn get_parts<'a>(
+    text: &mut &'a str,
+    had_op: bool,
+    locale: &NumFormat,
+) -> Option<(&'a str, &'a str, (&'a str, bool), &'a str)> {
+    let integer_part = get_integer_str(text, locale);
+    let decimal_part = if text.starts_with(locale.decimal) {
+        *text = &text[locale.decimal.len_utf8()..];
+        get_integer_str(text, locale)
     } else {
         &text[..0]
     };
     let exponent_part = if text.starts_with(['e', 'E']) {
         *text = &text[1..];
-        let negative = if text.starts_with('+') {
-            *text = &text[1..];
-            false
-        } else if text.starts_with('-') {
-            *text = &text[1..];
-            true
-        } else {
-            false
-        };
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        (part, negative)
+        get_exponent_str(text, locale)
     } else if !had_op
         && (text.trim_start().starts_with("\\*10^")
             || text.trim_start().starts_with("\\* 10^")
@@ -741,120 +850,89 @@ fn parse_num_simple(
         let start = text.find("^").unwrap();
         let orig_text = &text[start..];
         *text = &text[start + 1..];
-        let paren = if text.starts_with('(') {
-            *text = &text[1..];
-            true
-        } else {
-            false
-        };
-        let negative = if text.starts_with('+') {
-            *text = &text[1..];
-            false
-        } else if text.starts_with('-') {
-            *text = &text[1..];
-            true
-        } else {
-            false
-        };
-        let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        if paren {
-            if text.starts_with(')') {
-                *text = &text[1..];
-            } else {
-                *text = orig_text;
-                return None;
-            }
-        }
-        if text.starts_with(POSTFIX_OPS) {
-            //  10^(50)! => (10^50)!, 10^50! => 50!
-            // if !paren text ohne 10^ else text mit 10^
-            if paren {
-                *text = pre_orig_text;
-            } else {
-                *text = orig_text;
-            }
-            return None;
-        }
-        (part, negative)
+        get_tower_str(text, pre_orig_text, orig_text)?
     } else {
         (&text[..0], false)
     };
     let fraction_part = if !had_op && text.starts_with(['/']) {
         *text = &text[1..];
-        let end = text
-            .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || &c == locale.decimal())
-            .unwrap_or(text.len());
-        let part = &text[..end];
-        *text = &text[end..];
-        part
+        get_integer_str(text, locale)
     } else {
         &text[..0]
     };
-    if text.starts_with(POSTFIX_OPS) && !fraction_part.is_empty() {
-        let fraction_part = fraction_part.replace(SEPARATORS, "");
-        let n = fraction_part.parse::<Integer>().ok()?;
-        return Some(Number::Exact(n));
+    Some((integer_part, decimal_part, exponent_part, fraction_part))
+}
+
+fn parse_integer(part: &str) -> Option<Integer> {
+    let part = part.replace(SEPARATORS, "");
+    part.parse::<Integer>().ok()
+}
+
+fn get_tower_str<'a>(
+    text: &mut &'a str,
+    pre_orig_text: &'a str,
+    orig_text: &'a str,
+) -> Option<(&'a str, bool)> {
+    let paren = if text.starts_with('(') {
+        *text = &text[1..];
+        true
+    } else {
+        false
+    };
+    let negative = if text.starts_with('+') {
+        *text = &text[1..];
+        false
+    } else if text.starts_with('-') {
+        *text = &text[1..];
+        true
+    } else {
+        false
+    };
+    let end = text.find(|c: char| !c.is_numeric()).unwrap_or(text.len());
+    let part = &text[..end];
+    *text = &text[end..];
+    if paren {
+        if text.starts_with(')') {
+            *text = &text[1..];
+        } else {
+            *text = orig_text;
+            return None;
+        }
     }
-    if integer_part.is_empty() && decimal_part.is_empty() {
+    if text.starts_with(POSTFIX_OPS) {
+        //  10^(50)! => (10^50)!, 10^50! => 50!
+        // if !paren text ohne 10^ else text mit 10^
+        if paren {
+            *text = pre_orig_text;
+        } else {
+            *text = orig_text;
+        }
         return None;
     }
-    let exponent = if !exponent_part.0.is_empty() {
-        let exponent_part = (exponent_part.0.replace(SEPARATORS, ""), exponent_part.1);
-        let mut e = exponent_part.0.parse::<Integer>().ok()?;
-        if exponent_part.1 {
-            e *= -1;
-        }
-        e
+    Some((part, negative))
+}
+
+fn get_exponent_str<'a>(text: &mut &'a str, locale: &NumFormat) -> (&'a str, bool) {
+    let negative = if text.starts_with('+') {
+        *text = &text[1..];
+        false
+    } else if text.starts_with('-') {
+        *text = &text[1..];
+        true
     } else {
-        0.into()
+        false
     };
-    let divisor = if !fraction_part.is_empty() {
-        let fraction_part = fraction_part.replace(SEPARATORS, "");
-        fraction_part.parse::<Integer>().ok()?
-    } else {
-        Integer::ONE.clone()
-    };
-    let integer_part = integer_part.replace(SEPARATORS, "");
-    let decimal_part = decimal_part.replace(SEPARATORS, "");
-    if exponent >= decimal_part.len() as i64
-        && exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64
-        && (divisor == 1 || exponent >= consts.integer_construction_limit.clone() / 10)
-    {
-        let exponent = exponent - decimal_part.len();
-        let n = format!("{integer_part}{decimal_part}")
-            .parse::<Integer>()
-            .ok()?;
-        let num = (n * Integer::u64_pow_u64(10, exponent.to_u64().unwrap()).complete()) / divisor;
-        Some(Number::Exact(num))
-    } else if exponent <= consts.integer_construction_limit.clone() - integer_part.len() as i64 {
-        let x = Float::parse(format!(
-            "{integer_part}.{decimal_part}{}{}{}",
-            if !exponent_part.0.is_empty() { "e" } else { "" },
-            if exponent_part.1 { "-" } else { "" },
-            exponent_part.0
-        ))
-        .ok()?;
-        let x = Float::with_val(prec, x) / divisor;
-        if x.is_integer() {
-            let n = x.to_integer().unwrap();
-            Some(Number::Exact(n))
-        } else if x.is_finite() {
-            Some(Number::Float(x.into()))
-        } else {
-            None
-        }
-    } else {
-        let x = Float::parse(format!("{integer_part}.{decimal_part}")).ok()?;
-        let x = Float::with_val(prec, x) / divisor;
-        if x.is_finite() {
-            let (b, e) = crate::math::adjust_approximate((x, exponent));
-            Some(Number::Approximate(b.into(), e))
-        } else {
-            None
-        }
-    }
+    let part = get_integer_str(text, locale);
+    (part, negative)
+}
+
+fn get_integer_str<'a>(text: &mut &'a str, locale: &NumFormat) -> &'a str {
+    let end = text
+        .find(|c: char| (!c.is_numeric() && !SEPARATORS.contains(&c)) || c == locale.decimal)
+        .unwrap_or(text.len());
+    let part = &text[..end];
+    *text = &text[end..];
+    part
 }
 
 #[cfg(test)]
@@ -872,7 +950,7 @@ mod test {
             "just some words of encouragement!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -883,7 +961,7 @@ mod test {
             "a factorial 15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -901,7 +979,7 @@ mod test {
             "a factorial 15!!! actually a multi",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -919,7 +997,7 @@ mod test {
             "a factorial !15 actually a sub",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -937,19 +1015,14 @@ mod test {
             "not well defined !!!15",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
     #[test]
     fn test_termial() {
         let consts = Consts::default();
-        let jobs = parse(
-            "a termial 15?",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("a termial 15?", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -966,7 +1039,7 @@ mod test {
             "not enabled 15?",
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -977,7 +1050,7 @@ mod test {
             "a termial 15??? actually a multi",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -995,7 +1068,7 @@ mod test {
             "a termial ?15 actually a sub",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1006,7 +1079,7 @@ mod test {
             "a factorialchain (15!)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1028,7 +1101,7 @@ mod test {
             "a factorialchain !(15!)",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1050,7 +1123,7 @@ mod test {
             "a factorialchain -15!?",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1072,7 +1145,7 @@ mod test {
             "a factorial ---15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1090,7 +1163,7 @@ mod test {
             "a factorial --- 15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1108,7 +1181,7 @@ mod test {
             "a factorial (15)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1126,7 +1199,7 @@ mod test {
             "a factorial (15!)",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1144,7 +1217,7 @@ mod test {
             "a factorial 1.5!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1162,7 +1235,7 @@ mod test {
             "a factorial (-1.5)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1180,7 +1253,7 @@ mod test {
             "a factorial -(--(-(-(-3))!))!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1202,7 +1275,7 @@ mod test {
             ">!5 a factorial 15! !<",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1213,7 +1286,7 @@ mod test {
             ">!5 a factorial 15!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1238,7 +1311,7 @@ mod test {
             "\\>!5 a factorial 15! !<",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1263,7 +1336,7 @@ mod test {
             ">!5 a factorial 15! \\!<",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1289,7 +1362,7 @@ mod test {
             "https://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1297,12 +1370,7 @@ mod test {
     #[test]
     fn test_uri_poi_doesnt_cause_infinite_loop() {
         let consts = Consts::default();
-        let jobs = parse(
-            "84!:",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("84!:", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1319,7 +1387,7 @@ mod test {
             "\\://something.somewhere/with/path/and?tag=siufgiufgia3873844hi8743!hfsf",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -1338,7 +1406,7 @@ mod test {
             "(x-2)! (2 word)! ((x/k)-3)! (,x-4)!",
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(jobs, []);
     }
@@ -1346,12 +1414,7 @@ mod test {
     #[test]
     fn test_multi_number_paren() {
         let consts = Consts::default();
-        let jobs = parse(
-            "(5-2)!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("(5-2)!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(jobs, []);
     }
     #[test]
@@ -1359,12 +1422,7 @@ mod test {
         let consts = Consts::default();
         arbtest(|u| {
             let text: &str = u.arbitrary()?;
-            let _ = parse(
-                text,
-                u.arbitrary()?,
-                &consts,
-                &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-            );
+            let _ = parse(text, u.arbitrary()?, &consts, &NumFormat { decimal: '.' });
             Ok(())
         });
     }
@@ -1372,18 +1430,13 @@ mod test {
     #[test]
     fn test_constant() {
         let consts = Consts::default();
-        let jobs = parse(
-            "!espi!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("!espi!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(jobs, []);
         let jobs = parse(
             "some. pi!",
             true,
             &consts,
-            &consts.locales.get("en").unwrap().format().number_format(),
+            &consts.locales.get("en").unwrap().format.number_format,
         );
         assert_eq!(
             jobs,
@@ -1401,12 +1454,7 @@ mod test {
     #[test]
     fn test_fraction() {
         let consts = Consts::default();
-        let jobs = parse(
-            "!5/6!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("!5/6!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [
@@ -1422,12 +1470,7 @@ mod test {
                 }
             ]
         );
-        let jobs = parse(
-            "5/6!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("5/6!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1436,12 +1479,7 @@ mod test {
                 negative: 0
             }]
         );
-        let jobs = parse(
-            "(10/2)!",
-            true,
-            &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-        );
+        let jobs = parse("(10/2)!", true, &consts, &NumFormat { decimal: '.' });
         assert_eq!(
             jobs,
             [CalculationJob {
@@ -1460,7 +1498,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1471,7 +1509,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: ',' }),
+            &NumFormat { decimal: ',' },
         );
         assert_eq!(
             num,
@@ -1482,14 +1520,18 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
+        );
+        assert_eq!(
+            num,
+            Some(Number::Float(Float::with_val(FLOAT_PRECISION, 0.5).into()))
         );
         let num = parse_num(
             &mut "1more !",
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1.into()));
         let num = parse_num(
@@ -1497,7 +1539,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1505,7 +1547,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1513,7 +1555,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1521,7 +1563,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: ',' }),
+            &NumFormat { decimal: ',' },
         );
         assert_eq!(num, Some(1000.into()));
         let num = parse_num(
@@ -1529,7 +1571,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1.into()));
         let num = parse_num(
@@ -1537,7 +1579,7 @@ mod test {
             true,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(1.into()));
         let num = parse_num(
@@ -1545,7 +1587,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(150.into()));
         let num = parse_num(
@@ -1553,7 +1595,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(150.into()));
         let num = parse_num(
@@ -1561,7 +1603,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(100.into()));
         let num = parse_num(
@@ -1569,7 +1611,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(100.into()));
         let num = parse_num(
@@ -1577,7 +1619,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         let Some(Number::Float(f)) = num else {
             panic!("Not a float")
@@ -1588,7 +1630,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1599,7 +1641,7 @@ mod test {
             true,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1607,7 +1649,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1615,7 +1657,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(E(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1623,7 +1665,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1631,7 +1673,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1639,7 +1681,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PHI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1647,7 +1689,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(PHI(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1655,7 +1697,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1663,7 +1705,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(TAU(FLOAT_PRECISION)));
         let num = parse_num(
@@ -1671,7 +1713,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::ComplexInfinity));
         let num = parse_num(
@@ -1679,7 +1721,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::ComplexInfinity));
         let num = parse_num(
@@ -1687,7 +1729,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1698,7 +1740,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(5.into())));
         let num = parse_num(
@@ -1706,7 +1748,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1717,7 +1759,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1731,7 +1773,7 @@ mod test {
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(10.into())));
         let num = parse_num(
@@ -1739,7 +1781,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(2.into())));
         let num = parse_num(
@@ -1747,7 +1789,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1755,7 +1797,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1763,7 +1805,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1771,7 +1813,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1779,7 +1821,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1795,7 +1837,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1811,7 +1853,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1819,7 +1861,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1835,7 +1877,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             num,
@@ -1847,11 +1889,22 @@ mod test {
             ))
         );
         let num = parse_num(
+            &mut "10^50000000000",
+            false,
+            false,
+            &consts,
+            &NumFormat { decimal: '.' },
+        );
+        assert_eq!(
+            num,
+            Some(Number::ApproximateDigits(false, 50000000000u64.into()))
+        );
+        let num = parse_num(
             &mut "10^5!",
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         let num = parse_num(
@@ -1859,15 +1912,15 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
-        assert_eq!(num, Some(Number::ApproximateDigits(false, 5.into())));
+        assert_eq!(num, Some(Number::Exact(100000.into())));
         let num = parse_num(
             &mut "10^5",
             false,
             true,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, Some(Number::Exact(10.into())));
     }
@@ -1881,7 +1934,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(5!)");
@@ -1891,7 +1944,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(10 10");
@@ -1901,7 +1954,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(10)1");
@@ -1911,7 +1964,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^(10^10^\\(5\\)");
@@ -1921,7 +1974,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^10^\\(5\\)!");
@@ -1931,16 +1984,10 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(num, None);
         assert_eq!(text, "^30!");
-    }
-
-    #[test]
-    fn test_parse_num_absorb() {
-        // Note that we want one extra character when we get None, as in such a situation a char will always be skipped
-        let consts = Consts::default();
     }
 
     #[allow(clippy::uninlined_format_args)]
@@ -1952,7 +1999,7 @@ mod test {
             true,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert!(matches!(num, Some(Number::Approximate(_, _))));
         let num = parse_num(
@@ -1960,7 +2007,7 @@ mod test {
             false,
             false,
             &consts,
-            &NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert!(num.is_some());
     }

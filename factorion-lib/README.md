@@ -29,13 +29,13 @@ assert_eq!(reply, "Hey @you!\n\nTermial of factorial of 5 is 7260 \n\n\n*^(This 
 ```
 Or manually do the steps:
 ```rust
-use factorion_lib::{parse::parse, calculation_tasks::{CalculationJob, CalculationBase}, calculation_results::{Calculation, CalculationResult, Number}, Consts};
+use factorion_lib::{parse::parse, calculation_tasks::{CalculationJob, CalculationBase}, calculation_results::{Calculation, CalculationResult, Number, FormatOptions}, Consts};
 
 // You need to define constants first
 let consts = Consts::default();
 let locale = consts.locales.get("en").unwrap();
 // Parse the text for calculations
-let calculations: Vec<CalculationJob> = parse("Some text with factorial 4!", true, &consts, &locale.format().number_format());
+let calculations: Vec<CalculationJob> = parse("Some text with factorial 4!", true, &consts, &locale.format.number_format);
 // These are given in an intemediate format for delayed calculation
 assert_eq!(calculations, [CalculationJob {
   // The base may be a number or another job
@@ -61,6 +61,6 @@ assert_eq!(results, [
 let result = results.remove(0);
 let mut formatted = String::new();
 // Write the formatted result to a string (for efficiency). We don't want to shorten anything below that huge number
-result.format(&mut formatted, false, false, &10000000000000000000u128.into(), &consts, &locale.format()).unwrap();
+result.format(&mut formatted, FormatOptions::NONE, &10000000000000000000u128.into(), &consts, &locale.format).unwrap();
 assert_eq!(formatted, "Factorial of 4 is 24 \n\n");
 ```

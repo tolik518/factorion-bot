@@ -58,7 +58,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     init();
 
-    let consts = Consts {
+    let consts = get_consts();
+
+    let token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set in environment");
+
+    info!("Starting Discord bot...");
+
+    if INFLUX_CLIENT.is_none() {
+        warn!("InfluxDB client not configured. No influxdb metrics will be logged.");
+    } else {
+        info!("InfluxDB client configured. Metrics will be logged.");
+    }
+
+    discord_api::start_bot(token, consts, INFLUX_CLIENT.as_ref()).await?;
+
+    Ok(())
+}
+
+fn get_consts() -> Consts<'static> {
+    Consts {
         float_precision: std::env::var("FLOAT_PRECISION")
             .map(|s| s.parse().unwrap())
             .unwrap_or_else(|_| factorion_lib::recommended::FLOAT_PRECISION),
@@ -94,7 +112,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             std::fs::read_to_string(file.path()).unwrap().leak(),
                         )
                         .unwrap();
-                        locale.set_bot_disclaimer("".into());
+                        locale.bot_disclaimer = "".into();
                         (file.file_name().into_string().unwrap(), locale)
                     })
                     .collect::<Box<_>>()
@@ -106,25 +124,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or_else(|_| {
                 factorion_lib::locale::get_all()
                     .map(|(k, mut v)| {
-                        v.set_bot_disclaimer("".into());
+                        v.bot_disclaimer = "".into();
                         (k.to_owned(), v)
                     })
                     .collect()
             }),
         default_locale: "en".to_owned(),
-    };
-
-    let token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set in environment");
-
-    info!("Starting Discord bot...");
-
-    if INFLUX_CLIENT.is_none() {
-        warn!("InfluxDB client not configured. No influxdb metrics will be logged.");
-    } else {
-        info!("InfluxDB client configured. Metrics will be logged.");
     }
-
-    discord_api::start_bot(token, consts, &*INFLUX_CLIENT).await?;
-
-    Ok(())
 }

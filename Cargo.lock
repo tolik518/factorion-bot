@@ -399,7 +399,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-discord"
-version = "2.3.2"
+version = "3.0.6"
 dependencies = [
  "anyhow",
  "dotenvy",
@@ -414,7 +414,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-bot-reddit"
-version = "5.4.2"
+version = "6.0.6"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -434,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-lib"
-version = "4.3.2"
+version = "6.0.6"
 dependencies = [
  "arbtest",
  "chrono",
@@ -447,7 +447,7 @@ dependencies = [
 
 [[package]]
 name = "factorion-math"
-version = "1.0.1"
+version = "1.0.7"
 dependencies = [
  "gmp-mpfr-sys",
  "rug",
@@ -1516,9 +1516,9 @@ dependencies = [
 
 [[package]]
 name = "rug"
-version = "1.27.0"
+version = "1.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4207e8d668e5b8eb574bda8322088ccd0d7782d3d03c7e8d562e82ed82bdcbc3"
+checksum = "de190ec858987c79cad4da30e19e546139b3339331282832af004d0ea7829639"
 dependencies = [
  "az",
  "gmp-mpfr-sys",

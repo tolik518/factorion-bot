@@ -15,7 +15,7 @@ pub fn factorial(n: u64, k: u32) -> Integer {
 /// The k-factorial of -n is the factorial of n-k times this factor (inf if None)
 pub fn negative_multifacorial_factor(n: Integer, k: i32) -> Option<Integer> {
     let n = -n;
-    let rem = n.rem(2 * k);
+    let rem = n.rem(2 * (k as i64));
     if rem == 0 {
         None
     } else if rem < k {
@@ -152,7 +152,7 @@ pub fn approximate_factorial_float(n: Float) -> (Float, Integer) {
     let ten_in_base = Float::with_val(prec, 10).ln() / base.clone().ln();
     let (extra, _) = (n.clone() / ten_in_base.clone())
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, n is likely non-positive");
+        .unwrap_or_else(|| panic!("Got non-finite number, n was {n}"));
     let exponent = n.clone() - ten_in_base * Float::with_val(prec, extra.clone());
     let factorial = base.pow(exponent)
         * (Float::with_val(prec, rug::float::Constant::Pi) * Float::with_val(prec, 2) * n.clone())
@@ -271,6 +271,7 @@ pub fn approximate_termial_float(k: u32, n: Float) -> (Float, Integer) {
     let prec = n.prec();
     let len: Integer = n
         .clone()
+        .abs()
         .log10()
         .to_integer_round(rug::float::Round::Down)
         .unwrap()
@@ -278,7 +279,7 @@ pub fn approximate_termial_float(k: u32, n: Float) -> (Float, Integer) {
     let len_10 = Float::with_val(prec, 10).pow(len.clone());
     let a = n.clone() / len_10.clone();
     let b = (n + k) / len_10;
-    adjust_approximate(((a * b) / (2 * k), 2 * len))
+    adjust_approximate(((a * b) / (2 * Float::with_val(prec, k)), 2 * len))
 }
 
 /// The k-termial of x * 10^e as a * 10^b
@@ -313,9 +314,9 @@ pub fn approximate_multifactorial_digits_float(k: u32, n: Float) -> Integer {
     let k = Float::with_val(prec, k);
     let ln10 = Float::with_val(prec, 10).ln();
     let base = n.clone().ln() / &ln10;
-    ((Float::with_val(prec, 0.5) + n.clone() / k.clone()) * base - n / k / ln10)
+    ((Float::with_val(prec, 0.5) + n.clone() / k.clone()) * base - n.clone() / k / ln10)
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, n is likely non-positive")
+        .unwrap_or_else(|| panic!("Got non-finite number, n was {n}"))
         .0
         + Integer::ONE
 }
@@ -339,20 +340,24 @@ pub fn approximate_termial_digits_float(k: u32, n: Float) -> Integer {
 /// Will panic if `x` is not finite.
 pub fn adjust_approximate((x, e): (Float, Integer)) -> (Float, Integer) {
     let prec = x.prec();
-    let (extra, _) = (x.clone().ln() / Float::with_val(prec, 10).ln())
+    if x == 0.0 {
+        return (Float::with_val(prec, 0), Integer::ZERO.clone());
+    }
+    let (extra, _) = (x.clone().abs().ln() / Float::with_val(prec, 10).ln())
         .to_integer_round(rug::float::Round::Down)
-        .expect("Got non-finite number, x is likely not finite");
+        .unwrap_or_else(|| panic!("Got non-finite number, x was {x}"));
     let x = x / (Float::with_val(prec, 10).pow(extra.clone()));
     let total_exponent = extra + e;
     (x, total_exponent)
 }
 
-/// Number of digits of n (log10, but 1 if 0)
+/// Number of digits of n (log10 of absolute, but 1 if 0)
 pub fn length(n: &Integer, prec: u32) -> Integer {
     if n == &0 {
         return Integer::ONE.clone();
     }
-    (Float::with_val(prec, n).ln() / Float::with_val(prec, 10).ln())
+
+    (Float::with_val(prec, n).abs().ln() / Float::with_val(prec, 10).ln())
         .to_integer_round(rug::float::Round::Down)
         .unwrap()
         .0

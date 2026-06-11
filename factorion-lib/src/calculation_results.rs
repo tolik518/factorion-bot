@@ -1,13 +1,23 @@
 //! This module handles the formatting of the calculations (`The factorial of Subfactorial of 5 is`, etc.)
 
+use crate::format::{
+    format_approximate, format_approximate_digits, format_approximate_digits_tower,
+    format_complex_infinity, format_exact, format_float, get_factorial_level_string, replace,
+};
+use crate::impl_all_bitwise;
+use crate::impl_bitwise;
+use factorion_math::length;
 #[cfg(any(feature = "serde", test))]
 use serde::{Deserialize, Serialize};
+use std::ops::BitAnd;
+use std::ops::BitOr;
+use std::ops::BitXor;
+use std::ops::Not;
 
 use crate::rug::float::OrdFloat;
-use crate::rug::ops::{NegAssign, NotAssign, Pow};
+use crate::rug::ops::{NegAssign, NotAssign};
 use crate::rug::{Float, Integer};
 use crate::{Consts, locale};
-use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Write;
 
@@ -110,17 +120,48 @@ impl From<Float> for Number {
         Number::Float(value.into())
     }
 }
-
+#[non_exhaustive]
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+pub struct FormatOptions {
+    pub force_shorten: bool,
+    pub agressive_shorten: bool,
+    pub write_out: bool,
+}
+impl_all_bitwise!(FormatOptions {
+    force_shorten,
+    agressive_shorten,
+    write_out,
+});
+#[allow(dead_code)]
+impl FormatOptions {
+    pub const NONE: Self = Self {
+        force_shorten: false,
+        agressive_shorten: false,
+        write_out: false,
+    };
+    pub const FORCE_SHORTEN: Self = Self {
+        force_shorten: true,
+        ..Self::NONE
+    };
+    pub const AGRESSIVE_SHORTEN: Self = Self {
+        agressive_shorten: true,
+        ..Self::NONE
+    };
+    pub const WRITE_OUT: Self = Self {
+        write_out: true,
+        ..Self::NONE
+    };
+}
 impl CalculationResult {
     /// Formats a number. \
     /// Shorten turns integers into scientific notation if that makes them shorter. \
     /// Aggressive enables tertation for towers.
-    fn format(
+    pub fn format(
         &self,
         acc: &mut String,
         rough: &mut bool,
-        shorten: bool,
-        agressive: bool,
+        opts: FormatOptions,
         is_value: bool,
         consts: &Consts,
         locale: &locale::NumFormat,
@@ -128,90 +169,24 @@ impl CalculationResult {
         let mut start = acc.len();
         match &self {
             CalculationResult::Exact(factorial) => {
-                if shorten {
-                    let (s, r) = truncate(factorial, consts);
-                    *rough = r;
-                    acc.write_str(&s)?;
-                } else {
-                    write!(acc, "{factorial}")?;
-                }
+                format_exact(acc, rough, &opts, consts, factorial)?
             }
             CalculationResult::Approximate(base, exponent) => {
-                let base = base.as_float();
-                format_float(acc, base, consts)?;
-                acc.write_str(" × 10^")?;
-                if shorten {
-                    acc.write_str("(")?;
-                    acc.write_str(&truncate(exponent, consts).0)?;
-                    acc.write_str(")")?;
-                } else {
-                    write!(acc, "{exponent}")?;
-                }
+                format_approximate(acc, &opts, consts, base, exponent)?
             }
             CalculationResult::ApproximateDigits(_, digits) => {
-                if is_value {
-                    acc.write_str("10^(")?;
-                }
-                if shorten {
-                    acc.write_str(&truncate(digits, consts).0)?;
-                } else {
-                    write!(acc, "{digits}")?;
-                }
-                if is_value {
-                    acc.write_str(")")?;
-                }
+                format_approximate_digits(acc, &opts, is_value, consts, digits)?
             }
             CalculationResult::ApproximateDigitsTower(_, negative, depth, exponent) => {
-                let depth = if is_value {
-                    depth.clone() + 1
-                } else {
-                    depth.clone()
-                };
-                acc.write_str(if *negative { "-" } else { "" })?;
-                // If we have a one on top, we gain no information by printing the whole tower.
-                // If depth is one, it is nicer to write 10¹ than ¹10.
-                if !agressive && depth <= usize::MAX && (depth <= 1 || exponent != &1) {
-                    if depth > 0 {
-                        acc.write_str("10^(")?;
-                    }
-                    if depth > 1 {
-                        // PANIC: We just checked, that it is <= usize::MAX and > 1 (implies >= 0), so it fits in usize
-                        acc.write_str(&"10\\^".repeat(depth.to_usize().unwrap() - 1))?;
-                        acc.write_str("(")?;
-                    }
-                    if shorten {
-                        acc.write_str(&truncate(exponent, consts).0)?;
-                    } else {
-                        write!(acc, "{exponent}")?;
-                    }
-                    if depth > 1 {
-                        acc.write_str("\\)")?;
-                    }
-                    if depth > 0 {
-                        acc.write_str(")")?;
-                    }
-                } else {
-                    let mut extra = 0;
-                    let mut exponent = Float::with_val(consts.float_precision, exponent);
-                    while exponent >= 10 {
-                        extra += 1;
-                        exponent = exponent.log10();
-                    }
-                    acc.write_str("^(")?;
-                    write!(acc, "{}", depth + extra)?;
-                    acc.write_str(")10")?;
-                }
+                format_approximate_digits_tower(
+                    acc, &opts, is_value, consts, negative, depth, exponent,
+                )?
             }
-            CalculationResult::Float(gamma) => {
-                let gamma = gamma.as_float();
-                format_float(acc, gamma, consts)?;
-            }
-            CalculationResult::ComplexInfinity => {
-                acc.write_str("∞\u{0303}")?;
-            }
+            CalculationResult::Float(gamma) => format_float(acc, gamma.as_float(), consts)?,
+            CalculationResult::ComplexInfinity => format_complex_infinity(acc, opts)?,
         }
-        if *locale.decimal() != '.' {
-            let decimal = locale.decimal().to_string();
+        if locale.decimal != '.' {
+            let decimal = locale.decimal.to_string();
             while start < acc.len() {
                 start = replace(acc, start, ".", &decimal);
             }
@@ -276,6 +251,21 @@ impl Calculation {
     pub fn is_too_long(&self, too_big_number: &Integer) -> bool {
         self.result.is_too_long(too_big_number) || self.value.is_too_long(too_big_number)
     }
+    pub fn can_write_out(&self, prec: u32) -> bool {
+        let CalculationResult::Exact(n) = &self.result else {
+            return false;
+        };
+
+        length(n, prec) <= 3000000
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+struct FormatNumberOptions {
+    format_opts: FormatOptions,
+    frame_start: usize,
+    is_value: bool,
 }
 
 impl Calculation {
@@ -286,8 +276,7 @@ impl Calculation {
     pub fn format(
         &self,
         acc: &mut String,
-        force_shorten: bool,
-        agressive_shorten: bool,
+        options: FormatOptions,
         too_big_number: &Integer,
         consts: &Consts,
         locale: &locale::Format<'_>,
@@ -297,61 +286,67 @@ impl Calculation {
             match (
                 &self.value,
                 &self.result,
-                agressive_shorten && self.steps.len() > 1,
+                options.agressive_shorten && self.steps.len() > 1,
             ) {
                 // All that
-                (_, _, true) => locale.all_that(),
+                (_, _, true) => &locale.all_that,
                 // on the order
-                (_, CalculationResult::ApproximateDigitsTower(_, _, _, _), _) => locale.order(),
+                (_, CalculationResult::ApproximateDigitsTower(_, _, _, _), _) => &locale.order,
                 // digits
-                (_, CalculationResult::ApproximateDigits(_, _), _) => locale.digits(),
+                (_, CalculationResult::ApproximateDigits(_, _), _) => &locale.digits,
                 // approximately
                 (Number::Float(_), _, _) | (_, CalculationResult::Approximate(_, _), _) => {
-                    locale.approx()
+                    &locale.approx
                 }
                 // is
-                _ => locale.exact(),
+                _ => &locale.exact,
             },
         )?;
         acc.write_str(" \n\n")?;
 
-        let mut number = String::new();
-        let mut rough = false;
-        self.value.format(
-            &mut number,
-            &mut rough,
-            force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
-            agressive_shorten,
-            true,
+        self.format_number(
+            &self.value,
+            acc,
+            &FormatNumberOptions {
+                format_opts: options.clone(),
+                frame_start,
+                is_value: true,
+            },
+            too_big_number,
             consts,
-            &locale.number_format(),
+            locale,
         )?;
-        if rough {
-            replace(acc, frame_start, "{number}", locale.rough_number());
-        }
-        replace(acc, frame_start, "{number}", &number);
         replace(acc, frame_start, "{result}", "{number}");
-        let mut number = String::new();
-        let mut rough = false;
-        self.result.format(
-            &mut number,
-            &mut rough,
-            force_shorten || self.result.is_too_long(too_big_number) || agressive_shorten,
-            agressive_shorten,
-            false,
+        self.format_number(
+            &self.result,
+            acc,
+            &FormatNumberOptions {
+                format_opts: options,
+                frame_start,
+                is_value: false,
+            },
+            too_big_number,
             consts,
-            &locale.number_format(),
+            locale,
         )?;
-        if rough {
-            replace(acc, frame_start, "{number}", locale.rough_number());
-        }
-        replace(acc, frame_start, "{number}", &number);
 
+        self.format_operations(acc, locale, frame_start);
+        let mut ind = acc[frame_start..].char_indices();
+        if let Some((start, _)) = ind.next()
+            && let Some((end, _)) = ind.next()
+        {
+            acc[frame_start..][start..end].make_ascii_uppercase();
+        }
+
+        Ok(())
+    }
+
+    fn format_operations(&self, acc: &mut String, locale: &locale::Format<'_>, frame_start: usize) {
         let len = self.steps.len();
         let mut start = frame_start;
         for (i, (level, neg)) in self.steps.iter().copied().rev().enumerate() {
             if i != len - 1 {
-                replace(acc, start, "{factorial}", locale.nest());
+                replace(acc, start, "{factorial}", &locale.nest);
             }
 
             if neg {
@@ -362,7 +357,7 @@ impl Calculation {
                 acc,
                 start,
                 "{factorial}",
-                &Self::get_factorial_level_string(level.abs(), locale),
+                &get_factorial_level_string(level.abs(), locale),
             );
 
             replace(
@@ -370,12 +365,12 @@ impl Calculation {
                 start,
                 "{factorial}",
                 if level < 0 {
-                    locale.termial()
+                    &locale.termial
                 } else {
-                    locale.factorial()
+                    &locale.factorial
                 },
             );
-            if *locale.capitalize_calc() {
+            if locale.capitalize_calc {
                 let mut ind = acc[calc_start..].char_indices();
                 if let Some((start, _)) = ind.next()
                     && let Some((end, _)) = ind.next()
@@ -388,419 +383,50 @@ impl Calculation {
                 start = replace(acc, start, "{next}", "{factorial}");
             }
         }
-        let mut ind = acc[frame_start..].char_indices();
-        if let Some((start, _)) = ind.next()
-            && let Some((end, _)) = ind.next()
-        {
-            acc[frame_start..][start..end].make_ascii_uppercase();
-        }
+    }
 
+    fn format_number(
+        &self,
+        num: &Number,
+        acc: &mut String,
+        options: &FormatNumberOptions,
+        too_big_number: &Integer,
+        consts: &Consts<'_>,
+        locale: &locale::Format<'_>,
+    ) -> Result<(), fmt::Error> {
+        let mut number = String::new();
+        let mut rough = false;
+        num.format(
+            &mut number,
+            &mut rough,
+            FormatOptions {
+                force_shorten: options.format_opts.force_shorten
+                    || self.result.is_too_long(too_big_number)
+                    || options.format_opts.agressive_shorten,
+                ..options.format_opts
+            },
+            options.is_value,
+            consts,
+            &locale.number_format,
+        )?;
+        if rough {
+            replace(acc, options.frame_start, "{number}", &locale.rough_number);
+        }
+        replace(acc, options.frame_start, "{number}", &number);
         Ok(())
     }
-
-    fn get_factorial_level_string<'a>(level: i32, locale: &'a locale::Format<'a>) -> Cow<'a, str> {
-        const SINGLES: [&str; 10] = [
-            "", "un", "duo", "tre", "quattuor", "quin", "sex", "septen", "octo", "novem",
-        ];
-        const SINGLES_LAST: [&str; 10] = [
-            "", "un", "du", "tr", "quadr", "quint", "sext", "sept", "oct", "non",
-        ];
-        const TENS: [&str; 10] = [
-            "",
-            "dec",
-            "vigin",
-            "trigin",
-            "quadragin",
-            "quinquagin",
-            "sexagin",
-            "septuagin",
-            "octogin",
-            "nonagin",
-        ];
-        const HUNDREDS: [&str; 10] = [
-            "",
-            "cen",
-            "ducen",
-            // Note this differs from the wikipedia list to disambiguate from 103, which continuing the pattern should be trecentuple
-            "tricen",
-            "quadringen",
-            "quingen",
-            "sescen",
-            "septingen",
-            "octingen",
-            "nongen",
-        ];
-        // Note that other than milluple, these are not found in a list, but continue the pattern from mill with different starts
-        const THOUSANDS: [&str; 10] = [
-            "", "mill", "bill", "trill", "quadrill", "quintill", "sextill", "septill", "octill",
-            "nonill",
-        ];
-        const BINDING_T: [[bool; 10]; 4] = [
-            // Singles
-            [
-                false, false, false, false, false, false, false, false, false, false,
-            ],
-            // Tens
-            [false, false, true, true, true, true, true, true, true, true],
-            // Hundreds
-            [false, true, true, true, true, true, true, true, true, true],
-            // Thousands
-            [
-                false, false, false, false, false, false, false, false, false, false,
-            ],
-        ];
-        if let Some(s) = locale.num_overrides().get(&level) {
-            return s.as_ref().into();
-        }
-        match level {
-            0 => locale.sub().as_ref().into(),
-            1 => "{factorial}".into(),
-            ..=9999 if !locale.force_num() => {
-                let singles = if level < 10 { SINGLES_LAST } else { SINGLES };
-                let mut acc = String::new();
-                let mut n = level;
-                let s = n % 10;
-                n /= 10;
-                acc.write_str(singles[s as usize]).unwrap();
-                let t = n % 10;
-                n /= 10;
-                acc.write_str(TENS[t as usize]).unwrap();
-                let h = n % 10;
-                n /= 10;
-                acc.write_str(HUNDREDS[h as usize]).unwrap();
-                let th = n % 10;
-                acc.write_str(THOUSANDS[th as usize]).unwrap();
-                // Check if we need tuple not uple
-                let last_written = [s, t, h, th]
-                    .iter()
-                    .cloned()
-                    .enumerate()
-                    .rev()
-                    .find(|(_, n)| *n != 0)
-                    .unwrap();
-                if BINDING_T[last_written.0][last_written.1 as usize] {
-                    acc.write_str("t").unwrap();
-                }
-                acc.write_str(locale.uple()).unwrap();
-
-                acc.into()
-            }
-            _ => {
-                let mut suffix = String::new();
-                write!(&mut suffix, "{level}-{{factorial}}").unwrap();
-                suffix.into()
-            }
-        }
-    }
-}
-/// Rounds a base 10 number string. \
-/// Uses the last digit to decide the rounding direction. \
-/// Rounds over 9s. This does **not** keep the length or turn rounded over digits into zeros. \
-/// If the input is all 9s, this will round to 10. \
-/// Stops when a decimal period is encountered, removing it.
-///
-/// Returns whether it overflowed.
-///
-/// # Panic
-/// This function may panic if less than two digits are supplied, or if it contains a non-digit of base 10, that is not a period.
-fn round(number: &mut String) -> bool {
-    // Check additional digit if we need to round
-    if let Some(digit) = number
-        .pop()
-        .map(|n| n.to_digit(10).expect("Not a base 10 number"))
-        && digit >= 5
-    {
-        let mut last_digit = number
-            .pop()
-            .and_then(|n| n.to_digit(10))
-            .expect("Not a base 10 number");
-        // Carry over at 9s
-        while last_digit == 9 {
-            let Some(digit) = number.pop() else {
-                // If we reached the end we get 10
-                number.push_str("10");
-                return true;
-            };
-            // Stop at decimal
-            if digit == '.' {
-                break;
-            }
-            let digit = digit.to_digit(10).expect("Not a base 10 number");
-            last_digit = digit;
-        }
-        // Round up
-        let _ = write!(number, "{}", last_digit + 1);
-    }
-    false
-}
-fn truncate(number: &Integer, consts: &Consts) -> (String, bool) {
-    let prec = consts.float_precision;
-    if number == &0 {
-        return (number.to_string(), false);
-    }
-    let negative = number.is_negative();
-    let orig_number = number;
-    let number = number.clone().abs();
-    let length = (Float::with_val(prec, &number).ln() / Float::with_val(prec, 10).ln())
-        .to_integer_round(crate::rug::float::Round::Down)
-        .unwrap()
-        .0;
-    let truncated_number: Integer = &number
-        / (Float::with_val(prec, 10)
-            .pow((length.clone() - consts.number_decimals_scientific - 1u8).max(Integer::ZERO))
-            .to_integer()
-            .unwrap());
-    let mut truncated_number = truncated_number.to_string();
-    if truncated_number.len() > consts.number_decimals_scientific {
-        round(&mut truncated_number);
-    }
-    if let Some(mut digit) = truncated_number.pop() {
-        while digit == '0' {
-            digit = match truncated_number.pop() {
-                Some(x) => x,
-                None => break,
-            }
-        }
-        truncated_number.push(digit);
-    }
-    // Only add decimal if we have more than one digit
-    if truncated_number.len() > 1 {
-        truncated_number.insert(1, '.'); // Decimal point
-    }
-    if negative {
-        truncated_number.insert(0, '-');
-    }
-    if length > consts.number_decimals_scientific + 1 {
-        (format!("{truncated_number} × 10^{length}"), true)
-    } else {
-        (orig_number.to_string(), false)
-    }
-}
-fn format_float(acc: &mut String, number: &Float, consts: &Consts) -> std::fmt::Result {
-    // -a.b x 10^c
-    // -
-    // a
-    // .b
-    // x 10^c
-    let mut number = number.clone();
-    let negative = number.is_sign_negative();
-    number = number.abs();
-    if number == 0 {
-        return acc.write_char('0');
-    }
-    let exponent = number
-        .clone()
-        .log10()
-        .to_integer_round(factorion_math::rug::float::Round::Down)
-        .expect("Could not round exponent")
-        .0;
-    if exponent > consts.number_decimals_scientific
-        || exponent < -(consts.number_decimals_scientific as isize)
-    {
-        number = number / Float::with_val(consts.float_precision, &exponent).exp10();
-    }
-    let mut whole_number = number
-        .to_integer_round(factorion_math::rug::float::Round::Down)
-        .expect("Could not get integer part")
-        .0;
-    let decimal_part = number - &whole_number + 1;
-    let mut decimal_part = format!("{decimal_part}");
-    // Remove "1."
-    decimal_part.remove(0);
-    decimal_part.remove(0);
-    decimal_part.truncate(consts.number_decimals_scientific + 1);
-    if decimal_part.len() > consts.number_decimals_scientific {
-        if round(&mut decimal_part) {
-            decimal_part.clear();
-            whole_number += 1;
-        }
-    }
-    if let Some(mut digit) = decimal_part.pop() {
-        while digit == '0' {
-            digit = match decimal_part.pop() {
-                Some(x) => x,
-                None => break,
-            }
-        }
-        decimal_part.push(digit);
-    }
-    if negative {
-        acc.write_str("-")?;
-    }
-    write!(acc, "{whole_number}")?;
-    if !decimal_part.is_empty() && decimal_part != "0" {
-        acc.write_str(".")?;
-        acc.write_str(&decimal_part)?;
-    }
-    if exponent > consts.number_decimals_scientific
-        || exponent < -(consts.number_decimals_scientific as isize)
-    {
-        write!(acc, " × 10^{exponent}")?;
-    }
-    Ok(())
 }
 
-fn replace(s: &mut String, search_start: usize, from: &str, to: &str) -> usize {
-    if let Some(start) = s[search_start..].find(from) {
-        let start = start + search_start;
-        s.replace_range(start..(start + from.len()), to);
-        start
-    } else {
-        s.len()
-    }
-}
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use crate::recommended::FLOAT_PRECISION;
-    use crate::rug::Integer;
+    use factorion_math::rug::Complete;
     use std::{str::FromStr, sync::LazyLock};
-
     static TOO_BIG_NUMBER: LazyLock<Integer> =
         LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
 
-    #[test]
-    fn test_round_down() {
-        let mut number = String::from("1929472373");
-        round(&mut number);
-        assert_eq!(number, "192947237");
-    }
-
-    #[test]
-    fn test_round_up() {
-        let mut number = String::from("74836748625");
-        round(&mut number);
-        assert_eq!(number, "7483674863");
-    }
-
-    #[test]
-    fn test_round_carry() {
-        let mut number = String::from("24999999995");
-        round(&mut number);
-        assert_eq!(number, "25");
-    }
-
-    #[test]
-    fn test_factorial_level_string() {
-        let en = locale::get_en();
-        assert_eq!(
-            Calculation::get_factorial_level_string(1, &en.format()),
-            "{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(2, &en.format()),
-            "double-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(3, &en.format()),
-            "triple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(10, &en.format()),
-            "decuple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(45, &en.format()),
-            "quinquadragintuple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(50, &en.format()),
-            "quinquagintuple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(100, &en.format()),
-            "centuple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(521, &en.format()),
-            "unviginquingentuple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(1000, &en.format()),
-            "milluple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(4321, &en.format()),
-            "unvigintricenquadrilluple-{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(10000, &en.format()),
-            "10000-{factorial}"
-        );
-        let de = locale::get_de();
-        assert_eq!(
-            Calculation::get_factorial_level_string(1, &de.format()),
-            "{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(2, &de.format()),
-            "doppel{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(3, &de.format()),
-            "trippel{factorial}"
-        );
-        assert_eq!(
-            Calculation::get_factorial_level_string(45, &de.format()),
-            "quinquadragintupel{factorial}"
-        );
-    }
-
-    #[test]
-    fn test_truncate() {
-        let consts = Consts::default();
-        assert_eq!(truncate(&Integer::from_str("0").unwrap(), &consts,).0, "0");
-        assert_eq!(
-            truncate(&Integer::from_str("-1").unwrap(), &consts,).0,
-            "-1"
-        );
-        assert_eq!(
-            truncate(
-                &Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
-                &consts
-            )
-            .0,
-            "1 × 10^300"
-        );
-        assert_eq!(
-            truncate(
-                &-Integer::from_str(&format!("1{}", "0".repeat(300))).unwrap(),
-                &consts
-            )
-            .0,
-            "-1 × 10^300"
-        );
-        assert_eq!(
-            truncate(
-                &Integer::from_str(&format!("1{}", "0".repeat(2000000))).unwrap(),
-                &consts
-            )
-            .0,
-            "1 × 10^2000000"
-        );
-    }
-
-    #[test]
-    fn test_format_float() {
-        let consts = Consts::default();
-        let x = Float::with_val(consts.float_precision, 1.5);
-        let mut acc = String::new();
-        format_float(&mut acc, &x, &consts).unwrap();
-        assert_eq!(acc, "1.5");
-        let x = Float::with_val(consts.float_precision, -1.5);
-        let mut acc = String::new();
-        format_float(&mut acc, &x, &consts).unwrap();
-        assert_eq!(acc, "-1.5");
-        let x = Float::with_val(consts.float_precision, 1);
-        let mut acc = String::new();
-        format_float(&mut acc, &x, &consts).unwrap();
-        assert_eq!(acc, "1");
-        let x = Float::with_val(consts.float_precision, 1.5)
-            * Float::with_val(consts.float_precision, 50000).exp10();
-        let mut acc = String::new();
-        format_float(&mut acc, &x, &consts).unwrap();
-        assert_eq!(acc, "1.5 × 10^50000");
-    }
+    // NOTE: The factorials here might be wrong, but we don't care, we are just testing the formatting
 
     #[test]
     fn test_factorial_format() {
@@ -814,11 +440,10 @@ mod tests {
         factorial
             .format(
                 &mut acc,
-                false,
-                false,
+                FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 is 120 \n\n");
@@ -832,11 +457,10 @@ mod tests {
         factorial
             .format(
                 &mut acc,
-                false,
-                false,
+                FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Subfactorial of 5 is 120 \n\n");
@@ -853,11 +477,10 @@ mod tests {
         factorial
             .format(
                 &mut acc,
-                false,
-                false,
+                FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 is approximately 1.2 × 10^5 \n\n");
@@ -871,11 +494,10 @@ mod tests {
         factorial
             .format(
                 &mut acc,
-                false,
-                false,
+                FormatOptions::NONE,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 has approximately 3 digits \n\n");
@@ -889,33 +511,14 @@ mod tests {
         factorial
             .format(
                 &mut acc,
-                true,
-                false,
+                FormatOptions::FORCE_SHORTEN,
                 &TOO_BIG_NUMBER,
                 &consts,
-                &consts.locales.get("en").unwrap().format(),
+                &consts.locales.get("en").unwrap().format,
             )
             .unwrap();
         assert_eq!(acc, "Factorial of 5 is 120 \n\n");
-    }
-}
 
-#[cfg(test)]
-mod test {
-    use std::{str::FromStr, sync::LazyLock};
-
-    use factorion_math::rug::Complete;
-
-    use super::*;
-
-    use crate::recommended::FLOAT_PRECISION;
-    static TOO_BIG_NUMBER: LazyLock<Integer> =
-        LazyLock::new(|| Integer::from_str(&format!("1{}", "0".repeat(9999))).unwrap());
-
-    // NOTE: The factorials here might be wrong, but we don't care, we are just testing the formatting
-
-    #[test]
-    fn test_format_factorial() {
         let consts = Consts::default();
         let fact = Calculation {
             value: 10.into(),
@@ -925,11 +528,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
@@ -945,11 +547,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Triple-factorial of 0.5 is approximately 280 \n\n");
@@ -965,11 +566,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Triple-factorial of 10 is 280 \n\n");
@@ -987,11 +587,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1012,11 +611,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1035,11 +633,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of triple-factorial of 5 is 3628800 \n\n");
@@ -1055,11 +652,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Negative factorial of 0 is 3628800 \n\n");
@@ -1078,11 +674,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 is approximately 2.83947 × 10^10043 \n\n");
@@ -1098,11 +693,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 has approximately 10043394 digits \n\n");
@@ -1118,11 +712,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 is ∞\u{0303} \n\n");
@@ -1138,11 +731,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1161,11 +753,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1184,11 +775,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            true,
+            FormatOptions::AGRESSIVE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "All that of 0 has on the order of ^(10)10 digits \n\n");
@@ -1208,11 +798,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 9.2 is approximately 893.83924421 \n\n");
@@ -1232,11 +821,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1260,11 +848,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1288,11 +875,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1318,11 +904,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1345,11 +930,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(
@@ -1369,11 +953,10 @@ mod test {
         let mut s = String::new();
         fact.format(
             &mut s,
-            false,
-            false,
+            FormatOptions::NONE,
             &TOO_BIG_NUMBER,
             &consts,
-            &consts.locales.get("en").unwrap().format(),
+            &consts.locales.get("en").unwrap().format,
         )
         .unwrap();
         assert_eq!(s, "Factorial of 0 has on the order of ^(4)10 digits \n\n");
@@ -1450,31 +1033,31 @@ mod test {
         let mut consts = Consts::default();
         consts.number_decimals_scientific = 10;
         let mut acc = String::new();
-        CalculationResult::Exact(Integer::u_pow_u(10, 1000).complete() * 498149837492347328u64)
-            .format(
-                &mut acc,
-                &mut false,
-                true,
-                false,
-                false,
-                &consts,
-                &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
-            )
-            .unwrap();
+        CalculationResult::Exact(
+            Integer::u_pow_u(10, 1000).complete() * 498_149_837_492_347_328u64,
+        )
+        .format(
+            &mut acc,
+            &mut false,
+            FormatOptions::FORCE_SHORTEN,
+            false,
+            &consts,
+            &locale::NumFormat { decimal: '.' },
+        )
+        .unwrap();
         assert_eq!(acc, "4.9814983749 × 10^1017");
         let mut acc = String::new();
         CalculationResult::Approximate(
-            Float::with_val(FLOAT_PRECISION, 4.98149837492347328f64).into(),
+            Float::with_val(FLOAT_PRECISION, 4.981_498_374_923_473f64).into(),
             1017.into(),
         )
         .format(
             &mut acc,
             &mut false,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             false,
             &consts,
-            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &locale::NumFormat { decimal: '.' },
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749 × 10^(1017)");
@@ -1486,11 +1069,10 @@ mod test {
         .format(
             &mut acc,
             &mut false,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             false,
             &consts,
-            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &locale::NumFormat { decimal: '.' },
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^1037");
@@ -1506,11 +1088,10 @@ mod test {
         .format(
             &mut acc,
             &mut false,
-            true,
-            false,
+            FormatOptions::FORCE_SHORTEN,
             false,
             &consts,
-            &locale::NumFormat::V1(&locale::v1::NumFormat { decimal: '.' }),
+            &locale::NumFormat { decimal: '.' },
         )
         .unwrap();
         assert_eq!(acc, "4.9814983749234732849839849898438493843 × 10^(1037)");

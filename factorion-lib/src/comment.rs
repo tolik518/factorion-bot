@@ -7,12 +7,13 @@ use crate::rug::integer::IntegerExt64;
 use crate::rug::{Complete, Integer};
 
 use crate::Consts;
-use crate::calculation_results::Calculation;
+use crate::calculation_results::{Calculation, FormatOptions};
 use crate::calculation_tasks::{CalculationBase, CalculationJob};
 use crate::parse::parse;
 
 use std::fmt::Write;
 use std::ops::*;
+#[macro_export]
 macro_rules! impl_bitwise {
     ($s_name:ident {$($s_fields:ident),*}, $t_name:ident, $fn_name:ident) => {
         impl $t_name for $s_name {
@@ -25,6 +26,7 @@ macro_rules! impl_bitwise {
         }
     };
 }
+#[macro_export]
 macro_rules! impl_all_bitwise {
     ($s_name:ident {$($s_fields:ident,)*}) => {impl_all_bitwise!($s_name {$($s_fields),*});};
     ($s_name:ident {$($s_fields:ident),*}) => {
@@ -152,6 +154,9 @@ pub struct Commands {
     /// Disable the beginning note.
     #[cfg_attr(any(feature = "serde", test), serde(default))]
     pub no_note: bool,
+    /// Write out the number as a word if possible.
+    #[cfg_attr(any(feature = "serde", test), serde(default))]
+    pub write_out: bool,
 }
 impl_all_bitwise!(Commands {
     shorten,
@@ -159,6 +164,7 @@ impl_all_bitwise!(Commands {
     nested,
     termial,
     no_note,
+    write_out,
 });
 #[allow(dead_code)]
 impl Commands {
@@ -168,6 +174,7 @@ impl Commands {
         nested: false,
         termial: false,
         no_note: false,
+        write_out: false,
     };
     pub const SHORTEN: Self = Self {
         shorten: true,
@@ -187,6 +194,10 @@ impl Commands {
     };
     pub const NO_NOTE: Self = Self {
         no_note: true,
+        ..Self::NONE
+    };
+    pub const WRITE_OUT: Self = Self {
+        write_out: true,
         ..Self::NONE
     };
 }
@@ -210,19 +221,31 @@ impl Commands {
             termial: Self::contains_command_format(text, "termial")
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
+                || Self::contains_command_format(text, "no\\_note")
                 || Self::contains_command_format(text, "no_note"),
+            write_out: Self::contains_command_format(text, "write_out")
+                || Self::contains_command_format(text, "write\\_out")
+                || Self::contains_command_format(text, "write_num")
+                || Self::contains_command_format(text, "write\\_num"),
         }
     }
     pub fn overrides_from_comment_text(text: &str) -> Self {
         Self {
             shorten: !Self::contains_command_format(text, "long"),
             steps: !(Self::contains_command_format(text, "no steps")
-                || Self::contains_command_format(text, "no_steps")),
+                || Self::contains_command_format(text, "no_steps")
+                || Self::contains_command_format(text, "no\\_steps")),
             nested: !(Self::contains_command_format(text, "no_nest")
+                || Self::contains_command_format(text, "no\\_nest")
                 || Self::contains_command_format(text, "multi")),
             termial: !(Self::contains_command_format(text, "no termial")
-                || Self::contains_command_format(text, "no_termial")),
+                || Self::contains_command_format(text, "no_termial")
+                || Self::contains_command_format(text, "no\\_termial")),
             no_note: !Self::contains_command_format(text, "note"),
+            write_out: !(Self::contains_command_format(text, "dont_write_out")
+                || Self::contains_command_format(text, "dont\\_write\\_out")
+                || Self::contains_command_format(text, "normal num")
+                || Self::contains_command_format(text, "normal\\_num")),
         }
     }
 }
@@ -372,8 +395,8 @@ impl<Meta> CommentConstructed<Meta> {
                 .locales
                 .get(&locale)
                 .unwrap_or(consts.locales.get(&consts.default_locale).unwrap())
-                .format()
-                .number_format(),
+                .format
+                .number_format,
         );
 
         if commands.nested {
@@ -502,7 +525,7 @@ impl<Meta> CommentCalculated<Meta> {
         let mut note = self
             .notify
             .as_ref()
-            .map(|user| locale.notes().mention().replace("{mention}", user) + "\n\n")
+            .map(|user| locale.notes.mention.replace("{mention}", user) + "\n\n")
             .unwrap_or_default();
 
         if fell_back {
@@ -514,91 +537,23 @@ impl<Meta> CommentCalculated<Meta> {
         let too_big_number = Integer::u64_pow_u64(10, self.max_length as u64).complete();
         let too_big_number = &too_big_number;
 
-        // Add Note
-        let multiple = self.calculation_list.len() > 1;
-        if !self.commands.no_note {
-            if self.status.limit_hit {
-                let _ = note.write_str(locale.notes().limit_hit().map(AsRef::as_ref).unwrap_or(
-                    "I have repeated myself enough, I won't do that calculation again.",
-                ));
-                let _ = note.write_str("\n\n");
-            } else if self
-                .calculation_list
-                .iter()
-                .any(Calculation::is_digit_tower)
-            {
-                if multiple {
-                    let _ = note.write_str(locale.notes().tower_mult());
-                    let _ = note.write_str("\n\n");
-                } else {
-                    let _ = note.write_str(locale.notes().tower());
-                    let _ = note.write_str("\n\n");
-                }
-            } else if self
-                .calculation_list
-                .iter()
-                .any(Calculation::is_aproximate_digits)
-            {
-                if multiple {
-                    let _ = note.write_str(locale.notes().digits_mult());
-                    let _ = note.write_str("\n\n");
-                } else {
-                    let _ = note.write_str(locale.notes().digits());
-                    let _ = note.write_str("\n\n");
-                }
-            } else if self
-                .calculation_list
-                .iter()
-                .any(Calculation::is_approximate)
-            {
-                if multiple {
-                    let _ = note.write_str(locale.notes().approx_mult());
-                    let _ = note.write_str("\n\n");
-                } else {
-                    let _ = note.write_str(locale.notes().approx());
-                    let _ = note.write_str("\n\n");
-                }
-            } else if self.calculation_list.iter().any(Calculation::is_rounded) {
-                if multiple {
-                    let _ = note.write_str(locale.notes().round_mult());
-                    let _ = note.write_str("\n\n");
-                } else {
-                    let _ = note.write_str(locale.notes().round());
-                    let _ = note.write_str("\n\n");
-                }
-            } else if self
-                .calculation_list
-                .iter()
-                .any(|c| c.is_too_long(too_big_number))
-            {
-                if multiple {
-                    let _ = note.write_str(locale.notes().too_big_mult());
-                    let _ = note.write_str("\n\n");
-                } else {
-                    let _ = note.write_str(locale.notes().too_big());
-                    let _ = note.write_str("\n\n");
-                }
-            }
-        }
+        let multiple = self.add_note(consts, locale, &mut note, too_big_number);
 
         // Add Factorials
-        let mut reply = self
-            .calculation_list
-            .iter()
-            .fold(note.clone(), |mut acc, factorial| {
-                let _ = factorial.format(
-                    &mut acc,
-                    self.commands.shorten,
-                    false,
-                    too_big_number,
-                    consts,
-                    &locale.format(),
-                );
-                acc
-            });
+        let mut reply = self.add_factorials(
+            consts,
+            locale,
+            &note,
+            too_big_number,
+            FormatOptions {
+                force_shorten: self.commands.shorten,
+                write_out: self.commands.write_out,
+                ..FormatOptions::NONE
+            },
+        );
 
         // If the reply was too long try force shortening all factorials
-        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length
             && !self.commands.shorten
             && !self
                 .calculation_list
@@ -607,60 +562,68 @@ impl<Meta> CommentCalculated<Meta> {
         {
             if note.is_empty() && !self.commands.no_note {
                 if multiple {
-                    let _ = note.write_str(locale.notes().too_big_mult());
+                    let _ = note.write_str(&locale.notes.too_big_mult);
                 } else {
-                    let _ = note.write_str(locale.notes().too_big());
+                    let _ = note.write_str(&locale.notes.too_big);
                 }
                 let _ = note.write_str("\n\n");
             };
-            reply = self
-                .calculation_list
-                .iter()
-                .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(
-                        &mut acc,
-                        true,
-                        false,
-                        too_big_number,
-                        consts,
-                        &locale.format(),
-                    );
-                    acc
-                });
+            reply = self.add_factorials(
+                consts,
+                locale,
+                &note,
+                too_big_number,
+                FormatOptions {
+                    write_out: self.commands.write_out,
+                    ..FormatOptions::FORCE_SHORTEN
+                },
+            );
         }
 
         let note = if !self.commands.no_note {
-            locale.notes().tetration().clone().into_owned() + "\n\n"
+            locale.notes.tetration.clone().into_owned() + "\n\n"
         } else {
             String::new()
         };
         // If the reply was too long try agressive shortening all factorials
-        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length
-            && !self.commands.steps
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length && !self.commands.steps
         {
-            reply = self
-                .calculation_list
-                .iter()
-                .fold(note, |mut acc, factorial| {
-                    let _ = factorial.format(
-                        &mut acc,
-                        true,
-                        true,
-                        too_big_number,
-                        consts,
-                        &locale.format(),
-                    );
-                    acc
-                });
+            reply = self.add_factorials(
+                consts,
+                locale,
+                &note,
+                too_big_number,
+                FormatOptions {
+                    write_out: self.commands.write_out,
+                    ..{ FormatOptions::FORCE_SHORTEN | FormatOptions::AGRESSIVE_SHORTEN }
+                },
+            );
         }
 
         let note = if !self.commands.no_note {
-            locale.notes().remove().clone().into_owned() + "\n\n"
+            locale.notes.remove.clone().into_owned() + "\n\n"
         } else {
             String::new()
         };
         // Remove factorials until we can fit them in a comment
-        if reply.len() + locale.bot_disclaimer().len() + 16 > self.max_length {
+        self.add_factorials_to_fit(consts, locale, too_big_number, &mut reply, note);
+        if !locale.bot_disclaimer.is_empty() {
+            reply.push_str("\n*^(");
+            reply.push_str(&locale.bot_disclaimer);
+            reply.push_str(")*");
+        }
+        reply
+    }
+
+    fn add_factorials_to_fit(
+        &self,
+        consts: &Consts<'_>,
+        locale: &crate::locale::Locale<'_>,
+        too_big_number: &Integer,
+        reply: &mut String,
+        note: String,
+    ) {
+        if reply.len() + locale.bot_disclaimer.len() + 16 > self.max_length {
             let mut factorial_list: Vec<String> = self
                 .calculation_list
                 .iter()
@@ -668,11 +631,14 @@ impl<Meta> CommentCalculated<Meta> {
                     let mut res = String::new();
                     let _ = fact.format(
                         &mut res,
-                        true,
-                        !self.commands.steps,
+                        FormatOptions {
+                            agressive_shorten: !self.commands.steps,
+                            write_out: self.commands.write_out,
+                            ..FormatOptions::FORCE_SHORTEN
+                        },
                         too_big_number,
                         consts,
-                        &locale.format(),
+                        &locale.format,
                     );
                     res
                 })
@@ -680,29 +646,136 @@ impl<Meta> CommentCalculated<Meta> {
             'drop_last: {
                 while note.len()
                     + factorial_list.iter().map(|s| s.len()).sum::<usize>()
-                    + locale.bot_disclaimer().len()
+                    + locale.bot_disclaimer.len()
                     + 16
                     > self.max_length
                 {
                     // remove last factorial (probably the biggest)
                     factorial_list.pop();
                     if factorial_list.is_empty() {
-                        reply = locale.notes().no_post().to_string();
+                        *reply = locale.notes.no_post.to_string();
                         break 'drop_last;
                     }
                 }
-                reply = factorial_list.iter().fold(note, |mut acc, factorial| {
-                    let _ = acc.write_str(&factorial);
+                *reply = factorial_list.iter().fold(note, |mut acc, factorial| {
+                    let _ = acc.write_str(factorial);
                     acc
                 });
             }
         }
-        if !locale.bot_disclaimer().is_empty() {
-            reply.push_str("\n*^(");
-            reply.push_str(locale.bot_disclaimer());
-            reply.push_str(")*");
+    }
+
+    fn add_factorials(
+        &self,
+        consts: &Consts<'_>,
+        locale: &crate::locale::Locale<'_>,
+        note: &str,
+        too_big_number: &Integer,
+        format_options: FormatOptions,
+    ) -> String {
+        self.calculation_list
+            .iter()
+            .fold(note.to_owned(), |mut acc, factorial| {
+                let _ = factorial.format(
+                    &mut acc,
+                    format_options.clone(),
+                    too_big_number,
+                    consts,
+                    &locale.format,
+                );
+                acc
+            })
+    }
+
+    fn add_note(
+        &self,
+        consts: &Consts<'_>,
+        locale: &crate::locale::Locale<'_>,
+        note: &mut String,
+        too_big_number: &Integer,
+    ) -> bool {
+        let multiple = self.calculation_list.len() > 1;
+        if !self.commands.no_note {
+            if self.status.limit_hit {
+                let _ = note.write_str(
+                    locale
+                        .notes
+                        .limit_hit
+                        .as_ref()
+                        .map(AsRef::as_ref)
+                        .unwrap_or(
+                            "I have repeated myself enough, I won't do that calculation again.",
+                        ),
+                );
+                let _ = note.write_str("\n\n");
+            } else if self
+                .calculation_list
+                .iter()
+                .any(Calculation::is_digit_tower)
+            {
+                if multiple {
+                    let _ = note.write_str(&locale.notes.tower_mult);
+                    let _ = note.write_str("\n\n");
+                } else {
+                    let _ = note.write_str(&locale.notes.tower);
+                    let _ = note.write_str("\n\n");
+                }
+            } else if self
+                .calculation_list
+                .iter()
+                .any(Calculation::is_aproximate_digits)
+            {
+                if multiple {
+                    let _ = note.write_str(&locale.notes.digits_mult);
+                    let _ = note.write_str("\n\n");
+                } else {
+                    let _ = note.write_str(&locale.notes.digits);
+                    let _ = note.write_str("\n\n");
+                }
+            } else if self
+                .calculation_list
+                .iter()
+                .any(Calculation::is_approximate)
+            {
+                if multiple {
+                    let _ = note.write_str(&locale.notes.approx_mult);
+                    let _ = note.write_str("\n\n");
+                } else {
+                    let _ = note.write_str(&locale.notes.approx);
+                    let _ = note.write_str("\n\n");
+                }
+            } else if self.calculation_list.iter().any(Calculation::is_rounded) {
+                if multiple {
+                    let _ = note.write_str(&locale.notes.round_mult);
+                    let _ = note.write_str("\n\n");
+                } else {
+                    let _ = note.write_str(&locale.notes.round);
+                    let _ = note.write_str("\n\n");
+                }
+            } else if self
+                .calculation_list
+                .iter()
+                .any(|c| c.is_too_long(too_big_number))
+                && !(self.commands.write_out
+                    && self
+                        .calculation_list
+                        .iter()
+                        .all(|c| c.can_write_out(consts.float_precision)))
+            {
+                if multiple {
+                    let _ = note.write_str(&locale.notes.too_big_mult);
+                    let _ = note.write_str("\n\n");
+                } else {
+                    let _ = note.write_str(&locale.notes.too_big);
+                    let _ = note.write_str("\n\n");
+                }
+            } else if self.commands.write_out && self.locale != "en" {
+                let _ =
+                    note.write_str("I can only write out numbers in english, so I will do that.");
+                let _ = note.write_str("\n\n");
+            }
         }
-        reply
+        multiple
     }
 }
 
@@ -727,7 +800,7 @@ mod tests {
             "24! -24! 2!? (2!?)!",
             true,
             &consts,
-            &NumFormat::V1(&crate::locale::v1::NumFormat { decimal: '.' }),
+            &NumFormat { decimal: '.' },
         );
         assert_eq!(
             jobs,
@@ -845,6 +918,19 @@ mod tests {
         assert_eq!(
             reply,
             "I have repeated myself enough, I won't do that calculation again.\n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+        );
+    }
+
+    #[test]
+    fn test_write_out_unsupported_note() {
+        let consts = Consts::default();
+        let comment = Comment::new("1!", (), Commands::WRITE_OUT, MAX_LENGTH, "de")
+            .extract(&consts)
+            .calc(&consts);
+        let reply = comment.get_reply(&consts);
+        assert_eq!(
+            reply,
+            "I can only write out numbers in english, so I will do that.\n\nFakultät von one ist one \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben | [Quelltext](http://f.r0.fyi))*"
         );
     }
 }
