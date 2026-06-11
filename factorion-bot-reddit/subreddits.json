@@ -45,7 +45,6 @@
     "locale": "tr",
     "mode": "All"
   },
-  
   "russia": {
     "locale": "de"
   },
@@ -130,7 +129,132 @@
   "learndutch": {
     "locale": "nl"
   },
-  
+  "actu_memes": {
+    "locale": "fr"
+  },
+  "actualite": {
+    "locale": "fr"
+  },
+  "actufoot": {
+    "locale": "fr"
+  },
+  "AntiTaff": {
+    "locale": "fr"
+  },
+  "AskFrance": {
+    "locale": "fr"
+  },
+  "AskMeuf": {
+    "locale": "fr"
+  },
+  "AujourdhuiJaiAppris": {
+    "locale": "fr"
+  },
+  "banalgens": {
+    "locale": "fr"
+  },
+  "besoindeparler": {
+    "locale": "fr"
+  },
+  "CestQuoiCeTruc": {
+    "locale": "fr"
+  },
+  "chats": {
+    "locale": "fr"
+  },
+  "CineSeries": {
+    "locale": "fr"
+  },
+  "Confessionnal": {
+    "locale": "fr"
+  },
+  "conseiljuridique": {
+    "locale": "fr"
+  },
+  "developpeurs": {
+    "locale": "fr"
+  },
+  "Dinosaure": {
+    "locale": "fr"
+  },
+  "ecologie": {
+    "locale": "fr"
+  },
+  "EnculerLesVoitures": {
+    "locale": "fr"
+  },
+  "enseignants": {
+    "locale": "fr"
+  },
+  "france": {
+    "locale": "fr"
+  },
+  "francophonie": {
+    "locale": "fr"
+  },
+  "geographie": {
+    "locale": "fr"
+  },
+  "Histoire": {
+    "locale": "fr"
+  },
+  "immobilier": {
+    "locale": "fr"
+  },
+  "jeuxvideo": {
+    "locale": "fr"
+  },
+  "joueurdugrenier": {
+    "locale": "fr"
+  },
+  "lamourestdanslepre": {
+    "locale": "fr"
+  },
+  "lemauvaiscoin": {
+    "locale": "fr"
+  },
+  "Livres": {
+    "locale": "fr"
+  },
+  "MinecraftFR": {
+    "locale": "fr"
+  },
+  "opinionnonpopulaire": {
+    "locale": "fr"
+  },
+  "ParentingFR": {
+    "locale": "fr"
+  },
+  "PasDeQuestionIdiote": {
+    "locale": "fr"
+  },
+  "PetitsBonheurs": {
+    "locale": "fr"
+  },
+  "questionsante": {
+    "locale": "fr"
+  },
+  "rance": {
+    "locale": "fr"
+  },
+  "rienabranler": {
+    "locale": "fr"
+  },
+  "SportsFR": {
+    "locale": "fr"
+  },
+  "suisjeletroudeballe": {
+    "locale": "fr"
+  },
+  "TropPeurDeDemander": {
+    "locale": "fr"
+  },
+  "voiture": {
+    "locale": "fr"
+  },
+  "vosfinances": {
+    "locale": "fr"
+  },
   "": {
     "commands": {
       "shorten": true
