@@ -129,6 +129,21 @@
   "learndutch": {
     "locale": "nl"
   },
+    "taalfout": {
+    "locale": "nl"
+  },
+  "cirkeltrek": {
+    "locale": "nl"
+  },
+  "nietdespeld": {
+    "locale": "nl"
+  },
+  "okemakkermaloot": {
+    "locale": "nl"
+  },
+  "PaleisTeHuur": {
+    "locale": "nl"
+  },
   "actu_memes": {
     "locale": "fr"
   },
