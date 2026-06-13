@@ -14,7 +14,7 @@ This little fella is currently running on <b>r/mathmemes</b>, <b>r/unexpectedfac
 ## Table of Contents
 
 - [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
+  - [Prerequisites](#prerequisites)     
   - [Reddit API Credentials](#reddit-api-credentials)
   - [Installation](#installation)
   - [Configuration](#configuration)
