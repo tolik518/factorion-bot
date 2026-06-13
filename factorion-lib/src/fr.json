@@ -1,6 +1,5 @@
 {
-  "V2": {
-    "bot_disclaimer": "Cette action a été effectuée par un bot | [Code source](http://f.r0.fyi)",
+  "bot_disclaimer": "Cette action a été effectuée par un bot | [Code source](http://f.r0.fyi)",
     "notes": {
       "tower": "C'est tellement grand que je ne peux même pas donner son nombre de chiffres, je dois donc utiliser une tour de puissances de dix.",
       "tower_mult": "Certains d'entre eux sont tellement grands que je ne peux même pas donner leur nombre de chiffres, je dois donc utiliser une tour de puissances de dix.",
@@ -42,5 +41,4 @@
       "all_that": "Tout ça de {number} a de l'ordre de {result} chiffres",
       "rough_number": "environ {number}"
     }
-  }
 }
