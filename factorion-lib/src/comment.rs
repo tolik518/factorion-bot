@@ -83,6 +83,7 @@ pub struct Status {
     pub reply_would_be_too_long: bool,
     pub factorials_found: bool,
     pub limit_hit: bool,
+    pub nested_used: bool,
 }
 
 impl_all_bitwise!(Status {
@@ -93,6 +94,7 @@ impl_all_bitwise!(Status {
     reply_would_be_too_long,
     factorials_found,
     limit_hit,
+    nested_used,
 });
 #[allow(dead_code)]
 impl Status {
@@ -104,6 +106,7 @@ impl Status {
         reply_would_be_too_long: false,
         factorials_found: false,
         limit_hit: false,
+        nested_used: false,
     };
     pub const ALREADY_REPLIED_OR_REJECTED: Self = Self {
         already_replied_or_rejected: true,
@@ -131,6 +134,10 @@ impl Status {
     };
     pub const LIMIT_HIT: Self = Self {
         limit_hit: true,
+        ..Self::NONE
+    };
+    pub const NESTED_USED: Self = Self {
+        nested_used: true,
         ..Self::NONE
     };
 }
@@ -217,7 +224,10 @@ impl Commands {
             steps: Self::contains_command_format(text, "steps")
                 || Self::contains_command_format(text, "all"),
             nested: Self::contains_command_format(text, "nest")
-                || Self::contains_command_format(text, "nested"),
+                || Self::contains_command_format(text, "nested")
+                || Self::contains_command_format(text, "no multi")
+                || Self::contains_command_format(text, "no\\_multi")
+                || Self::contains_command_format(text, "no_multi"),
             termial: Self::contains_command_format(text, "termial")
                 || Self::contains_command_format(text, "triangle"),
             no_note: Self::contains_command_format(text, "no note")
@@ -299,6 +309,13 @@ impl<Meta> CommentConstructed<Meta> {
             (Commands::from_comment_text(comment_text) | pre_commands) & command_overrides;
 
         let mut status: Status = Default::default();
+        if Commands::contains_command_format(comment_text, "nest")
+            || Commands::contains_command_format(comment_text, "nested")
+            || Commands::contains_command_format(comment_text, "no_nest")
+            || Commands::contains_command_format(comment_text, "no\\_nest")
+        {
+            status.nested_used = true;
+        }
 
         let text = if Self::might_have_factorial(comment_text) {
             comment_text.to_owned()
@@ -695,6 +712,14 @@ impl<Meta> CommentCalculated<Meta> {
         too_big_number: &Integer,
     ) -> bool {
         let multiple = self.calculation_list.len() > 1;
+        if self.status.nested_used {
+            let _ = note.write_str(locale.notes.nested_used
+                .as_ref()
+                .map(AsRef::as_ref)
+                .unwrap_or("The command \"nested\" is now \"no_multi\", which is way more clear in what it means. I'll ignore it at some point in the future.")
+            );
+            let _ = note.write_str("\n\n");
+        }
         if !self.commands.no_note {
             if self.status.limit_hit {
                 let _ = note.write_str(
@@ -931,6 +956,19 @@ mod tests {
         assert_eq!(
             reply,
             "I can only write out numbers in english, so I will do that.\n\nFakultät von one ist one \n\n\n*^(Dieser Kommentar wurde automatisch geschrieben | [Quelltext](http://f.r0.fyi))*"
+        );
+    }
+
+    #[test]
+    fn test_nested_used_note() {
+        let consts = Consts::default();
+        let comment = Comment::new("n!!!!! !nested", (), Commands::NONE, MAX_LENGTH, "en")
+            .extract(&consts)
+            .calc(&consts);
+        let reply = comment.get_reply(&consts);
+        assert_eq!(
+            reply,
+            "The command \"nested\" is now \"no_multi\", which is way more clear in what it means. I'll ignore it at some point in the future.\n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
         );
     }
 }

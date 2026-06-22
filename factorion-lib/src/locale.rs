@@ -48,6 +48,7 @@ pub fn get_all() -> impl Iterator<Item = (&'static str, Locale<'static>)> {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Locale<'a> {
     pub bot_disclaimer: Cow<'a, str>,
     pub notes: Notes<'a>,
@@ -55,6 +56,7 @@ pub struct Locale<'a> {
 }
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Notes<'a> {
     pub tower: Cow<'a, str>,
     pub tower_mult: Cow<'a, str>,
@@ -72,10 +74,12 @@ pub struct Notes<'a> {
     pub mention: Cow<'a, str>,
     pub limit_hit: Option<Cow<'a, str>>,
     pub write_out_unsupported: Option<Cow<'a, str>>,
+    pub nested_used: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Format<'a> {
     pub capitalize_calc: bool,
     pub termial: Cow<'a, str>,
@@ -98,6 +102,7 @@ pub struct Format<'a> {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct NumFormat {
     pub decimal: char,
 }
