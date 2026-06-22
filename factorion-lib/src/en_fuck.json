@@ -16,6 +16,7 @@
     "no_post": "Sorry, but the reply text for all those numbers would be _really_ fucking long, so I'd rather not even try posting lmao",
     "limit_hit": "I have repeated myself enough, I won't do that fucking calculation again.",
     "write_out_unsupported": "I can only write out numbers in english, so I will do that.",
+    "nested_used": "The command \"nested\" is now \"no_multi\", which is way more fucking clear in what it means. I won't give a fuck about the former at some point in the future.",
     "mention": "Hey {mention}!"
   },
   "format": {

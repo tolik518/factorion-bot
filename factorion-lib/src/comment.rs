@@ -716,7 +716,7 @@ impl<Meta> CommentCalculated<Meta> {
             let _ = note.write_str(locale.notes.nested_used
                 .as_ref()
                 .map(AsRef::as_ref)
-                .unwrap_or("The command \"nested\" is now \"no_multi\", which is way more clear in what it means. I'll ignore it at some point in the future.")
+                .unwrap_or("The command \"nested\" is now \"no_multi\", which is way more clear in what it means. I'll ignore the former at some point in the future.")
             );
             let _ = note.write_str("\n\n");
         }
@@ -968,7 +968,7 @@ mod tests {
         let reply = comment.get_reply(&consts);
         assert_eq!(
             reply,
-            "The command \"nested\" is now \"no_multi\", which is way more clear in what it means. I'll ignore it at some point in the future.\n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
+            "The command \"nested\" is now \"no_multi\", which is way more clear in what it means. I'll ignore the former at some point in the future.\n\n\n*^(This action was performed by a bot | [Source code](http://f.r0.fyi))*"
         );
     }
 }
