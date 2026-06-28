@@ -46,15 +46,27 @@ pub fn get_all() -> impl Iterator<Item = (&'static str, Locale<'static>)> {
     .into_iter()
 }
 
-#[derive(Debug, Clone)]
+/// Represents the whole locale.
+/// Create by deserializing or intializing as a Struct, sperading with default.
+///
+/// Note regarding non_exhaustive: Additions will always be Option and will so default to None, causing a sensible fallback.
+/// (also not break serialization format in many cases like json)
+///
+/// Note on Default: It is derived, so any strings will be empty and booleans will be false. So all non-option fields should be overridden/supplied.
+///
+/// For further information about the fields (as json serialization), read [../Locales.md]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Locale<'a> {
     pub bot_disclaimer: Cow<'a, str>,
     pub notes: Notes<'a>,
     pub format: Format<'a>,
 }
-#[derive(Debug, Clone)]
+
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Notes<'a> {
     pub tower: Cow<'a, str>,
     pub tower_mult: Cow<'a, str>,
@@ -72,10 +84,12 @@ pub struct Notes<'a> {
     pub mention: Cow<'a, str>,
     pub limit_hit: Option<Cow<'a, str>>,
     pub write_out_unsupported: Option<Cow<'a, str>>,
+    pub nested_used: Option<Cow<'a, str>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct Format<'a> {
     pub capitalize_calc: bool,
     pub termial: Cow<'a, str>,
@@ -98,6 +112,13 @@ pub struct Format<'a> {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(any(feature = "serde", test), derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct NumFormat {
     pub decimal: char,
+}
+
+impl Default for NumFormat {
+    fn default() -> Self {
+        NumFormat { decimal: '.' }
+    }
 }
